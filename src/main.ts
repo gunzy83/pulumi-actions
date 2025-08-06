@@ -2,9 +2,11 @@ import { resolve } from 'path';
 import * as core from '@actions/core';
 import { context } from '@actions/github';
 import {
+  CommandError,
   LocalProgramArgs,
   LocalWorkspace,
   LocalWorkspaceOptions,
+  OpMap,
   OutputMap,
   Stack,
 } from '@pulumi/pulumi/automation';
@@ -20,6 +22,7 @@ import { environmentVariables } from './libs/envs';
 import { handlePullRequestMessage } from './libs/pr';
 import * as pulumiCli from './libs/pulumi-cli';
 import { handleSummaryMessage } from './libs/summary';
+import { extractViewLiveLink } from './libs/utils';
 import { login } from './login';
 
 const main = async () => {
@@ -34,13 +37,39 @@ const main = async () => {
   // Attempt to parse the full configuration and run the action.
   const config = makeConfig();
   core.debug('Configuration is loaded');
-  runAction(config);
+  await runAction(config);
 };
 
 // installOnly is the main entrypoint of the program when the user
 // intends to install the Pulumi CLI without running additional commands.
 const installOnly = async (config: InstallationConfig): Promise<void> => {
   await pulumiCli.downloadCli(config.pulumiVersion);
+};
+
+const runPulumiAction = async (
+  config: Config,
+  actions: Record<Commands, () => Promise<[string, string, OpMap?]>>,
+  projectName?: string,
+): Promise<[string, string, OpMap?]> => {
+  try {
+    return await actions[config.command]();
+  } catch (error) {
+    if (config.command !== 'output') {
+      // truncate error message to everything after 'err?:'
+      const message = error.message.split('err?:')[1];
+      const isPullRequest = context.payload.pull_request !== undefined;
+      if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
+        core.debug(`Commenting on pull request`);
+        invariant(config.githubToken, 'github-token is missing.');
+        handlePullRequestMessage(config, projectName, message, false, true);
+      }
+
+      if (config.commentOnSummary) {
+        handleSummaryMessage(config, projectName, message, false, true);
+      }
+    }
+    throw error;
+  }
 };
 
 const runAction = async (config: Config): Promise<void> => {
@@ -66,7 +95,7 @@ const runAction = async (config: Config): Promise<void> => {
   // When the command is `output` we want to avoid the underlying call to `pulumi stack select`,
   // which requires a Pulumi.yaml file to be present.
   let stack: Stack | undefined;
-  if (config.command !== "output") {
+  if (config.command !== 'output') {
     const stackArgs: LocalProgramArgs = {
       stackName: config.stackName,
       workDir: workDir,
@@ -96,28 +125,42 @@ const runAction = async (config: Config): Promise<void> => {
     await stack.setAllConfig(config.configMap);
   }
 
-
   core.startGroup(`pulumi ${config.command} on ${config.stackName}`);
 
-  const actions: Record<Commands, () => Promise<[string, string]>> = {
-    up: () => stack.up({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+  const actions: Record<Commands, () => Promise<[string, string, OpMap?]>> = {
+    up: () =>
+      stack
+        .up({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     update: () =>
-      stack.up({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .up({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     refresh: () =>
-      stack.refresh({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .refresh({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     destroy: () =>
-      stack.destroy({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .destroy({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     preview: async () => {
-      const { stdout, stderr } = await stack.preview(config.options);
+      const { stdout, stderr, changeSummary } = await stack.preview(
+        config.options,
+      );
       onOutput(stdout);
       onOutput(stderr);
-      return [stdout, stderr];
+      return [stdout, stderr, changeSummary];
     },
-    output: () => Promise.resolve(['', '']) //do nothing, outputs are fetched anyway afterwards
+    output: () => Promise.resolve(['', '']), //do nothing, outputs are fetched anyway afterwards
   };
 
   core.debug(`Running action ${config.command}`);
-  const [stdout, stderr] = await actions[config.command]();
+  const [stdout, stderr, changeSummary] = await runPulumiAction(
+    config,
+    actions,
+    projectName,
+  );
   core.debug(`Done running action ${config.command}`);
   if (stderr !== '') {
     if (config.options.logToStdErr) {
@@ -130,7 +173,7 @@ const runAction = async (config: Config): Promise<void> => {
   core.setOutput('output', stdout);
 
   let outputs: OutputMap;
-  if (config.command === "output") {
+  if (config.command === 'output') {
     // When the command is `output` we didn't initialize `stack`, because we
     // wanted to avoid the underlying call to `pulumi stack select`, which
     // requires a Pulumi.yaml file to be present. Instead, we can use the
@@ -150,18 +193,28 @@ const runAction = async (config: Config): Promise<void> => {
     }
   }
 
+  const hasChanges =
+    Object.entries(changeSummary || {})
+      .filter(([key]) => key !== 'same' && key !== 'read')
+      .reduce((acc, [_, value]) => acc + value, 0) > 0;
+
+  core.setOutput('has-changes', hasChanges);
+
   // Only comment on the pull request if the command is not `output`.
-  if (config.command !== "output") {
+  if (config.command !== 'output') {
+    const liveLink = extractViewLiveLink(stdout);
+    if (liveLink !== '') {
+      core.setOutput('cloud-url', liveLink);
+    }
     const isPullRequest = context.payload.pull_request !== undefined;
-    if (config.commentOnPrNumber ||
-      (config.commentOnPr && isPullRequest)) {
+    if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
       core.debug(`Commenting on pull request`);
       invariant(config.githubToken, 'github-token is missing.');
-      handlePullRequestMessage(config, projectName, stdout);
+      handlePullRequestMessage(config, projectName, stdout, hasChanges);
     }
 
     if (config.commentOnSummary) {
-      handleSummaryMessage(config, projectName, stdout)
+      handleSummaryMessage(config, projectName, stdout, hasChanges);
     }
   }
 
@@ -179,7 +232,12 @@ const runAction = async (config: Config): Promise<void> => {
     if (err.message.stderr) {
       core.setFailed(err.message.stderr);
     } else {
-      core.setFailed(err.message);
+      if (err instanceof CommandError) {
+        const message = err.message.split('err?:')[1];
+        core.setFailed(message);
+      } else {
+        core.setFailed(err.message);
+      }
     }
   }
 })();

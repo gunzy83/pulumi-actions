@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
+import dedent from 'dedent';
 import { Config } from '../config';
-import { stripAnsiControlCodes } from './utils';
+import { extractViewLiveLink, stripAnsiControlCodes } from './utils';
 
 function trimOutputByBytes(
   message: string,
@@ -21,14 +22,15 @@ function trimOutputByBytes(
 
   // Check if message exceeds max size
   if (messageSize > maxSize) {
-
     // Trim input message by number of exceeded bytes from front or back as configured
     const dif: number = messageSize - maxSize;
 
     if (alwaysIncludeSummary) {
-      message = Buffer.from(message).subarray(dif, messageSize).toString()
+      message = Buffer.from(message).subarray(dif, messageSize).toString();
     } else {
-      message = Buffer.from(message).subarray(0, messageSize - dif).toString()
+      message = Buffer.from(message)
+        .subarray(0, messageSize - dif)
+        .toString();
     }
 
     trimmed = true;
@@ -41,11 +43,10 @@ export async function handleSummaryMessage(
   config: Config,
   projectName: string,
   output: string,
+  hasChanges: boolean,
+  failed = false,
 ): Promise<void> {
-  const {
-    stackName,
-    alwaysIncludeSummary,
-  } = config;
+  const { stackName, alwaysIncludeSummary } = config;
 
   // Remove ANSI symbols from output because they are not supported in GitHub step Summary
   output = stripAnsiControlCodes(output);
@@ -57,18 +58,42 @@ export async function handleSummaryMessage(
   // GitHub limits step Summary to 1 MiB (1_048_576 bytes), use lower max to keep buffer for variable values
   const MAX_SUMMARY_SIZE_BYTES = 1_000_000;
 
-  const [message, trimmed]: [string, boolean] = trimOutputByBytes(output, MAX_SUMMARY_SIZE_BYTES, alwaysIncludeSummary);
+  const [message, trimmed]: [string, boolean] = trimOutputByBytes(
+    output,
+    MAX_SUMMARY_SIZE_BYTES,
+    alwaysIncludeSummary,
+  );
 
-  let heading = `Pulumi ${projectName}/${stackName} results`;
+  const statusSuffix = failed
+    ? 'has failed!'
+    : hasChanges
+    ? ' has changes.'
+    : 'is unchanged.';
+  const heading = `Pulumi ${projectName}/${stackName} ${statusSuffix}`;
 
-  if (trimmed && alwaysIncludeSummary) {
-    heading += ' :warning: **Warn**: The output was too long and trimmed from the front.';
-  } else if (trimmed && !alwaysIncludeSummary) {
-    heading += ' :warning: **Warn**: The output was too long and trimmed.';
-  }
+  const liveLink = extractViewLiveLink(output);
+  const viewLiveLink = liveLink
+    ? `\n[View in Pulumi Cloud](${liveLink})\n`
+    : '';
+
+  const details = dedent`
+    ${
+      trimmed && alwaysIncludeSummary
+        ? ':warning: **Warn**: The output was too long and trimmed from the front.'
+        : ''
+    }
+    <pre lang="diff">
+    ${message}
+    </pre>
+    ${
+      trimmed && !alwaysIncludeSummary
+        ? ':warning: **Warn**: The output was too long and trimmed.'
+        : ''
+    }`;
 
   await core.summary
-    .addHeading(heading)
-    .addCodeBlock(message, "diff")
+    .addHeading(heading, 3)
+    .addRaw(viewLiveLink)
+    .addDetails('Pulumi report', details)
     .write();
 }

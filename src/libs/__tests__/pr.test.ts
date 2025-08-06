@@ -48,9 +48,15 @@ describe('pr.ts', () => {
 
     process.env.GITHUB_REPOSITORY = 'pulumi/actions';
 
-    await handlePullRequestMessage(defaultOptions, projectName, 'test');
+    await handlePullRequestMessage(
+      defaultOptions,
+      projectName,
+      'test',
+      true,
+      false,
+    );
     expect(createComment).toHaveBeenCalledWith({
-      body: `#### :tropical_drink: \`preview\` on ${projectName}/${defaultOptions.stackName}\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
+      body: `#### :tropical_drink: \`preview\` on ${projectName}/${defaultOptions.stackName} has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
       issue_number: 123,
     });
   });
@@ -67,9 +73,15 @@ describe('pr.ts', () => {
 
     process.env.GITHUB_REPOSITORY = 'pulumi/actions';
 
-    await handlePullRequestMessage(defaultOptions, projectName, '\x1b[30mblack\x1b[37mwhite');
+    await handlePullRequestMessage(
+      defaultOptions,
+      projectName,
+      '\x1b[30mblack\x1b[37mwhite',
+      true,
+      false,
+    );
     expect(createComment).toHaveBeenCalledWith({
-      body: `#### :tropical_drink: \`preview\` on ${projectName}/${defaultOptions.stackName}\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\nblackwhite\n</pre>\n\n</details>`,
+      body: `#### :tropical_drink: \`preview\` on ${projectName}/${defaultOptions.stackName} has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\nblackwhite\n</pre>\n\n</details>`,
       issue_number: 123,
     });
   });
@@ -91,9 +103,9 @@ describe('pr.ts', () => {
 
     process.env.GITHUB_REPOSITORY = 'pulumi/actions';
 
-    await handlePullRequestMessage(options, projectName, 'test');
+    await handlePullRequestMessage(options, projectName, 'test', true, false);
     expect(createComment).toHaveBeenCalledWith({
-      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName}\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
+      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName} has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
       issue_number: 87,
     });
   });
@@ -103,7 +115,13 @@ describe('pr.ts', () => {
     // @ts-ignore
     gh.context = { payload: {} };
     await expect(
-      handlePullRequestMessage(defaultOptions, projectName, 'test'),
+      handlePullRequestMessage(
+        defaultOptions,
+        projectName,
+        'test',
+        true,
+        false,
+      ),
     ).rejects.toThrow('Missing pull request event data');
   });
 
@@ -118,9 +136,9 @@ describe('pr.ts', () => {
 
     process.env.GITHUB_REPOSITORY = 'pulumi/actions';
 
-    await handlePullRequestMessage(options, projectName, 'test');
+    await handlePullRequestMessage(options, projectName, 'test', true, false);
     expect(createComment).toHaveBeenCalledWith({
-      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName}\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
+      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName} has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
       issue_number: 87,
     });
   });
@@ -140,12 +158,16 @@ describe('pr.ts', () => {
       defaultOptions,
       projectName,
       'a'.repeat(65_000),
+      true,
+      false,
     );
 
     const call = createComment.mock.calls[0][0];
     expect(call.body.length).toBeLessThan(65_536);
     expect(call.body).toContain('The output was too long and trimmed.');
-    expect(call.body).not.toContain('The output was too long and trimmed from the front.');
+    expect(call.body).not.toContain(
+      'The output was too long and trimmed from the front.',
+    );
   });
 
   it('should trim the output from front when the output is larger than 64k characters and config is set', async () => {
@@ -167,13 +189,21 @@ describe('pr.ts', () => {
     await handlePullRequestMessage(
       options,
       projectName,
-      'a'.repeat(65_000) + '\n' + 'this is at the end and should be in the output',
+      'a'.repeat(65_000) +
+        '\n' +
+        'this is at the end and should be in the output',
+      true,
+      false,
     );
 
     const call = createComment.mock.calls[0][0];
     expect(call.body.length).toBeLessThan(65_536);
-    expect(call.body).toContain('this is at the end and should be in the output');
-    expect(call.body).toContain('The output was too long and trimmed from the front.');
+    expect(call.body).toContain(
+      'this is at the end and should be in the output',
+    );
+    expect(call.body).toContain(
+      'The output was too long and trimmed from the front.',
+    );
     expect(call.body).not.toContain('The output was too long and trimmed.');
   });
 
@@ -187,10 +217,10 @@ describe('pr.ts', () => {
       editCommentOnPr: true,
     };
 
-    await handlePullRequestMessage(options, projectName, 'test');
+    await handlePullRequestMessage(options, projectName, 'test', true, false);
     expect(updateComment).toHaveBeenCalledWith({
       comment_id: 2,
-      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName}\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
+      body: `#### :tropical_drink: \`preview\` on ${projectName}/${options.stackName} has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n\n<pre>\ntest\n</pre>\n\n</details>`,
     });
   });
 
@@ -209,9 +239,15 @@ describe('pr.ts', () => {
       commentOnPrNumber: 87,
     };
 
-    await handlePullRequestMessage(options, projectName, 'View Live: https://example.com/update/1\ntest');
+    await handlePullRequestMessage(
+      options,
+      projectName,
+      'View Live: https://example.com/update/1\ntest',
+      true,
+      false,
+    );
     expect(createComment).toHaveBeenCalledWith({
-      body: '#### :tropical_drink: `preview` on myFirstProject/staging\n\n<details>\n<summary>Pulumi report</summary>\n\n[View in Pulumi Cloud](https://example.com/update/1)\n\n\n<pre>\nView Live: https://example.com/update/1\ntest\n</pre>\n\n</details>',
+      body: '#### :tropical_drink: `preview` on myFirstProject/staging has changes\n\n<details>\n<summary>Pulumi report</summary>\n\n[View in Pulumi Cloud](https://example.com/update/1)\n\n\n<pre>\nView Live: https://example.com/update/1\ntest\n</pre>\n\n</details>',
       issue_number: 87,
     });
   });

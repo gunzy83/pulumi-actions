@@ -25,7 +25,7 @@ const defaultConfig: Record<string, string> = {
   'continue-on-error': 'false',
   'log-verbosity': '',
   'log-flow': 'false',
-  'debug': 'false',
+  debug: 'false',
 };
 
 function setupMockedConfig(config: Record<string, string>) {
@@ -50,6 +50,7 @@ describe('config.ts', () => {
         "command": "up",
         "commentOnPr": false,
         "commentOnPrNumber": undefined,
+        "commentOnPrRepo": "",
         "commentOnSummary": false,
         "configMap": undefined,
         "editCommentOnPr": false,
