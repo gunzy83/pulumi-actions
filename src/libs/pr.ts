@@ -25,7 +25,6 @@ function ansiToHtml(
 
   // Check if htmlBody exceeds max characters
   if (htmlBody.length > maxLength) {
-
     // trim input message by number of exceeded characters from front or back as configured
     const dif: number = htmlBody.length - maxLength;
 
@@ -79,7 +78,11 @@ export async function handlePullRequestMessage(
 
   const summary = '<summary>Pulumi report</summary>';
 
-  const [htmlBody, trimmed]: [string, boolean] = ansiToHtml(output, MAX_CHARACTER_COMMENT, alwaysIncludeSummary);
+  const [htmlBody, trimmed]: [string, boolean] = ansiToHtml(
+    output,
+    MAX_CHARACTER_COMMENT,
+    alwaysIncludeSummary,
+  );
 
   const viewLiveLink = extractViewLiveLink(output);
 
@@ -89,21 +92,30 @@ export async function handlePullRequestMessage(
     <details>
     ${summary}
     ${viewLiveLink ? `\n[View in Pulumi Cloud](${viewLiveLink})\n` : ''}
-    ${trimmed && alwaysIncludeSummary
-      ? ':warning: **Warn**: The output was too long and trimmed from the front.'
-      : ''
+    ${
+      trimmed && alwaysIncludeSummary
+        ? ':warning: **Warn**: The output was too long and trimmed from the front.'
+        : ''
     }
     <pre>
     ${htmlBody}
     </pre>
-    ${trimmed && !alwaysIncludeSummary
-      ? ':warning: **Warn**: The output was too long and trimmed.'
-      : ''
+    ${
+      trimmed && !alwaysIncludeSummary
+        ? ':warning: **Warn**: The output was too long and trimmed.'
+        : ''
     }
     </details>
   `;
 
-  const { payload, repo } = context;
+  const payload = context.payload;
+  const repo = config.commentOnPrRepo
+    ? {
+        owner: config.commentOnPrRepo.split('/')[0],
+        repo: config.commentOnPrRepo.split('/')[1],
+      }
+    : context.repo;
+
   // Assumes PR numbers are always positive.
   const nr = config.commentOnPrNumber || payload.pull_request?.number;
   invariant(nr, 'Missing pull request event data.');
@@ -116,8 +128,9 @@ export async function handlePullRequestMessage(
         ...repo,
         issue_number: nr,
       });
-      const comment = comments.find((comment) =>
-        comment.body.startsWith(heading) && comment.body.includes(summary),
+      const comment = comments.find(
+        (comment) =>
+          comment.body.startsWith(heading) && comment.body.includes(summary),
       );
 
       // If comment exists, update it.

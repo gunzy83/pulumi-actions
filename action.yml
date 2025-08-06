@@ -28,6 +28,9 @@ inputs:
   comment-on-pr-number:
     description: 'Overrides the PR used to comment on'
     required: false
+  comment-on-pr-repo:
+    description: 'Overrides the repository that owns the PR used to comment on'
+    required: false
   comment-on-summary:
     description: 'If true, a comment on the GitHub step summary will be created'
     required: false
