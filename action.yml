@@ -142,6 +142,8 @@ inputs:
 outputs:
   output:
     description: Output from running command
+  error:
+    description: Error output from running command
 runs:
   # TODO upgrade to node16 by 1 Nov 2022.
   #

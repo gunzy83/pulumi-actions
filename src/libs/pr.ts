@@ -64,6 +64,7 @@ export async function handlePullRequestMessage(
   projectName: string,
   output: string,
   changeSummary?: OpMap,
+  failed = false,
 ): Promise<void> {
   const {
     githubToken,
@@ -81,7 +82,9 @@ export async function handlePullRequestMessage(
   // GitHub limits comment characters to 65535, use lower max to keep buffer for variable values
   const MAX_CHARACTER_COMMENT = 64_000;
 
-  const heading = `#### :tropical_drink: \`${command}\` on ${projectName}/${stackName}`;
+  const successHeading = `#### :tropical_drink: \`${command}\` on ${projectName}/${stackName} has changes.`;
+  const failedHeading = `#### :x: \`${command}\` on ${projectName}/${stackName} failed!`;
+  const heading = failed ? failedHeading : successHeading;
 
   const summary = '<summary>Pulumi report</summary>';
 
@@ -129,7 +132,7 @@ export async function handlePullRequestMessage(
 
   const octokit = getOctokit(githubToken);
 
-  if (!hasChanges) {
+  if (!hasChanges && !failed) {
     try {
       if (editCommentOnPr) {
         const { data: comments } = await octokit.rest.issues.listComments({
@@ -138,7 +141,9 @@ export async function handlePullRequestMessage(
         });
         const comment = comments.find(
           (comment) =>
-            comment.body.startsWith(heading) && comment.body.includes(summary),
+            (comment.body.startsWith(successHeading) ||
+              comment.body.startsWith(failedHeading)) &&
+            comment.body.includes(summary),
         );
 
         // If comment exists, delete it.
@@ -166,7 +171,9 @@ export async function handlePullRequestMessage(
       });
       const comment = comments.find(
         (comment) =>
-          comment.body.startsWith(heading) && comment.body.includes(summary),
+          (comment.body.startsWith(successHeading) ||
+            comment.body.startsWith(failedHeading)) &&
+          comment.body.includes(summary),
       );
 
       // If comment exists, update it.

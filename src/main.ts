@@ -2,6 +2,7 @@ import { resolve } from 'path';
 import * as core from '@actions/core';
 import { context } from '@actions/github';
 import {
+  CommandError,
   LocalProgramArgs,
   LocalWorkspace,
   LocalWorkspaceOptions,
@@ -34,13 +35,42 @@ const main = async () => {
   // Attempt to parse the full configuration and run the action.
   const config = makeConfig();
   core.debug('Configuration is loaded');
-  runAction(config);
+  await runAction(config);
 };
 
 // installOnly is the main entrypoint of the program when the user
 // intends to install the Pulumi CLI without running additional commands.
 const installOnly = async (config: InstallationConfig): Promise<void> => {
   await pulumiCli.downloadCli(config.pulumiVersion);
+};
+
+const runPulumiAction = async (
+  config: Config,
+  actions: Record<Commands, () => Promise<[string, string, OpMap?]>>,
+  projectName?: string,
+): Promise<[string, string, OpMap?]> => {
+  try {
+    return await actions[config.command]();
+  } catch (error) {
+    if (config.command !== 'output') {
+      // truncate error message to everything after 'err?:'
+      const message = error.message.split('err?:')[1];
+      const isPullRequest = context.payload.pull_request !== undefined;
+      if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
+        core.debug(`Commenting on pull request`);
+        invariant(config.githubToken, 'github-token is missing.');
+        handlePullRequestMessage(config, projectName, message, {}, true);
+      }
+
+      if (config.commentOnSummary) {
+        await core.summary
+          .addHeading(`Pulumi ${config.stackName} ${config.command} failed`)
+          .addCodeBlock(message, 'diff')
+          .write();
+      }
+    }
+    throw error;
+  }
 };
 
 const runAction = async (config: Config): Promise<void> => {
@@ -127,7 +157,11 @@ const runAction = async (config: Config): Promise<void> => {
   };
 
   core.debug(`Running action ${config.command}`);
-  const [stdout, stderr, changeSummary] = await actions[config.command]();
+  const [stdout, stderr, changeSummary] = await runPulumiAction(
+    config,
+    actions,
+    projectName,
+  );
   core.debug(`Done running action ${config.command}`);
   if (stderr !== '') {
     if (config.options.logToStdErr) {
@@ -191,7 +225,12 @@ const runAction = async (config: Config): Promise<void> => {
     if (err.message.stderr) {
       core.setFailed(err.message.stderr);
     } else {
-      core.setFailed(err.message);
+      if (err instanceof CommandError) {
+        const message = err.message.split('err?:')[1];
+        core.setFailed(message);
+      } else {
+        core.setFailed(err.message);
+      }
     }
   }
 })();
