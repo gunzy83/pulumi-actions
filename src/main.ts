@@ -5,6 +5,7 @@ import {
   LocalProgramArgs,
   LocalWorkspace,
   LocalWorkspaceOptions,
+  OpMap,
   OutputMap,
   Stack,
 } from '@pulumi/pulumi/automation';
@@ -65,7 +66,7 @@ const runAction = async (config: Config): Promise<void> => {
   // When the command is `output` we want to avoid the underlying call to `pulumi stack select`,
   // which requires a Pulumi.yaml file to be present.
   let stack: Stack | undefined;
-  if (config.command !== "output") {
+  if (config.command !== 'output') {
     const stackArgs: LocalProgramArgs = {
       stackName: config.stackName,
       workDir: workDir,
@@ -95,28 +96,38 @@ const runAction = async (config: Config): Promise<void> => {
     await stack.setAllConfig(config.configMap);
   }
 
-
   core.startGroup(`pulumi ${config.command} on ${config.stackName}`);
 
-  const actions: Record<Commands, () => Promise<[string, string]>> = {
-    up: () => stack.up({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+  const actions: Record<Commands, () => Promise<[string, string, OpMap?]>> = {
+    up: () =>
+      stack
+        .up({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     update: () =>
-      stack.up({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .up({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     refresh: () =>
-      stack.refresh({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .refresh({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     destroy: () =>
-      stack.destroy({ onOutput, ...config.options }).then((r) => [r.stdout, r.stderr]),
+      stack
+        .destroy({ onOutput, ...config.options })
+        .then((r) => [r.stdout, r.stderr]),
     preview: async () => {
-      const { stdout, stderr } = await stack.preview(config.options);
+      const { stdout, stderr, changeSummary } = await stack.preview(
+        config.options,
+      );
       onOutput(stdout);
       onOutput(stderr);
-      return [stdout, stderr];
+      return [stdout, stderr, changeSummary];
     },
-    output: () => Promise.resolve(['', '']) //do nothing, outputs are fetched anyway afterwards
+    output: () => Promise.resolve(['', '']), //do nothing, outputs are fetched anyway afterwards
   };
 
   core.debug(`Running action ${config.command}`);
-  const [stdout, stderr] = await actions[config.command]();
+  const [stdout, stderr, changeSummary] = await actions[config.command]();
   core.debug(`Done running action ${config.command}`);
   if (stderr !== '') {
     if (config.options.logToStdErr) {
@@ -129,7 +140,7 @@ const runAction = async (config: Config): Promise<void> => {
   core.setOutput('output', stdout);
 
   let outputs: OutputMap;
-  if (config.command === "output") {
+  if (config.command === 'output') {
     // When the command is `output` we didn't initialize `stack`, because we
     // wanted to avoid the underlying call to `pulumi stack select`, which
     // requires a Pulumi.yaml file to be present. Instead, we can use the
@@ -150,19 +161,18 @@ const runAction = async (config: Config): Promise<void> => {
   }
 
   // Only comment on the pull request if the command is not `output`.
-  if (config.command !== "output") {
+  if (config.command !== 'output') {
     const isPullRequest = context.payload.pull_request !== undefined;
-    if (config.commentOnPrNumber ||
-      (config.commentOnPr && isPullRequest)) {
+    if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
       core.debug(`Commenting on pull request`);
       invariant(config.githubToken, 'github-token is missing.');
-      handlePullRequestMessage(config, projectName, stdout);
+      handlePullRequestMessage(config, projectName, stdout, changeSummary);
     }
 
     if (config.commentOnSummary) {
       await core.summary
         .addHeading(`Pulumi ${config.stackName} results`)
-        .addCodeBlock(stdout, "diff")
+        .addCodeBlock(stdout, 'diff')
         .write();
     }
   }

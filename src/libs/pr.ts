@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import { context, getOctokit } from '@actions/github';
+import { OpMap } from '@pulumi/pulumi/automation';
 import AnsiToHtml from 'ansi-to-html';
 import dedent from 'dedent';
 import invariant from 'ts-invariant';
@@ -62,6 +63,7 @@ export async function handlePullRequestMessage(
   config: Config,
   projectName: string,
   output: string,
+  changeSummary?: OpMap,
 ): Promise<void> {
   const {
     githubToken,
@@ -70,6 +72,11 @@ export async function handlePullRequestMessage(
     editCommentOnPr,
     alwaysIncludeSummary,
   } = config;
+
+  const hasChanges =
+    Object.entries(changeSummary || {})
+      .filter(([key]) => key !== 'same' && key !== 'read')
+      .reduce((acc, [_, value]) => acc + value, 0) > 0;
 
   // GitHub limits comment characters to 65535, use lower max to keep buffer for variable values
   const MAX_CHARACTER_COMMENT = 64_000;
@@ -121,6 +128,35 @@ export async function handlePullRequestMessage(
   invariant(nr, 'Missing pull request event data.');
 
   const octokit = getOctokit(githubToken);
+
+  if (!hasChanges) {
+    try {
+      if (editCommentOnPr) {
+        const { data: comments } = await octokit.rest.issues.listComments({
+          ...repo,
+          issue_number: nr,
+        });
+        const comment = comments.find(
+          (comment) =>
+            comment.body.startsWith(heading) && comment.body.includes(summary),
+        );
+
+        // If comment exists, delete it.
+        if (comment) {
+          await octokit.rest.issues.deleteComment({
+            ...repo,
+            comment_id: comment.id,
+          });
+          return;
+        }
+      }
+    } catch {
+      core.warning(
+        'Not able to list comments in order to delete comments, skipping.',
+      );
+    }
+    return;
+  }
 
   try {
     if (editCommentOnPr) {
