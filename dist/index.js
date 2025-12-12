@@ -5815,24 +5815,23 @@ module.exports = v4;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.addAdminServicesToServer = exports.registerAdminService = void 0;
+exports.registerAdminService = registerAdminService;
+exports.addAdminServicesToServer = addAdminServicesToServer;
 const registeredAdminServices = [];
 function registerAdminService(getServiceDefinition, getHandlers) {
     registeredAdminServices.push({ getServiceDefinition, getHandlers });
 }
-exports.registerAdminService = registerAdminService;
 function addAdminServicesToServer(server) {
     for (const { getServiceDefinition, getHandlers } of registeredAdminServices) {
         server.addService(getServiceDefinition(), getHandlers());
     }
 }
-exports.addAdminServicesToServer = addAdminServicesToServer;
 //# sourceMappingURL=admin.js.map
 
 /***/ }),
 
 /***/ 34186:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -5854,6 +5853,9 @@ exports.addAdminServicesToServer = addAdminServicesToServer;
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.BackoffTimeout = void 0;
+const constants_1 = __nccwpck_require__(90634);
+const logging = __nccwpck_require__(35993);
+const TRACER_NAME = 'backoff';
 const INITIAL_BACKOFF_MS = 1000;
 const BACKOFF_MULTIPLIER = 1.6;
 const MAX_BACKOFF_MS = 120000;
@@ -5905,6 +5907,7 @@ class BackoffTimeout {
          * if running is true.
          */
         this.endTime = new Date();
+        this.id = BackoffTimeout.getNextId();
         if (options) {
             if (options.initialDelay) {
                 this.initialDelay = options.initialDelay;
@@ -5919,18 +5922,27 @@ class BackoffTimeout {
                 this.maxDelay = options.maxDelay;
             }
         }
+        this.trace('constructed initialDelay=' + this.initialDelay + ' multiplier=' + this.multiplier + ' jitter=' + this.jitter + ' maxDelay=' + this.maxDelay);
         this.nextDelay = this.initialDelay;
         this.timerId = setTimeout(() => { }, 0);
         clearTimeout(this.timerId);
     }
+    static getNextId() {
+        return this.nextId++;
+    }
+    trace(text) {
+        logging.trace(constants_1.LogVerbosity.DEBUG, TRACER_NAME, '{' + this.id + '} ' + text);
+    }
     runTimer(delay) {
         var _a, _b;
+        this.trace('runTimer(delay=' + delay + ')');
         this.endTime = this.startTime;
-        this.endTime.setMilliseconds(this.endTime.getMilliseconds() + this.nextDelay);
+        this.endTime.setMilliseconds(this.endTime.getMilliseconds() + delay);
         clearTimeout(this.timerId);
         this.timerId = setTimeout(() => {
-            this.callback();
+            this.trace('timer fired');
             this.running = false;
+            this.callback();
         }, delay);
         if (!this.hasRef) {
             (_b = (_a = this.timerId).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
@@ -5940,6 +5952,7 @@ class BackoffTimeout {
      * Call the callback after the current amount of delay time
      */
     runOnce() {
+        this.trace('runOnce()');
         this.running = true;
         this.startTime = new Date();
         this.runTimer(this.nextDelay);
@@ -5953,6 +5966,7 @@ class BackoffTimeout {
      * again.
      */
     stop() {
+        this.trace('stop()');
         clearTimeout(this.timerId);
         this.running = false;
     }
@@ -5961,6 +5975,7 @@ class BackoffTimeout {
      * retroactively apply that reset to the current timer.
      */
     reset() {
+        this.trace('reset() running=' + this.running);
         this.nextDelay = this.initialDelay;
         if (this.running) {
             const now = new Date();
@@ -6008,6 +6023,7 @@ class BackoffTimeout {
     }
 }
 exports.BackoffTimeout = BackoffTimeout;
+BackoffTimeout.nextId = 0;
 //# sourceMappingURL=backoff-timeout.js.map
 
 /***/ }),
@@ -6194,12 +6210,12 @@ class EmptyCallCredentials extends CallCredentials {
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.InterceptingListenerImpl = exports.isInterceptingListener = void 0;
+exports.InterceptingListenerImpl = void 0;
+exports.isInterceptingListener = isInterceptingListener;
 function isInterceptingListener(listener) {
     return (listener.onReceiveMetadata !== undefined &&
         listener.onReceiveMetadata.length === 1);
 }
-exports.isInterceptingListener = isInterceptingListener;
 class InterceptingListenerImpl {
     constructor(listener, nextListener) {
         this.listener = listener;
@@ -6285,12 +6301,11 @@ exports.InterceptingListenerImpl = InterceptingListenerImpl;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getNextCallNumber = void 0;
+exports.getNextCallNumber = getNextCallNumber;
 let nextCallNumber = 0;
 function getNextCallNumber() {
     return nextCallNumber++;
 }
-exports.getNextCallNumber = getNextCallNumber;
 //# sourceMappingURL=call-number.js.map
 
 /***/ }),
@@ -6317,7 +6332,8 @@ exports.getNextCallNumber = getNextCallNumber;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ClientDuplexStreamImpl = exports.ClientWritableStreamImpl = exports.ClientReadableStreamImpl = exports.ClientUnaryCallImpl = exports.callErrorFromStatus = void 0;
+exports.ClientDuplexStreamImpl = exports.ClientWritableStreamImpl = exports.ClientReadableStreamImpl = exports.ClientUnaryCallImpl = void 0;
+exports.callErrorFromStatus = callErrorFromStatus;
 const events_1 = __nccwpck_require__(82361);
 const stream_1 = __nccwpck_require__(12781);
 const constants_1 = __nccwpck_require__(90634);
@@ -6333,7 +6349,6 @@ function callErrorFromStatus(status, callerStack) {
     const stack = `${error.stack}\nfor call at\n${callerStack}`;
     return Object.assign(new Error(message), status, { stack });
 }
-exports.callErrorFromStatus = callErrorFromStatus;
 class ClientUnaryCallImpl extends events_1.EventEmitter {
     constructor() {
         super();
@@ -6438,6 +6453,154 @@ exports.ClientDuplexStreamImpl = ClientDuplexStreamImpl;
 
 /***/ }),
 
+/***/ 25649:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+/*
+ * Copyright 2024 gRPC authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.FileWatcherCertificateProvider = void 0;
+const fs = __nccwpck_require__(57147);
+const logging = __nccwpck_require__(35993);
+const constants_1 = __nccwpck_require__(90634);
+const util_1 = __nccwpck_require__(73837);
+const TRACER_NAME = 'certificate_provider';
+function trace(text) {
+    logging.trace(constants_1.LogVerbosity.DEBUG, TRACER_NAME, text);
+}
+const readFilePromise = (0, util_1.promisify)(fs.readFile);
+class FileWatcherCertificateProvider {
+    constructor(config) {
+        this.config = config;
+        this.refreshTimer = null;
+        this.fileResultPromise = null;
+        this.latestCaUpdate = undefined;
+        this.caListeners = new Set();
+        this.latestIdentityUpdate = undefined;
+        this.identityListeners = new Set();
+        this.lastUpdateTime = null;
+        if ((config.certificateFile === undefined) !== (config.privateKeyFile === undefined)) {
+            throw new Error('certificateFile and privateKeyFile must be set or unset together');
+        }
+        if (config.certificateFile === undefined && config.caCertificateFile === undefined) {
+            throw new Error('At least one of certificateFile and caCertificateFile must be set');
+        }
+        trace('File watcher constructed with config ' + JSON.stringify(config));
+    }
+    updateCertificates() {
+        if (this.fileResultPromise) {
+            return;
+        }
+        this.fileResultPromise = Promise.allSettled([
+            this.config.certificateFile ? readFilePromise(this.config.certificateFile) : Promise.reject(),
+            this.config.privateKeyFile ? readFilePromise(this.config.privateKeyFile) : Promise.reject(),
+            this.config.caCertificateFile ? readFilePromise(this.config.caCertificateFile) : Promise.reject()
+        ]);
+        this.fileResultPromise.then(([certificateResult, privateKeyResult, caCertificateResult]) => {
+            if (!this.refreshTimer) {
+                return;
+            }
+            trace('File watcher read certificates certificate ' + certificateResult.status + ', privateKey ' + privateKeyResult.status + ', CA certificate ' + caCertificateResult.status);
+            this.lastUpdateTime = new Date();
+            this.fileResultPromise = null;
+            if (certificateResult.status === 'fulfilled' && privateKeyResult.status === 'fulfilled') {
+                this.latestIdentityUpdate = {
+                    certificate: certificateResult.value,
+                    privateKey: privateKeyResult.value
+                };
+            }
+            else {
+                this.latestIdentityUpdate = null;
+            }
+            if (caCertificateResult.status === 'fulfilled') {
+                this.latestCaUpdate = {
+                    caCertificate: caCertificateResult.value
+                };
+            }
+            else {
+                this.latestCaUpdate = null;
+            }
+            for (const listener of this.identityListeners) {
+                listener(this.latestIdentityUpdate);
+            }
+            for (const listener of this.caListeners) {
+                listener(this.latestCaUpdate);
+            }
+        });
+        trace('File watcher initiated certificate update');
+    }
+    maybeStartWatchingFiles() {
+        if (!this.refreshTimer) {
+            /* Perform the first read immediately, but only if there was not already
+             * a recent read, to avoid reading from the filesystem significantly more
+             * frequently than configured if the provider quickly switches between
+             * used and unused. */
+            const timeSinceLastUpdate = this.lastUpdateTime ? (new Date()).getTime() - this.lastUpdateTime.getTime() : Infinity;
+            if (timeSinceLastUpdate > this.config.refreshIntervalMs) {
+                this.updateCertificates();
+            }
+            if (timeSinceLastUpdate > this.config.refreshIntervalMs * 2) {
+                // Clear out old updates if they are definitely stale
+                this.latestCaUpdate = undefined;
+                this.latestIdentityUpdate = undefined;
+            }
+            this.refreshTimer = setInterval(() => this.updateCertificates(), this.config.refreshIntervalMs);
+            trace('File watcher started watching');
+        }
+    }
+    maybeStopWatchingFiles() {
+        if (this.caListeners.size === 0 && this.identityListeners.size === 0) {
+            this.fileResultPromise = null;
+            if (this.refreshTimer) {
+                clearInterval(this.refreshTimer);
+                this.refreshTimer = null;
+            }
+        }
+    }
+    addCaCertificateListener(listener) {
+        this.caListeners.add(listener);
+        this.maybeStartWatchingFiles();
+        if (this.latestCaUpdate !== undefined) {
+            process.nextTick(listener, this.latestCaUpdate);
+        }
+    }
+    removeCaCertificateListener(listener) {
+        this.caListeners.delete(listener);
+        this.maybeStopWatchingFiles();
+    }
+    addIdentityCertificateListener(listener) {
+        this.identityListeners.add(listener);
+        this.maybeStartWatchingFiles();
+        if (this.latestIdentityUpdate !== undefined) {
+            process.nextTick(listener, this.latestIdentityUpdate);
+        }
+    }
+    removeIdentityCertificateListener(listener) {
+        this.identityListeners.delete(listener);
+        this.maybeStopWatchingFiles();
+    }
+}
+exports.FileWatcherCertificateProvider = FileWatcherCertificateProvider;
+//# sourceMappingURL=certificate-provider.js.map
+
+/***/ }),
+
 /***/ 44030:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -6461,9 +6624,14 @@ exports.ClientDuplexStreamImpl = ClientDuplexStreamImpl;
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ChannelCredentials = void 0;
+exports.createCertificateProviderChannelCredentials = createCertificateProviderChannelCredentials;
 const tls_1 = __nccwpck_require__(24404);
 const call_credentials_1 = __nccwpck_require__(21426);
 const tls_helpers_1 = __nccwpck_require__(86581);
+const uri_parser_1 = __nccwpck_require__(65974);
+const resolver_1 = __nccwpck_require__(31594);
+const logging_1 = __nccwpck_require__(35993);
+const constants_1 = __nccwpck_require__(90634);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function verifyIsBufferOrNull(obj, friendlyName) {
     if (obj && !(obj instanceof Buffer)) {
@@ -6476,14 +6644,14 @@ function verifyIsBufferOrNull(obj, friendlyName) {
  * over a channel initialized with an instance of this class.
  */
 class ChannelCredentials {
-    constructor(callCredentials) {
-        this.callCredentials = callCredentials || call_credentials_1.CallCredentials.createEmpty();
-    }
     /**
-     * Gets the set of per-call credentials associated with this instance.
+     * Returns a copy of this object with the included set of per-call credentials
+     * expanded to include callCredentials.
+     * @param callCredentials A CallCredentials object to associate with this
+     * instance.
      */
-    _getCallCredentials() {
-        return this.callCredentials;
+    compose(callCredentials) {
+        return new ComposedChannelCredentialsImpl(this, callCredentials);
     }
     /**
      * Return a new ChannelCredentials instance with a given set of credentials.
@@ -6541,37 +6709,106 @@ class InsecureChannelCredentialsImpl extends ChannelCredentials {
     compose(callCredentials) {
         throw new Error('Cannot compose insecure credentials');
     }
-    _getConnectionOptions() {
-        return null;
-    }
     _isSecure() {
         return false;
     }
     _equals(other) {
         return other instanceof InsecureChannelCredentialsImpl;
     }
+    _createSecureConnector(channelTarget, options, callCredentials) {
+        return {
+            connect(socket) {
+                return Promise.resolve({
+                    socket,
+                    secure: false
+                });
+            },
+            waitForReady: () => {
+                return Promise.resolve();
+            },
+            getCallCredentials: () => {
+                return callCredentials !== null && callCredentials !== void 0 ? callCredentials : call_credentials_1.CallCredentials.createEmpty();
+            },
+            destroy() { }
+        };
+    }
+}
+function getConnectionOptions(secureContext, verifyOptions, channelTarget, options) {
+    var _a, _b;
+    const connectionOptions = {
+        secureContext: secureContext
+    };
+    let realTarget = channelTarget;
+    if ('grpc.http_connect_target' in options) {
+        const parsedTarget = (0, uri_parser_1.parseUri)(options['grpc.http_connect_target']);
+        if (parsedTarget) {
+            realTarget = parsedTarget;
+        }
+    }
+    const targetPath = (0, resolver_1.getDefaultAuthority)(realTarget);
+    const hostPort = (0, uri_parser_1.splitHostPort)(targetPath);
+    const remoteHost = (_a = hostPort === null || hostPort === void 0 ? void 0 : hostPort.host) !== null && _a !== void 0 ? _a : targetPath;
+    connectionOptions.host = remoteHost;
+    if (verifyOptions.checkServerIdentity) {
+        connectionOptions.checkServerIdentity = verifyOptions.checkServerIdentity;
+    }
+    if (verifyOptions.rejectUnauthorized !== undefined) {
+        connectionOptions.rejectUnauthorized = verifyOptions.rejectUnauthorized;
+    }
+    connectionOptions.ALPNProtocols = ['h2'];
+    if (options['grpc.ssl_target_name_override']) {
+        const sslTargetNameOverride = options['grpc.ssl_target_name_override'];
+        const originalCheckServerIdentity = (_b = connectionOptions.checkServerIdentity) !== null && _b !== void 0 ? _b : tls_1.checkServerIdentity;
+        connectionOptions.checkServerIdentity = (host, cert) => {
+            return originalCheckServerIdentity(sslTargetNameOverride, cert);
+        };
+        connectionOptions.servername = sslTargetNameOverride;
+    }
+    else {
+        connectionOptions.servername = remoteHost;
+    }
+    if (options['grpc-node.tls_enable_trace']) {
+        connectionOptions.enableTrace = true;
+    }
+    return connectionOptions;
+}
+class SecureConnectorImpl {
+    constructor(connectionOptions, callCredentials) {
+        this.connectionOptions = connectionOptions;
+        this.callCredentials = callCredentials;
+    }
+    connect(socket) {
+        const tlsConnectOptions = Object.assign({ socket: socket }, this.connectionOptions);
+        return new Promise((resolve, reject) => {
+            const tlsSocket = (0, tls_1.connect)(tlsConnectOptions, () => {
+                var _a;
+                if (((_a = this.connectionOptions.rejectUnauthorized) !== null && _a !== void 0 ? _a : true) && !tlsSocket.authorized) {
+                    reject(tlsSocket.authorizationError);
+                    return;
+                }
+                resolve({
+                    socket: tlsSocket,
+                    secure: true
+                });
+            });
+            tlsSocket.on('error', (error) => {
+                reject(error);
+            });
+        });
+    }
+    waitForReady() {
+        return Promise.resolve();
+    }
+    getCallCredentials() {
+        return this.callCredentials;
+    }
+    destroy() { }
 }
 class SecureChannelCredentialsImpl extends ChannelCredentials {
     constructor(secureContext, verifyOptions) {
         super();
         this.secureContext = secureContext;
         this.verifyOptions = verifyOptions;
-        this.connectionOptions = {
-            secureContext,
-        };
-        // Node asserts that this option is a function, so we cannot pass undefined
-        if (verifyOptions === null || verifyOptions === void 0 ? void 0 : verifyOptions.checkServerIdentity) {
-            this.connectionOptions.checkServerIdentity =
-                verifyOptions.checkServerIdentity;
-        }
-    }
-    compose(callCredentials) {
-        const combinedCallCredentials = this.callCredentials.compose(callCredentials);
-        return new ComposedChannelCredentialsImpl(this, combinedCallCredentials);
-    }
-    _getConnectionOptions() {
-        // Copy to prevent callers from mutating this.connectionOptions
-        return Object.assign({}, this.connectionOptions);
     }
     _isSecure() {
         return true;
@@ -6589,18 +6826,193 @@ class SecureChannelCredentialsImpl extends ChannelCredentials {
             return false;
         }
     }
+    _createSecureConnector(channelTarget, options, callCredentials) {
+        const connectionOptions = getConnectionOptions(this.secureContext, this.verifyOptions, channelTarget, options);
+        return new SecureConnectorImpl(connectionOptions, callCredentials !== null && callCredentials !== void 0 ? callCredentials : call_credentials_1.CallCredentials.createEmpty());
+    }
+}
+class CertificateProviderChannelCredentialsImpl extends ChannelCredentials {
+    constructor(caCertificateProvider, identityCertificateProvider, verifyOptions) {
+        super();
+        this.caCertificateProvider = caCertificateProvider;
+        this.identityCertificateProvider = identityCertificateProvider;
+        this.verifyOptions = verifyOptions;
+        this.refcount = 0;
+        /**
+         * `undefined` means that the certificates have not yet been loaded. `null`
+         * means that an attempt to load them has completed, and has failed.
+         */
+        this.latestCaUpdate = undefined;
+        /**
+         * `undefined` means that the certificates have not yet been loaded. `null`
+         * means that an attempt to load them has completed, and has failed.
+         */
+        this.latestIdentityUpdate = undefined;
+        this.caCertificateUpdateListener = this.handleCaCertificateUpdate.bind(this);
+        this.identityCertificateUpdateListener = this.handleIdentityCertitificateUpdate.bind(this);
+        this.secureContextWatchers = [];
+    }
+    _isSecure() {
+        return true;
+    }
+    _equals(other) {
+        var _a, _b;
+        if (this === other) {
+            return true;
+        }
+        if (other instanceof CertificateProviderChannelCredentialsImpl) {
+            return this.caCertificateProvider === other.caCertificateProvider &&
+                this.identityCertificateProvider === other.identityCertificateProvider &&
+                ((_a = this.verifyOptions) === null || _a === void 0 ? void 0 : _a.checkServerIdentity) === ((_b = other.verifyOptions) === null || _b === void 0 ? void 0 : _b.checkServerIdentity);
+        }
+        else {
+            return false;
+        }
+    }
+    ref() {
+        var _a;
+        if (this.refcount === 0) {
+            this.caCertificateProvider.addCaCertificateListener(this.caCertificateUpdateListener);
+            (_a = this.identityCertificateProvider) === null || _a === void 0 ? void 0 : _a.addIdentityCertificateListener(this.identityCertificateUpdateListener);
+        }
+        this.refcount += 1;
+    }
+    unref() {
+        var _a;
+        this.refcount -= 1;
+        if (this.refcount === 0) {
+            this.caCertificateProvider.removeCaCertificateListener(this.caCertificateUpdateListener);
+            (_a = this.identityCertificateProvider) === null || _a === void 0 ? void 0 : _a.removeIdentityCertificateListener(this.identityCertificateUpdateListener);
+        }
+    }
+    _createSecureConnector(channelTarget, options, callCredentials) {
+        this.ref();
+        return new CertificateProviderChannelCredentialsImpl.SecureConnectorImpl(this, channelTarget, options, callCredentials !== null && callCredentials !== void 0 ? callCredentials : call_credentials_1.CallCredentials.createEmpty());
+    }
+    maybeUpdateWatchers() {
+        if (this.hasReceivedUpdates()) {
+            for (const watcher of this.secureContextWatchers) {
+                watcher(this.getLatestSecureContext());
+            }
+            this.secureContextWatchers = [];
+        }
+    }
+    handleCaCertificateUpdate(update) {
+        this.latestCaUpdate = update;
+        this.maybeUpdateWatchers();
+    }
+    handleIdentityCertitificateUpdate(update) {
+        this.latestIdentityUpdate = update;
+        this.maybeUpdateWatchers();
+    }
+    hasReceivedUpdates() {
+        if (this.latestCaUpdate === undefined) {
+            return false;
+        }
+        if (this.identityCertificateProvider && this.latestIdentityUpdate === undefined) {
+            return false;
+        }
+        return true;
+    }
+    getSecureContext() {
+        if (this.hasReceivedUpdates()) {
+            return Promise.resolve(this.getLatestSecureContext());
+        }
+        else {
+            return new Promise(resolve => {
+                this.secureContextWatchers.push(resolve);
+            });
+        }
+    }
+    getLatestSecureContext() {
+        var _a, _b;
+        if (!this.latestCaUpdate) {
+            return null;
+        }
+        if (this.identityCertificateProvider !== null && !this.latestIdentityUpdate) {
+            return null;
+        }
+        try {
+            return (0, tls_1.createSecureContext)({
+                ca: this.latestCaUpdate.caCertificate,
+                key: (_a = this.latestIdentityUpdate) === null || _a === void 0 ? void 0 : _a.privateKey,
+                cert: (_b = this.latestIdentityUpdate) === null || _b === void 0 ? void 0 : _b.certificate,
+                ciphers: tls_helpers_1.CIPHER_SUITES
+            });
+        }
+        catch (e) {
+            (0, logging_1.log)(constants_1.LogVerbosity.ERROR, 'Failed to createSecureContext with error ' + e.message);
+            return null;
+        }
+    }
+}
+CertificateProviderChannelCredentialsImpl.SecureConnectorImpl = class {
+    constructor(parent, channelTarget, options, callCredentials) {
+        this.parent = parent;
+        this.channelTarget = channelTarget;
+        this.options = options;
+        this.callCredentials = callCredentials;
+    }
+    connect(socket) {
+        return new Promise((resolve, reject) => {
+            const secureContext = this.parent.getLatestSecureContext();
+            if (!secureContext) {
+                reject(new Error('Failed to load credentials'));
+                return;
+            }
+            if (socket.closed) {
+                reject(new Error('Socket closed while loading credentials'));
+            }
+            const connnectionOptions = getConnectionOptions(secureContext, this.parent.verifyOptions, this.channelTarget, this.options);
+            const tlsConnectOptions = Object.assign({ socket: socket }, connnectionOptions);
+            const closeCallback = () => {
+                reject(new Error('Socket closed'));
+            };
+            const errorCallback = (error) => {
+                reject(error);
+            };
+            const tlsSocket = (0, tls_1.connect)(tlsConnectOptions, () => {
+                var _a;
+                tlsSocket.removeListener('close', closeCallback);
+                tlsSocket.removeListener('error', errorCallback);
+                if (((_a = this.parent.verifyOptions.rejectUnauthorized) !== null && _a !== void 0 ? _a : true) && !tlsSocket.authorized) {
+                    reject(tlsSocket.authorizationError);
+                    return;
+                }
+                resolve({
+                    socket: tlsSocket,
+                    secure: true
+                });
+            });
+            tlsSocket.once('close', closeCallback);
+            tlsSocket.once('error', errorCallback);
+        });
+    }
+    async waitForReady() {
+        await this.parent.getSecureContext();
+    }
+    getCallCredentials() {
+        return this.callCredentials;
+    }
+    destroy() {
+        this.parent.unref();
+    }
+};
+function createCertificateProviderChannelCredentials(caCertificateProvider, identityCertificateProvider, verifyOptions) {
+    return new CertificateProviderChannelCredentialsImpl(caCertificateProvider, identityCertificateProvider, verifyOptions !== null && verifyOptions !== void 0 ? verifyOptions : {});
 }
 class ComposedChannelCredentialsImpl extends ChannelCredentials {
-    constructor(channelCredentials, callCreds) {
-        super(callCreds);
+    constructor(channelCredentials, callCredentials) {
+        super();
         this.channelCredentials = channelCredentials;
+        this.callCredentials = callCredentials;
+        if (!channelCredentials._isSecure()) {
+            throw new Error('Cannot compose insecure credentials');
+        }
     }
     compose(callCredentials) {
         const combinedCallCredentials = this.callCredentials.compose(callCredentials);
         return new ComposedChannelCredentialsImpl(this.channelCredentials, combinedCallCredentials);
-    }
-    _getConnectionOptions() {
-        return this.channelCredentials._getConnectionOptions();
     }
     _isSecure() {
         return true;
@@ -6616,6 +7028,10 @@ class ComposedChannelCredentialsImpl extends ChannelCredentials {
         else {
             return false;
         }
+    }
+    _createSecureConnector(channelTarget, options, callCredentials) {
+        const combinedCallCredentials = this.callCredentials.compose(callCredentials !== null && callCredentials !== void 0 ? callCredentials : call_credentials_1.CallCredentials.createEmpty());
+        return this.channelCredentials._createSecureConnector(channelTarget, options, combinedCallCredentials);
     }
 }
 //# sourceMappingURL=channel-credentials.js.map
@@ -6644,7 +7060,8 @@ class ComposedChannelCredentialsImpl extends ChannelCredentials {
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.channelOptionsEqual = exports.recognizedOptions = void 0;
+exports.recognizedOptions = void 0;
+exports.channelOptionsEqual = channelOptionsEqual;
 /**
  * This is for checking provided options at runtime. This is an object for
  * easier membership checking.
@@ -6677,6 +7094,8 @@ exports.recognizedOptions = {
     'grpc.client_idle_timeout_ms': true,
     'grpc-node.tls_enable_trace': true,
     'grpc.lb.ring_hash.ring_size_cap': true,
+    'grpc-node.retry_max_attempts_limit': true,
+    'grpc-node.flow_control_window': true,
 };
 function channelOptionsEqual(options1, options2) {
     const keys1 = Object.keys(options1).sort();
@@ -6694,7 +7113,6 @@ function channelOptionsEqual(options1, options2) {
     }
     return true;
 }
-exports.channelOptionsEqual = channelOptionsEqual;
 //# sourceMappingURL=channel-options.js.map
 
 /***/ }),
@@ -6796,7 +7214,11 @@ exports.ChannelImplementation = ChannelImplementation;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = exports.getChannelzServiceDefinition = exports.getChannelzHandlers = exports.unregisterChannelzRef = exports.registerChannelzSocket = exports.registerChannelzServer = exports.registerChannelzSubchannel = exports.registerChannelzChannel = exports.ChannelzCallTrackerStub = exports.ChannelzCallTracker = exports.ChannelzChildrenTrackerStub = exports.ChannelzChildrenTracker = exports.ChannelzTrace = exports.ChannelzTraceStub = void 0;
+exports.registerChannelzSocket = exports.registerChannelzServer = exports.registerChannelzSubchannel = exports.registerChannelzChannel = exports.ChannelzCallTrackerStub = exports.ChannelzCallTracker = exports.ChannelzChildrenTrackerStub = exports.ChannelzChildrenTracker = exports.ChannelzTrace = exports.ChannelzTraceStub = void 0;
+exports.unregisterChannelzRef = unregisterChannelzRef;
+exports.getChannelzHandlers = getChannelzHandlers;
+exports.getChannelzServiceDefinition = getChannelzServiceDefinition;
+exports.setup = setup;
 const net_1 = __nccwpck_require__(41808);
 const ordered_map_1 = __nccwpck_require__(12592);
 const connectivity_state_1 = __nccwpck_require__(80878);
@@ -6997,7 +7419,6 @@ exports.registerChannelzSocket = generateRegisterFn("socket" /* EntityTypes.sock
 function unregisterChannelzRef(ref) {
     entityMaps[ref.kind].eraseElementByKey(ref.id);
 }
-exports.unregisterChannelzRef = unregisterChannelzRef;
 /**
  * Parse a single section of an IPv6 address as two bytes
  * @param addressSection A hexadecimal string of length up to 4
@@ -7023,6 +7444,17 @@ function parseIPv6Chunk(addressChunk) {
     const result = [];
     return result.concat(...bytePairs);
 }
+function isIPv6MappedIPv4(ipAddress) {
+    return (0, net_1.isIPv6)(ipAddress) && ipAddress.toLowerCase().startsWith('::ffff:') && (0, net_1.isIPv4)(ipAddress.substring(7));
+}
+/**
+ * Prerequisite: isIPv4(ipAddress)
+ * @param ipAddress
+ * @returns
+ */
+function ipv4AddressStringToBuffer(ipAddress) {
+    return Buffer.from(Uint8Array.from(ipAddress.split('.').map(segment => Number.parseInt(segment))));
+}
 /**
  * Converts an IPv4 or IPv6 address from string representation to binary
  * representation
@@ -7031,7 +7463,10 @@ function parseIPv6Chunk(addressChunk) {
  */
 function ipAddressStringToBuffer(ipAddress) {
     if ((0, net_1.isIPv4)(ipAddress)) {
-        return Buffer.from(Uint8Array.from(ipAddress.split('.').map(segment => Number.parseInt(segment))));
+        return ipv4AddressStringToBuffer(ipAddress);
+    }
+    else if (isIPv6MappedIPv4(ipAddress)) {
+        return ipv4AddressStringToBuffer(ipAddress.substring(7));
     }
     else if ((0, net_1.isIPv6)(ipAddress)) {
         let leftSection;
@@ -7333,7 +7768,6 @@ function getChannelzHandlers() {
         GetServerSockets,
     };
 }
-exports.getChannelzHandlers = getChannelzHandlers;
 let loadedChannelzDefinition = null;
 function getChannelzServiceDefinition() {
     if (loadedChannelzDefinition) {
@@ -7355,11 +7789,9 @@ function getChannelzServiceDefinition() {
         channelzGrpcObject.grpc.channelz.v1.Channelz.service;
     return loadedChannelzDefinition;
 }
-exports.getChannelzServiceDefinition = getChannelzServiceDefinition;
 function setup() {
     (0, admin_1.registerAdminService)(getChannelzServiceDefinition, getChannelzHandlers);
 }
-exports.setup = setup;
 //# sourceMappingURL=channelz.js.map
 
 /***/ }),
@@ -7386,7 +7818,8 @@ exports.setup = setup;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getInterceptingCall = exports.InterceptingCall = exports.RequesterBuilder = exports.ListenerBuilder = exports.InterceptorConfigurationError = void 0;
+exports.InterceptingCall = exports.RequesterBuilder = exports.ListenerBuilder = exports.InterceptorConfigurationError = void 0;
+exports.getInterceptingCall = getInterceptingCall;
 const metadata_1 = __nccwpck_require__(83665);
 const call_interface_1 = __nccwpck_require__(78710);
 const constants_1 = __nccwpck_require__(90634);
@@ -7794,7 +8227,6 @@ methodDefinition, options, channel) {
     }, (finalOptions) => getBottomInterceptingCall(channel, finalOptions, methodDefinition));
     return getCall(interceptorOptions);
 }
-exports.getInterceptingCall = getInterceptingCall;
 //# sourceMappingURL=client-interceptors.js.map
 
 /***/ }),
@@ -7971,7 +8403,7 @@ class Client {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onReceiveMessage(message) {
                 if (responseMessage !== null) {
-                    call.cancelWithStatus(constants_1.Status.INTERNAL, 'Too many responses received');
+                    call.cancelWithStatus(constants_1.Status.UNIMPLEMENTED, 'Too many responses received');
                 }
                 responseMessage = message;
             },
@@ -7984,7 +8416,7 @@ class Client {
                     if (responseMessage === null) {
                         const callerStack = getErrorStackString(callerStackError);
                         callProperties.callback((0, call_1.callErrorFromStatus)({
-                            code: constants_1.Status.INTERNAL,
+                            code: constants_1.Status.UNIMPLEMENTED,
                             details: 'No message received',
                             metadata: status.metadata,
                         }, callerStack));
@@ -8051,9 +8483,10 @@ class Client {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onReceiveMessage(message) {
                 if (responseMessage !== null) {
-                    call.cancelWithStatus(constants_1.Status.INTERNAL, 'Too many responses received');
+                    call.cancelWithStatus(constants_1.Status.UNIMPLEMENTED, 'Too many responses received');
                 }
                 responseMessage = message;
+                call.startRead();
             },
             onReceiveStatus(status) {
                 if (receivedStatus) {
@@ -8064,7 +8497,7 @@ class Client {
                     if (responseMessage === null) {
                         const callerStack = getErrorStackString(callerStackError);
                         callProperties.callback((0, call_1.callErrorFromStatus)({
-                            code: constants_1.Status.INTERNAL,
+                            code: constants_1.Status.UNIMPLEMENTED,
                             details: 'No message received',
                             metadata: status.metadata,
                         }, callerStack));
@@ -8458,7 +8891,7 @@ function getCompressionHandler(compressionName, maxReceiveMessageSize) {
 }
 class CompressionFilter extends filter_1.BaseFilter {
     constructor(channelOptions, sharedFilterConfig) {
-        var _a, _b;
+        var _a, _b, _c;
         super();
         this.sharedFilterConfig = sharedFilterConfig;
         this.sendCompression = new IdentityHandler();
@@ -8466,10 +8899,11 @@ class CompressionFilter extends filter_1.BaseFilter {
         this.currentCompressionAlgorithm = 'identity';
         const compressionAlgorithmKey = channelOptions['grpc.default_compression_algorithm'];
         this.maxReceiveMessageLength = (_a = channelOptions['grpc.max_receive_message_length']) !== null && _a !== void 0 ? _a : constants_1.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH;
+        this.maxSendMessageLength = (_b = channelOptions['grpc.max_send_message_length']) !== null && _b !== void 0 ? _b : constants_1.DEFAULT_MAX_SEND_MESSAGE_LENGTH;
         if (compressionAlgorithmKey !== undefined) {
             if (isCompressionAlgorithmKey(compressionAlgorithmKey)) {
                 const clientSelectedEncoding = compression_algorithms_1.CompressionAlgorithms[compressionAlgorithmKey];
-                const serverSupportedEncodings = (_b = sharedFilterConfig.serverSupportedEncodingHeader) === null || _b === void 0 ? void 0 : _b.split(',');
+                const serverSupportedEncodings = (_c = sharedFilterConfig.serverSupportedEncodingHeader) === null || _c === void 0 ? void 0 : _c.split(',');
                 /**
                  * There are two possible situations here:
                  * 1) We don't have any info yet from the server about what compression it supports
@@ -8531,6 +8965,12 @@ class CompressionFilter extends filter_1.BaseFilter {
          * and the output is a framed and possibly compressed message. For this
          * reason, this filter should be at the bottom of the filter stack */
         const resolvedMessage = await message;
+        if (this.maxSendMessageLength !== -1 && resolvedMessage.message.length > this.maxSendMessageLength) {
+            throw {
+                code: constants_1.Status.RESOURCE_EXHAUSTED,
+                details: `Attempted to send message with a size larger than ${this.maxSendMessageLength}`
+            };
+        }
         let compress;
         if (this.sendCompression instanceof IdentityHandler) {
             compress = false;
@@ -8694,7 +9134,7 @@ exports.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH = 4 * 1024 * 1024;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.restrictControlPlaneStatusCode = void 0;
+exports.restrictControlPlaneStatusCode = restrictControlPlaneStatusCode;
 const constants_1 = __nccwpck_require__(90634);
 const INAPPROPRIATE_CONTROL_PLANE_CODES = [
     constants_1.Status.OK,
@@ -8717,7 +9157,6 @@ function restrictControlPlaneStatusCode(code, details) {
         return { code, details };
     }
 }
-exports.restrictControlPlaneStatusCode = restrictControlPlaneStatusCode;
 //# sourceMappingURL=control-plane-status.js.map
 
 /***/ }),
@@ -8744,7 +9183,11 @@ exports.restrictControlPlaneStatusCode = restrictControlPlaneStatusCode;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.formatDateDifference = exports.deadlineToString = exports.getRelativeTimeout = exports.getDeadlineTimeoutString = exports.minDeadline = void 0;
+exports.minDeadline = minDeadline;
+exports.getDeadlineTimeoutString = getDeadlineTimeoutString;
+exports.getRelativeTimeout = getRelativeTimeout;
+exports.deadlineToString = deadlineToString;
+exports.formatDateDifference = formatDateDifference;
 function minDeadline(...deadlineList) {
     let minValue = Infinity;
     for (const deadline of deadlineList) {
@@ -8755,7 +9198,6 @@ function minDeadline(...deadlineList) {
     }
     return minValue;
 }
-exports.minDeadline = minDeadline;
 const units = [
     ['m', 1],
     ['S', 1000],
@@ -8776,7 +9218,6 @@ function getDeadlineTimeoutString(deadline) {
     }
     throw new Error('Deadline is too far in the future');
 }
-exports.getDeadlineTimeoutString = getDeadlineTimeoutString;
 /**
  * See https://nodejs.org/api/timers.html#settimeoutcallback-delay-args
  * In particular, "When delay is larger than 2147483647 or less than 1, the
@@ -8807,7 +9248,6 @@ function getRelativeTimeout(deadline) {
         return timeout;
     }
 }
-exports.getRelativeTimeout = getRelativeTimeout;
 function deadlineToString(deadline) {
     if (deadline instanceof Date) {
         return deadline.toISOString();
@@ -8822,7 +9262,6 @@ function deadlineToString(deadline) {
         }
     }
 }
-exports.deadlineToString = deadlineToString;
 /**
  * Calculate the difference between two dates as a number of seconds and format
  * it as a string.
@@ -8833,7 +9272,6 @@ exports.deadlineToString = deadlineToString;
 function formatDateDifference(startDate, endDate) {
     return ((endDate.getTime() - startDate.getTime()) / 1000).toFixed(3) + 's';
 }
-exports.formatDateDifference = formatDateDifference;
 //# sourceMappingURL=deadline.js.map
 
 /***/ }),
@@ -8860,23 +9298,63 @@ exports.formatDateDifference = formatDateDifference;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isDuration = exports.durationToMs = exports.msToDuration = void 0;
+exports.msToDuration = msToDuration;
+exports.durationToMs = durationToMs;
+exports.isDuration = isDuration;
+exports.parseDuration = parseDuration;
 function msToDuration(millis) {
     return {
         seconds: (millis / 1000) | 0,
         nanos: ((millis % 1000) * 1000000) | 0,
     };
 }
-exports.msToDuration = msToDuration;
 function durationToMs(duration) {
     return (duration.seconds * 1000 + duration.nanos / 1000000) | 0;
 }
-exports.durationToMs = durationToMs;
 function isDuration(value) {
     return typeof value.seconds === 'number' && typeof value.nanos === 'number';
 }
-exports.isDuration = isDuration;
+const durationRegex = /^(\d+)(?:\.(\d+))?s$/;
+function parseDuration(value) {
+    const match = value.match(durationRegex);
+    if (!match) {
+        return null;
+    }
+    return {
+        seconds: Number.parseInt(match[1], 10),
+        nanos: match[2] ? Number.parseInt(match[2].padEnd(9, '0'), 10) : 0
+    };
+}
 //# sourceMappingURL=duration.js.map
+
+/***/ }),
+
+/***/ 29160:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/*
+ * Copyright 2024 gRPC authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+var _a;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GRPC_NODE_USE_ALTERNATIVE_RESOLVER = void 0;
+exports.GRPC_NODE_USE_ALTERNATIVE_RESOLVER = ((_a = process.env.GRPC_NODE_USE_ALTERNATIVE_RESOLVER) !== null && _a !== void 0 ? _a : 'false') === 'true';
+//# sourceMappingURL=environment.js.map
 
 /***/ }),
 
@@ -8902,7 +9380,8 @@ exports.isDuration = isDuration;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getErrorCode = exports.getErrorMessage = void 0;
+exports.getErrorMessage = getErrorMessage;
+exports.getErrorCode = getErrorCode;
 function getErrorMessage(error) {
     if (error instanceof Error) {
         return error.message;
@@ -8911,7 +9390,6 @@ function getErrorMessage(error) {
         return String(error);
     }
 }
-exports.getErrorMessage = getErrorMessage;
 function getErrorCode(error) {
     if (typeof error === 'object' &&
         error !== null &&
@@ -8923,7 +9401,6 @@ function getErrorCode(error) {
         return null;
     }
 }
-exports.getErrorCode = getErrorCode;
 //# sourceMappingURL=error.js.map
 
 /***/ }),
@@ -8934,7 +9411,7 @@ exports.getErrorCode = getErrorCode;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BaseSubchannelWrapper = exports.registerAdminService = exports.FilterStackFactory = exports.BaseFilter = exports.PickResultType = exports.QueuePicker = exports.UnavailablePicker = exports.ChildLoadBalancerHandler = exports.EndpointMap = exports.endpointHasAddress = exports.endpointToString = exports.subchannelAddressToString = exports.LeafLoadBalancer = exports.isLoadBalancerNameRegistered = exports.parseLoadBalancingConfig = exports.selectLbConfigFromList = exports.registerLoadBalancerType = exports.createChildChannelControlHelper = exports.BackoffTimeout = exports.durationToMs = exports.uriToString = exports.createResolver = exports.registerResolver = exports.log = exports.trace = void 0;
+exports.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX = exports.createCertificateProviderChannelCredentials = exports.FileWatcherCertificateProvider = exports.createCertificateProviderServerCredentials = exports.createServerCredentialsWithInterceptors = exports.BaseSubchannelWrapper = exports.registerAdminService = exports.FilterStackFactory = exports.BaseFilter = exports.PickResultType = exports.QueuePicker = exports.UnavailablePicker = exports.ChildLoadBalancerHandler = exports.EndpointMap = exports.endpointHasAddress = exports.endpointToString = exports.subchannelAddressToString = exports.LeafLoadBalancer = exports.isLoadBalancerNameRegistered = exports.parseLoadBalancingConfig = exports.selectLbConfigFromList = exports.registerLoadBalancerType = exports.createChildChannelControlHelper = exports.BackoffTimeout = exports.parseDuration = exports.durationToMs = exports.splitHostPort = exports.uriToString = exports.createResolver = exports.registerResolver = exports.log = exports.trace = void 0;
 var logging_1 = __nccwpck_require__(35993);
 Object.defineProperty(exports, "trace", ({ enumerable: true, get: function () { return logging_1.trace; } }));
 Object.defineProperty(exports, "log", ({ enumerable: true, get: function () { return logging_1.log; } }));
@@ -8943,8 +9420,10 @@ Object.defineProperty(exports, "registerResolver", ({ enumerable: true, get: fun
 Object.defineProperty(exports, "createResolver", ({ enumerable: true, get: function () { return resolver_1.createResolver; } }));
 var uri_parser_1 = __nccwpck_require__(65974);
 Object.defineProperty(exports, "uriToString", ({ enumerable: true, get: function () { return uri_parser_1.uriToString; } }));
+Object.defineProperty(exports, "splitHostPort", ({ enumerable: true, get: function () { return uri_parser_1.splitHostPort; } }));
 var duration_1 = __nccwpck_require__(62668);
 Object.defineProperty(exports, "durationToMs", ({ enumerable: true, get: function () { return duration_1.durationToMs; } }));
+Object.defineProperty(exports, "parseDuration", ({ enumerable: true, get: function () { return duration_1.parseDuration; } }));
 var backoff_timeout_1 = __nccwpck_require__(34186);
 Object.defineProperty(exports, "BackoffTimeout", ({ enumerable: true, get: function () { return backoff_timeout_1.BackoffTimeout; } }));
 var load_balancer_1 = __nccwpck_require__(52680);
@@ -8974,6 +9453,15 @@ var admin_1 = __nccwpck_require__(8258);
 Object.defineProperty(exports, "registerAdminService", ({ enumerable: true, get: function () { return admin_1.registerAdminService; } }));
 var subchannel_interface_1 = __nccwpck_require__(12258);
 Object.defineProperty(exports, "BaseSubchannelWrapper", ({ enumerable: true, get: function () { return subchannel_interface_1.BaseSubchannelWrapper; } }));
+var server_credentials_1 = __nccwpck_require__(63828);
+Object.defineProperty(exports, "createServerCredentialsWithInterceptors", ({ enumerable: true, get: function () { return server_credentials_1.createServerCredentialsWithInterceptors; } }));
+Object.defineProperty(exports, "createCertificateProviderServerCredentials", ({ enumerable: true, get: function () { return server_credentials_1.createCertificateProviderServerCredentials; } }));
+var certificate_provider_1 = __nccwpck_require__(25649);
+Object.defineProperty(exports, "FileWatcherCertificateProvider", ({ enumerable: true, get: function () { return certificate_provider_1.FileWatcherCertificateProvider; } }));
+var channel_credentials_1 = __nccwpck_require__(44030);
+Object.defineProperty(exports, "createCertificateProviderChannelCredentials", ({ enumerable: true, get: function () { return channel_credentials_1.createCertificateProviderChannelCredentials; } }));
+var internal_channel_1 = __nccwpck_require__(69672);
+Object.defineProperty(exports, "SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX", ({ enumerable: true, get: function () { return internal_channel_1.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX; } }));
 //# sourceMappingURL=experimental.js.map
 
 /***/ }),
@@ -9134,12 +9622,13 @@ exports.BaseFilter = BaseFilter;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getProxiedConnection = exports.mapProxyName = void 0;
+exports.parseCIDR = parseCIDR;
+exports.mapProxyName = mapProxyName;
+exports.getProxiedConnection = getProxiedConnection;
 const logging_1 = __nccwpck_require__(35993);
 const constants_1 = __nccwpck_require__(90634);
-const resolver_1 = __nccwpck_require__(31594);
+const net_1 = __nccwpck_require__(41808);
 const http = __nccwpck_require__(13685);
-const tls = __nccwpck_require__(24404);
 const logging = __nccwpck_require__(35993);
 const subchannel_address_1 = __nccwpck_require__(99905);
 const uri_parser_1 = __nccwpck_require__(65974);
@@ -9187,7 +9676,7 @@ function getProxyInfo() {
     if (proxyUrl.username) {
         if (proxyUrl.password) {
             (0, logging_1.log)(constants_1.LogVerbosity.INFO, 'userinfo found in proxy URI');
-            userCred = `${proxyUrl.username}:${proxyUrl.password}`;
+            userCred = decodeURIComponent(`${proxyUrl.username}:${proxyUrl.password}`);
         }
         else {
             userCred = proxyUrl.username;
@@ -9226,6 +9715,48 @@ function getNoProxyHostList() {
         return [];
     }
 }
+/*
+ * The groups correspond to CIDR parts as follows:
+ * 1. ip
+ * 2. prefixLength
+ */
+function parseCIDR(cidrString) {
+    const splitRange = cidrString.split('/');
+    if (splitRange.length !== 2) {
+        return null;
+    }
+    const prefixLength = parseInt(splitRange[1], 10);
+    if (!(0, net_1.isIPv4)(splitRange[0]) || Number.isNaN(prefixLength) || prefixLength < 0 || prefixLength > 32) {
+        return null;
+    }
+    return {
+        ip: ipToInt(splitRange[0]),
+        prefixLength: prefixLength
+    };
+}
+function ipToInt(ip) {
+    return ip.split(".").reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0);
+}
+function isIpInCIDR(cidr, serverHost) {
+    const ip = cidr.ip;
+    const mask = -1 << (32 - cidr.prefixLength);
+    const hostIP = ipToInt(serverHost);
+    return (hostIP & mask) === (ip & mask);
+}
+function hostMatchesNoProxyList(serverHost) {
+    for (const host of getNoProxyHostList()) {
+        const parsedCIDR = parseCIDR(host);
+        // host is a CIDR and serverHost is an IP address
+        if ((0, net_1.isIPv4)(serverHost) && parsedCIDR && isIpInCIDR(parsedCIDR, serverHost)) {
+            return true;
+        }
+        else if (serverHost.endsWith(host)) {
+            // host is a single IP or a domain name suffix
+            return true;
+        }
+    }
+    return false;
+}
 function mapProxyName(target, options) {
     var _a;
     const noProxyResult = {
@@ -9247,11 +9778,9 @@ function mapProxyName(target, options) {
         return noProxyResult;
     }
     const serverHost = hostPort.host;
-    for (const host of getNoProxyHostList()) {
-        if (host === serverHost) {
-            trace('Not using proxy for target in no_proxy list: ' + (0, uri_parser_1.uriToString)(target));
-            return noProxyResult;
-        }
+    if (hostMatchesNoProxyList(serverHost)) {
+        trace('Not using proxy for target in no_proxy list: ' + (0, uri_parser_1.uriToString)(target));
+        return noProxyResult;
     }
     const extraOptions = {
         'grpc.http_connect_target': (0, uri_parser_1.uriToString)(target),
@@ -9267,20 +9796,19 @@ function mapProxyName(target, options) {
         extraOptions: extraOptions,
     };
 }
-exports.mapProxyName = mapProxyName;
-function getProxiedConnection(address, channelOptions, connectionOptions) {
+function getProxiedConnection(address, channelOptions) {
     var _a;
     if (!('grpc.http_connect_target' in channelOptions)) {
-        return Promise.resolve({});
+        return Promise.resolve(null);
     }
     const realTarget = channelOptions['grpc.http_connect_target'];
     const parsedTarget = (0, uri_parser_1.parseUri)(realTarget);
     if (parsedTarget === null) {
-        return Promise.resolve({});
+        return Promise.resolve(null);
     }
     const splitHostPost = (0, uri_parser_1.splitHostPort)(parsedTarget.path);
     if (splitHostPost === null) {
-        return Promise.resolve({});
+        return Promise.resolve(null);
     }
     const hostPort = `${splitHostPost.host}:${(_a = splitHostPost.port) !== null && _a !== void 0 ? _a : resolver_dns_1.DEFAULT_PORT}`;
     const options = {
@@ -9309,7 +9837,6 @@ function getProxiedConnection(address, channelOptions, connectionOptions) {
     return new Promise((resolve, reject) => {
         const request = http.request(options);
         request.once('connect', (res, socket, head) => {
-            var _a;
             request.removeAllListeners();
             socket.removeAllListeners();
             if (res.statusCode === 200) {
@@ -9317,41 +9844,17 @@ function getProxiedConnection(address, channelOptions, connectionOptions) {
                     options.path +
                     ' through proxy ' +
                     proxyAddressString);
-                if ('secureContext' in connectionOptions) {
-                    /* The proxy is connecting to a TLS server, so upgrade this socket
-                     * connection to a TLS connection.
-                     * This is a workaround for https://github.com/nodejs/node/issues/32922
-                     * See https://github.com/grpc/grpc-node/pull/1369 for more info. */
-                    const targetPath = (0, resolver_1.getDefaultAuthority)(parsedTarget);
-                    const hostPort = (0, uri_parser_1.splitHostPort)(targetPath);
-                    const remoteHost = (_a = hostPort === null || hostPort === void 0 ? void 0 : hostPort.host) !== null && _a !== void 0 ? _a : targetPath;
-                    const cts = tls.connect(Object.assign({ host: remoteHost, servername: remoteHost, socket: socket }, connectionOptions), () => {
-                        trace('Successfully established a TLS connection to ' +
-                            options.path +
-                            ' through proxy ' +
-                            proxyAddressString);
-                        resolve({ socket: cts, realTarget: parsedTarget });
-                    });
-                    cts.on('error', (error) => {
-                        trace('Failed to establish a TLS connection to ' +
-                            options.path +
-                            ' through proxy ' +
-                            proxyAddressString +
-                            ' with error ' +
-                            error.message);
-                        reject();
-                    });
+                // The HTTP client may have already read a few bytes of the proxied
+                // connection. If that's the case, put them back into the socket.
+                // See https://github.com/grpc/grpc-node/issues/2744.
+                if (head.length > 0) {
+                    socket.unshift(head);
                 }
-                else {
-                    trace('Successfully established a plaintext connection to ' +
-                        options.path +
-                        ' through proxy ' +
-                        proxyAddressString);
-                    resolve({
-                        socket,
-                        realTarget: parsedTarget,
-                    });
-                }
+                trace('Successfully established a plaintext connection to ' +
+                    options.path +
+                    ' through proxy ' +
+                    proxyAddressString);
+                resolve(socket);
             }
             else {
                 (0, logging_1.log)(constants_1.LogVerbosity.ERROR, 'Failed to connect to ' +
@@ -9374,7 +9877,6 @@ function getProxiedConnection(address, channelOptions, connectionOptions) {
         request.end();
     });
 }
-exports.getProxiedConnection = getProxiedConnection;
 //# sourceMappingURL=http_proxy.js.map
 
 /***/ }),
@@ -9552,11 +10054,12 @@ const channelz = __nccwpck_require__(79975);
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.InternalChannel = void 0;
+exports.InternalChannel = exports.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX = void 0;
 const channel_credentials_1 = __nccwpck_require__(44030);
 const resolving_load_balancer_1 = __nccwpck_require__(19192);
 const subchannel_pool_1 = __nccwpck_require__(39780);
 const picker_1 = __nccwpck_require__(81611);
+const metadata_1 = __nccwpck_require__(83665);
 const constants_1 = __nccwpck_require__(90634);
 const filter_stack_1 = __nccwpck_require__(66450);
 const compression_filter_1 = __nccwpck_require__(47616);
@@ -9591,9 +10094,12 @@ class ChannelSubchannelWrapper extends subchannel_interface_1.BaseSubchannelWrap
         this.subchannelStateListener = (subchannel, previousState, newState, keepaliveTime) => {
             channel.throttleKeepalive(keepaliveTime);
         };
-        childSubchannel.addConnectivityStateListener(this.subchannelStateListener);
     }
     ref() {
+        if (this.refCount === 0) {
+            this.child.addConnectivityStateListener(this.subchannelStateListener);
+            this.channel.addWrappedSubchannel(this);
+        }
         this.child.ref();
         this.refCount += 1;
     }
@@ -9606,9 +10112,45 @@ class ChannelSubchannelWrapper extends subchannel_interface_1.BaseSubchannelWrap
         }
     }
 }
+class ShutdownPicker {
+    pick(pickArgs) {
+        return {
+            pickResultType: picker_1.PickResultType.DROP,
+            status: {
+                code: constants_1.Status.UNAVAILABLE,
+                details: 'Channel closed before call started',
+                metadata: new metadata_1.Metadata()
+            },
+            subchannel: null,
+            onCallStarted: null,
+            onCallEnded: null
+        };
+    }
+}
+exports.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX = 'grpc.internal.no_subchannel';
+class ChannelzInfoTracker {
+    constructor(target) {
+        this.target = target;
+        this.trace = new channelz_1.ChannelzTrace();
+        this.callTracker = new channelz_1.ChannelzCallTracker();
+        this.childrenTracker = new channelz_1.ChannelzChildrenTracker();
+        this.state = connectivity_state_1.ConnectivityState.IDLE;
+    }
+    getChannelzInfoCallback() {
+        return () => {
+            return {
+                target: this.target,
+                state: this.state,
+                trace: this.trace,
+                callTracker: this.callTracker,
+                children: this.childrenTracker.getChildLists()
+            };
+        };
+    }
+}
 class InternalChannel {
     constructor(target, credentials, options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
+        var _a, _b, _c, _d, _e, _f;
         this.credentials = credentials;
         this.options = options;
         this.connectivityState = connectivity_state_1.ConnectivityState.IDLE;
@@ -9620,6 +10162,15 @@ class InternalChannel {
         this.configSelectionQueue = [];
         this.pickQueue = [];
         this.connectivityStateWatchers = [];
+        /**
+         * This timer does not do anything on its own. Its purpose is to hold the
+         * event loop open while there are any pending calls for the channel that
+         * have not yet been assigned to specific subchannels. In other words,
+         * the invariant is that callRefTimer is reffed if and only if pickQueue
+         * is non-empty. In addition, the timer is null while the state is IDLE or
+         * SHUTDOWN and there are no pending calls.
+         */
+        this.callRefTimer = null;
         this.configSelector = null;
         /**
          * This is the error from the name resolver if it failed most recently. It
@@ -9634,8 +10185,6 @@ class InternalChannel {
         this.idleTimer = null;
         // Channelz info
         this.channelzEnabled = true;
-        this.callTracker = new channelz_1.ChannelzCallTracker();
-        this.childrenTracker = new channelz_1.ChannelzChildrenTracker();
         /**
          * Randomly generated ID to be passed to the config selector, for use by
          * ring_hash in xDS. An integer distributed approximately uniformly between
@@ -9653,7 +10202,7 @@ class InternalChannel {
                 throw new TypeError('Channel options must be an object');
             }
         }
-        this.originalTarget = target;
+        this.channelzInfoTracker = new ChannelzInfoTracker(target);
         const originalTargetUri = (0, uri_parser_1.parseUri)(target);
         if (originalTargetUri === null) {
             throw new Error(`Could not parse target name "${target}"`);
@@ -9664,15 +10213,12 @@ class InternalChannel {
         if (defaultSchemeMapResult === null) {
             throw new Error(`Could not find a default scheme for target name "${target}"`);
         }
-        this.callRefTimer = setInterval(() => { }, MAX_TIMEOUT_TIME);
-        (_b = (_a = this.callRefTimer).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
         if (this.options['grpc.enable_channelz'] === 0) {
             this.channelzEnabled = false;
         }
-        this.channelzTrace = new channelz_1.ChannelzTrace();
-        this.channelzRef = (0, channelz_1.registerChannelzChannel)(target, () => this.getChannelzInfo(), this.channelzEnabled);
+        this.channelzRef = (0, channelz_1.registerChannelzChannel)(target, this.channelzInfoTracker.getChannelzInfoCallback(), this.channelzEnabled);
         if (this.channelzEnabled) {
-            this.channelzTrace.addTrace('CT_INFO', 'Channel created');
+            this.channelzInfoTracker.trace.addTrace('CT_INFO', 'Channel created');
         }
         if (this.options['grpc.default_authority']) {
             this.defaultAuthority = this.options['grpc.default_authority'];
@@ -9685,19 +10231,24 @@ class InternalChannel {
         this.options = Object.assign({}, this.options, proxyMapResult.extraOptions);
         /* The global boolean parameter to getSubchannelPool has the inverse meaning to what
          * the grpc.use_local_subchannel_pool channel option means. */
-        this.subchannelPool = (0, subchannel_pool_1.getSubchannelPool)(((_c = options['grpc.use_local_subchannel_pool']) !== null && _c !== void 0 ? _c : 0) === 0);
-        this.retryBufferTracker = new retrying_call_1.MessageBufferTracker((_d = options['grpc.retry_buffer_size']) !== null && _d !== void 0 ? _d : DEFAULT_RETRY_BUFFER_SIZE_BYTES, (_e = options['grpc.per_rpc_retry_buffer_size']) !== null && _e !== void 0 ? _e : DEFAULT_PER_RPC_RETRY_BUFFER_SIZE_BYTES);
-        this.keepaliveTime = (_f = options['grpc.keepalive_time_ms']) !== null && _f !== void 0 ? _f : -1;
-        this.idleTimeoutMs = Math.max((_g = options['grpc.client_idle_timeout_ms']) !== null && _g !== void 0 ? _g : DEFAULT_IDLE_TIMEOUT_MS, MIN_IDLE_TIMEOUT_MS);
+        this.subchannelPool = (0, subchannel_pool_1.getSubchannelPool)(((_a = this.options['grpc.use_local_subchannel_pool']) !== null && _a !== void 0 ? _a : 0) === 0);
+        this.retryBufferTracker = new retrying_call_1.MessageBufferTracker((_b = this.options['grpc.retry_buffer_size']) !== null && _b !== void 0 ? _b : DEFAULT_RETRY_BUFFER_SIZE_BYTES, (_c = this.options['grpc.per_rpc_retry_buffer_size']) !== null && _c !== void 0 ? _c : DEFAULT_PER_RPC_RETRY_BUFFER_SIZE_BYTES);
+        this.keepaliveTime = (_d = this.options['grpc.keepalive_time_ms']) !== null && _d !== void 0 ? _d : -1;
+        this.idleTimeoutMs = Math.max((_e = this.options['grpc.client_idle_timeout_ms']) !== null && _e !== void 0 ? _e : DEFAULT_IDLE_TIMEOUT_MS, MIN_IDLE_TIMEOUT_MS);
         const channelControlHelper = {
             createSubchannel: (subchannelAddress, subchannelArgs) => {
-                const subchannel = this.subchannelPool.getOrCreateSubchannel(this.target, subchannelAddress, Object.assign({}, this.options, subchannelArgs), this.credentials);
+                const finalSubchannelArgs = {};
+                for (const [key, value] of Object.entries(subchannelArgs)) {
+                    if (!key.startsWith(exports.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX)) {
+                        finalSubchannelArgs[key] = value;
+                    }
+                }
+                const subchannel = this.subchannelPool.getOrCreateSubchannel(this.target, subchannelAddress, finalSubchannelArgs, this.credentials);
                 subchannel.throttleKeepalive(this.keepaliveTime);
                 if (this.channelzEnabled) {
-                    this.channelzTrace.addTrace('CT_INFO', 'Created subchannel or used existing subchannel', subchannel.getChannelzRef());
+                    this.channelzInfoTracker.trace.addTrace('CT_INFO', 'Created subchannel or used existing subchannel', subchannel.getChannelzRef());
                 }
                 const wrappedSubchannel = new ChannelSubchannelWrapper(subchannel, this);
-                this.wrappedSubchannels.add(wrappedSubchannel);
                 return wrappedSubchannel;
             },
             updateState: (connectivityState, picker) => {
@@ -9718,16 +10269,17 @@ class InternalChannel {
             },
             addChannelzChild: (child) => {
                 if (this.channelzEnabled) {
-                    this.childrenTracker.refChild(child);
+                    this.channelzInfoTracker.childrenTracker.refChild(child);
                 }
             },
             removeChannelzChild: (child) => {
                 if (this.channelzEnabled) {
-                    this.childrenTracker.unrefChild(child);
+                    this.channelzInfoTracker.childrenTracker.unrefChild(child);
                 }
             },
         };
-        this.resolvingLoadBalancer = new resolving_load_balancer_1.ResolvingLoadBalancer(this.target, channelControlHelper, options, (serviceConfig, configSelector) => {
+        this.resolvingLoadBalancer = new resolving_load_balancer_1.ResolvingLoadBalancer(this.target, channelControlHelper, this.options, (serviceConfig, configSelector) => {
+            var _a;
             if (serviceConfig.retryThrottling) {
                 RETRY_THROTTLER_MAP.set(this.getTarget(), new retrying_call_1.RetryThrottler(serviceConfig.retryThrottling.maxTokens, serviceConfig.retryThrottling.tokenRatio, RETRY_THROTTLER_MAP.get(this.getTarget())));
             }
@@ -9735,8 +10287,9 @@ class InternalChannel {
                 RETRY_THROTTLER_MAP.delete(this.getTarget());
             }
             if (this.channelzEnabled) {
-                this.channelzTrace.addTrace('CT_INFO', 'Address resolution succeeded');
+                this.channelzInfoTracker.trace.addTrace('CT_INFO', 'Address resolution succeeded');
             }
+            (_a = this.configSelector) === null || _a === void 0 ? void 0 : _a.unref();
             this.configSelector = configSelector;
             this.currentResolutionError = null;
             /* We process the queue asynchronously to ensure that the corresponding
@@ -9753,7 +10306,7 @@ class InternalChannel {
             });
         }, status => {
             if (this.channelzEnabled) {
-                this.channelzTrace.addTrace('CT_WARNING', 'Address resolution failed with code ' +
+                this.channelzInfoTracker.trace.addTrace('CT_WARNING', 'Address resolution failed with code ' +
                     status.code +
                     ' and details "' +
                     status.details +
@@ -9780,27 +10333,23 @@ class InternalChannel {
         this.trace('Channel constructed with options ' +
             JSON.stringify(options, undefined, 2));
         const error = new Error();
-        (0, logging_1.trace)(constants_1.LogVerbosity.DEBUG, 'channel_stacktrace', '(' +
-            this.channelzRef.id +
-            ') ' +
-            'Channel constructed \n' +
-            ((_h = error.stack) === null || _h === void 0 ? void 0 : _h.substring(error.stack.indexOf('\n') + 1)));
+        if ((0, logging_1.isTracerEnabled)('channel_stacktrace')) {
+            (0, logging_1.trace)(constants_1.LogVerbosity.DEBUG, 'channel_stacktrace', '(' +
+                this.channelzRef.id +
+                ') ' +
+                'Channel constructed \n' +
+                ((_f = error.stack) === null || _f === void 0 ? void 0 : _f.substring(error.stack.indexOf('\n') + 1)));
+        }
         this.lastActivityTimestamp = new Date();
-    }
-    getChannelzInfo() {
-        return {
-            target: this.originalTarget,
-            state: this.connectivityState,
-            trace: this.channelzTrace,
-            callTracker: this.callTracker,
-            children: this.childrenTracker.getChildLists(),
-        };
     }
     trace(text, verbosityOverride) {
         (0, logging_1.trace)(verbosityOverride !== null && verbosityOverride !== void 0 ? verbosityOverride : constants_1.LogVerbosity.DEBUG, 'channel', '(' + this.channelzRef.id + ') ' + (0, uri_parser_1.uriToString)(this.target) + ' ' + text);
     }
     callRefTimerRef() {
         var _a, _b, _c, _d;
+        if (!this.callRefTimer) {
+            this.callRefTimer = setInterval(() => { }, MAX_TIMEOUT_TIME);
+        }
         // If the hasRef function does not exist, always run the code
         if (!((_b = (_a = this.callRefTimer).hasRef) === null || _b === void 0 ? void 0 : _b.call(_a))) {
             this.trace('callRefTimer.ref | configSelectionQueue.length=' +
@@ -9811,14 +10360,14 @@ class InternalChannel {
         }
     }
     callRefTimerUnref() {
-        var _a, _b;
-        // If the hasRef function does not exist, always run the code
-        if (!this.callRefTimer.hasRef || this.callRefTimer.hasRef()) {
+        var _a, _b, _c;
+        // If the timer or the hasRef function does not exist, always run the code
+        if (!((_a = this.callRefTimer) === null || _a === void 0 ? void 0 : _a.hasRef) || this.callRefTimer.hasRef()) {
             this.trace('callRefTimer.unref | configSelectionQueue.length=' +
                 this.configSelectionQueue.length +
                 ' pickQueue.length=' +
                 this.pickQueue.length);
-            (_b = (_a = this.callRefTimer).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
+            (_c = (_b = this.callRefTimer) === null || _b === void 0 ? void 0 : _b.unref) === null || _c === void 0 ? void 0 : _c.call(_b);
         }
     }
     removeConnectivityStateWatcher(watcherObject) {
@@ -9837,9 +10386,10 @@ class InternalChannel {
             ' -> ' +
             connectivity_state_1.ConnectivityState[newState]);
         if (this.channelzEnabled) {
-            this.channelzTrace.addTrace('CT_INFO', 'Connectivity state change to ' + connectivity_state_1.ConnectivityState[newState]);
+            this.channelzInfoTracker.trace.addTrace('CT_INFO', 'Connectivity state change to ' + connectivity_state_1.ConnectivityState[newState]);
         }
         this.connectivityState = newState;
+        this.channelzInfoTracker.state = newState;
         const watchersCopy = this.connectivityStateWatchers.slice();
         for (const watcherObject of watchersCopy) {
             if (newState !== watcherObject.currentState) {
@@ -9862,6 +10412,9 @@ class InternalChannel {
             }
         }
     }
+    addWrappedSubchannel(wrappedSubchannel) {
+        this.wrappedSubchannels.add(wrappedSubchannel);
+    }
     removeWrappedSubchannel(wrappedSubchannel) {
         this.wrappedSubchannels.delete(wrappedSubchannel);
     }
@@ -9876,11 +10429,13 @@ class InternalChannel {
         this.callRefTimerRef();
     }
     getConfig(method, metadata) {
-        this.resolvingLoadBalancer.exitIdle();
+        if (this.connectivityState !== connectivity_state_1.ConnectivityState.SHUTDOWN) {
+            this.resolvingLoadBalancer.exitIdle();
+        }
         if (this.configSelector) {
             return {
                 type: 'SUCCESS',
-                config: this.configSelector(method, metadata, this.randomChannelId),
+                config: this.configSelector.invoke(method, metadata, this.randomChannelId),
             };
         }
         else {
@@ -9908,6 +10463,10 @@ class InternalChannel {
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
             this.idleTimer = null;
+        }
+        if (this.callRefTimer) {
+            clearInterval(this.callRefTimer);
+            this.callRefTimer = null;
         }
     }
     startIdleTimeout(timeoutMs) {
@@ -9946,17 +10505,17 @@ class InternalChannel {
     }
     onCallStart() {
         if (this.channelzEnabled) {
-            this.callTracker.addCallStarted();
+            this.channelzInfoTracker.callTracker.addCallStarted();
         }
         this.callCount += 1;
     }
     onCallEnd(status) {
         if (this.channelzEnabled) {
             if (status.code === constants_1.Status.OK) {
-                this.callTracker.addCallSucceeded();
+                this.channelzInfoTracker.callTracker.addCallSucceeded();
             }
             else {
-                this.callTracker.addCallFailed();
+                this.channelzInfoTracker.callTracker.addCallFailed();
             }
         }
         this.callCount -= 1;
@@ -9973,15 +10532,6 @@ class InternalChannel {
         this.trace('createRetryingCall [' + callNumber + '] method="' + method + '"');
         return new retrying_call_1.RetryingCall(this, callConfig, method, host, credentials, deadline, callNumber, this.retryBufferTracker, RETRY_THROTTLER_MAP.get(this.getTarget()));
     }
-    createInnerCall(callConfig, method, host, credentials, deadline) {
-        // Create a RetryingCall if retries are enabled
-        if (this.options['grpc.enable_retries'] === 0) {
-            return this.createLoadBalancingCall(callConfig, method, host, credentials, deadline);
-        }
-        else {
-            return this.createRetryingCall(callConfig, method, host, credentials, deadline);
-        }
-    }
     createResolvingCall(method, deadline, host, parentCall, propagateFlags) {
         const callNumber = (0, call_number_1.getNextCallNumber)();
         this.trace('createResolvingCall [' +
@@ -9996,7 +10546,7 @@ class InternalChannel {
             host: host !== null && host !== void 0 ? host : this.defaultAuthority,
             parentCall: parentCall,
         };
-        const call = new resolving_call_1.ResolvingCall(this, method, finalOptions, this.filterStackFactory.clone(), this.credentials._getCallCredentials(), callNumber);
+        const call = new resolving_call_1.ResolvingCall(this, method, finalOptions, this.filterStackFactory.clone(), callNumber);
         this.onCallStart();
         call.addStatusWatcher(status => {
             this.onCallEnd(status);
@@ -10004,9 +10554,21 @@ class InternalChannel {
         return call;
     }
     close() {
+        var _a;
         this.resolvingLoadBalancer.destroy();
         this.updateState(connectivity_state_1.ConnectivityState.SHUTDOWN);
-        clearInterval(this.callRefTimer);
+        this.currentPicker = new ShutdownPicker();
+        for (const call of this.configSelectionQueue) {
+            call.cancelWithStatus(constants_1.Status.UNAVAILABLE, 'Channel closed before call started');
+        }
+        this.configSelectionQueue = [];
+        for (const call of this.pickQueue) {
+            call.cancelWithStatus(constants_1.Status.UNAVAILABLE, 'Channel closed before call started');
+        }
+        this.pickQueue = [];
+        if (this.callRefTimer) {
+            clearInterval(this.callRefTimer);
+        }
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
         }
@@ -10014,6 +10576,8 @@ class InternalChannel {
             (0, channelz_1.unregisterChannelzRef)(this.channelzRef);
         }
         this.subchannelPool.unrefUnusedSubchannels();
+        (_a = this.configSelector) === null || _a === void 0 ? void 0 : _a.unref();
+        this.configSelector = null;
     }
     getTarget() {
         return (0, uri_parser_1.uriToString)(this.target);
@@ -10071,6 +10635,9 @@ class InternalChannel {
         }
         return this.createResolvingCall(method, deadline, host, parentCall, propagateFlags);
     }
+    getOptions() {
+        return this.options;
+    }
 }
 exports.InternalChannel = InternalChannel;
 //# sourceMappingURL=internal-channel.js.map
@@ -10104,9 +10671,8 @@ const load_balancer_1 = __nccwpck_require__(52680);
 const connectivity_state_1 = __nccwpck_require__(80878);
 const TYPE_NAME = 'child_load_balancer_helper';
 class ChildLoadBalancerHandler {
-    constructor(channelControlHelper, options) {
+    constructor(channelControlHelper) {
         this.channelControlHelper = channelControlHelper;
-        this.options = options;
         this.currentChild = null;
         this.pendingChild = null;
         this.latestConfig = null;
@@ -10118,7 +10684,7 @@ class ChildLoadBalancerHandler {
             createSubchannel(subchannelAddress, subchannelArgs) {
                 return this.parent.channelControlHelper.createSubchannel(subchannelAddress, subchannelArgs);
             }
-            updateState(connectivityState, picker) {
+            updateState(connectivityState, picker, errorMessage) {
                 var _a;
                 if (this.calledByPendingChild()) {
                     if (connectivityState === connectivity_state_1.ConnectivityState.CONNECTING) {
@@ -10131,7 +10697,7 @@ class ChildLoadBalancerHandler {
                 else if (!this.calledByCurrentChild()) {
                     return;
                 }
-                this.parent.channelControlHelper.updateState(connectivityState, picker);
+                this.parent.channelControlHelper.updateState(connectivityState, picker, errorMessage);
             }
             requestReresolution() {
                 var _a;
@@ -10166,13 +10732,13 @@ class ChildLoadBalancerHandler {
      * @param lbConfig
      * @param attributes
      */
-    updateAddressList(endpointList, lbConfig, attributes) {
+    updateAddressList(endpointList, lbConfig, options) {
         let childToUpdate;
         if (this.currentChild === null ||
             this.latestConfig === null ||
             this.configUpdateRequiresNewPolicyInstance(this.latestConfig, lbConfig)) {
             const newHelper = new this.ChildPolicyHelper(this);
-            const newChild = (0, load_balancer_1.createLoadBalancer)(lbConfig, newHelper, this.options);
+            const newChild = (0, load_balancer_1.createLoadBalancer)(lbConfig, newHelper);
             newHelper.setChild(newChild);
             if (this.currentChild === null) {
                 this.currentChild = newChild;
@@ -10195,7 +10761,7 @@ class ChildLoadBalancerHandler {
             }
         }
         this.latestConfig = lbConfig;
-        childToUpdate.updateAddressList(endpointList, lbConfig, attributes);
+        childToUpdate.updateAddressList(endpointList, lbConfig, options);
     }
     exitIdle() {
         if (this.currentChild) {
@@ -10259,7 +10825,8 @@ exports.ChildLoadBalancerHandler = ChildLoadBalancerHandler;
  */
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = exports.OutlierDetectionLoadBalancer = exports.OutlierDetectionLoadBalancingConfig = void 0;
+exports.OutlierDetectionLoadBalancer = exports.OutlierDetectionLoadBalancingConfig = void 0;
+exports.setup = setup;
 const connectivity_state_1 = __nccwpck_require__(80878);
 const constants_1 = __nccwpck_require__(90634);
 const duration_1 = __nccwpck_require__(62668);
@@ -10508,7 +11075,7 @@ class OutlierDetectionPicker {
     }
 }
 class OutlierDetectionLoadBalancer {
-    constructor(channelControlHelper, options) {
+    constructor(channelControlHelper) {
         this.entryMap = new subchannel_address_1.EndpointMap();
         this.latestConfig = null;
         this.timerStartTime = null;
@@ -10524,15 +11091,15 @@ class OutlierDetectionLoadBalancer {
                 mapEntry === null || mapEntry === void 0 ? void 0 : mapEntry.subchannelWrappers.push(subchannelWrapper);
                 return subchannelWrapper;
             },
-            updateState: (connectivityState, picker) => {
+            updateState: (connectivityState, picker, errorMessage) => {
                 if (connectivityState === connectivity_state_1.ConnectivityState.READY) {
-                    channelControlHelper.updateState(connectivityState, new OutlierDetectionPicker(picker, this.isCountingEnabled()));
+                    channelControlHelper.updateState(connectivityState, new OutlierDetectionPicker(picker, this.isCountingEnabled()), errorMessage);
                 }
                 else {
-                    channelControlHelper.updateState(connectivityState, picker);
+                    channelControlHelper.updateState(connectivityState, picker, errorMessage);
                 }
             },
-        }), options);
+        }));
         this.ejectionTimer = setInterval(() => { }, 0);
         clearInterval(this.ejectionTimer);
     }
@@ -10740,10 +11307,11 @@ class OutlierDetectionLoadBalancer {
             }
         }
     }
-    updateAddressList(endpointList, lbConfig, attributes) {
+    updateAddressList(endpointList, lbConfig, options) {
         if (!(lbConfig instanceof OutlierDetectionLoadBalancingConfig)) {
             return;
         }
+        trace('Received update with config: ' + JSON.stringify(lbConfig.toJsonObject(), undefined, 2));
         for (const endpoint of endpointList) {
             if (!this.entryMap.has(endpoint)) {
                 trace('Adding map entry for ' + (0, subchannel_address_1.endpointToString)(endpoint));
@@ -10757,7 +11325,7 @@ class OutlierDetectionLoadBalancer {
         }
         this.entryMap.deleteMissing(endpointList);
         const childPolicy = lbConfig.getChildPolicy();
-        this.childBalancer.updateAddressList(endpointList, childPolicy, attributes);
+        this.childBalancer.updateAddressList(endpointList, childPolicy, options);
         if (lbConfig.getSuccessRateEjectionConfig() ||
             lbConfig.getFailurePercentageEjectionConfig()) {
             if (this.timerStartTime) {
@@ -10805,7 +11373,6 @@ function setup() {
         (0, experimental_1.registerLoadBalancerType)(TYPE_NAME, OutlierDetectionLoadBalancer, OutlierDetectionLoadBalancingConfig);
     }
 }
-exports.setup = setup;
 //# sourceMappingURL=load-balancer-outlier-detection.js.map
 
 /***/ }),
@@ -10832,13 +11399,16 @@ exports.setup = setup;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = exports.LeafLoadBalancer = exports.PickFirstLoadBalancer = exports.shuffled = exports.PickFirstLoadBalancingConfig = void 0;
+exports.LeafLoadBalancer = exports.PickFirstLoadBalancer = exports.PickFirstLoadBalancingConfig = void 0;
+exports.shuffled = shuffled;
+exports.setup = setup;
 const load_balancer_1 = __nccwpck_require__(52680);
 const connectivity_state_1 = __nccwpck_require__(80878);
 const picker_1 = __nccwpck_require__(81611);
+const subchannel_address_1 = __nccwpck_require__(99905);
 const logging = __nccwpck_require__(35993);
 const constants_1 = __nccwpck_require__(90634);
-const subchannel_address_1 = __nccwpck_require__(99905);
+const subchannel_address_2 = __nccwpck_require__(99905);
 const net_1 = __nccwpck_require__(41808);
 const TRACER_NAME = 'pick_first';
 function trace(text) {
@@ -10910,19 +11480,21 @@ function shuffled(list) {
     }
     return result;
 }
-exports.shuffled = shuffled;
 /**
  * Interleave addresses in addressList by family in accordance with RFC-8304 section 4
  * @param addressList
  * @returns
  */
 function interleaveAddressFamilies(addressList) {
+    if (addressList.length === 0) {
+        return [];
+    }
     const result = [];
     const ipv6Addresses = [];
     const ipv4Addresses = [];
-    const ipv6First = (0, subchannel_address_1.isTcpSubchannelAddress)(addressList[0]) && (0, net_1.isIPv6)(addressList[0].host);
+    const ipv6First = (0, subchannel_address_2.isTcpSubchannelAddress)(addressList[0]) && (0, net_1.isIPv6)(addressList[0].host);
     for (const address of addressList) {
-        if ((0, subchannel_address_1.isTcpSubchannelAddress)(address) && (0, net_1.isIPv6)(address.host)) {
+        if ((0, subchannel_address_2.isTcpSubchannelAddress)(address) && (0, net_1.isIPv6)(address.host)) {
             ipv6Addresses.push(address);
         }
         else {
@@ -10950,7 +11522,7 @@ class PickFirstLoadBalancer {
      * @param channelControlHelper `ChannelControlHelper` instance provided by
      *     this load balancer's owner.
      */
-    constructor(channelControlHelper, options) {
+    constructor(channelControlHelper) {
         this.channelControlHelper = channelControlHelper;
         /**
          * The list of subchannels this load balancer is currently attempting to
@@ -10980,7 +11552,6 @@ class PickFirstLoadBalancer {
             this.onSubchannelStateUpdate(subchannel, previousState, newState, errorMessage);
         };
         this.pickedSubchannelHealthListener = () => this.calculateAndReportNewState();
-        this.triedAllSubchannels = false;
         /**
          * The LB policy enters sticky TRANSIENT_FAILURE mode when all
          * subchannels have failed to connect at least once, and it stays in that
@@ -10988,67 +11559,68 @@ class PickFirstLoadBalancer {
          * the LB policy continuously attempts to connect to all of its subchannels.
          */
         this.stickyTransientFailureMode = false;
-        /**
-         * Indicates whether we called channelControlHelper.requestReresolution since
-         * the last call to updateAddressList
-         */
-        this.requestedResolutionSinceLastUpdate = false;
+        this.reportHealthStatus = false;
         /**
          * The most recent error reported by any subchannel as it transitioned to
          * TRANSIENT_FAILURE.
          */
         this.lastError = null;
         this.latestAddressList = null;
+        this.latestOptions = {};
         this.connectionDelayTimeout = setTimeout(() => { }, 0);
         clearTimeout(this.connectionDelayTimeout);
-        this.reportHealthStatus = options[REPORT_HEALTH_STATUS_OPTION_NAME];
     }
     allChildrenHaveReportedTF() {
         return this.children.every(child => child.hasReportedTransientFailure);
     }
+    resetChildrenReportedTF() {
+        this.children.every(child => child.hasReportedTransientFailure = false);
+    }
     calculateAndReportNewState() {
+        var _a;
         if (this.currentPick) {
             if (this.reportHealthStatus && !this.currentPick.isHealthy()) {
+                const errorMessage = `Picked subchannel ${this.currentPick.getAddress()} is unhealthy`;
                 this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker({
-                    details: `Picked subchannel ${this.currentPick.getAddress()} is unhealthy`,
-                }));
+                    details: errorMessage,
+                }), errorMessage);
             }
             else {
-                this.updateState(connectivity_state_1.ConnectivityState.READY, new PickFirstPicker(this.currentPick));
+                this.updateState(connectivity_state_1.ConnectivityState.READY, new PickFirstPicker(this.currentPick), null);
             }
         }
+        else if (((_a = this.latestAddressList) === null || _a === void 0 ? void 0 : _a.length) === 0) {
+            const errorMessage = `No connection established. Last error: ${this.lastError}`;
+            this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker({
+                details: errorMessage,
+            }), errorMessage);
+        }
         else if (this.children.length === 0) {
-            this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this));
+            this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this), null);
         }
         else {
             if (this.stickyTransientFailureMode) {
+                const errorMessage = `No connection established. Last error: ${this.lastError}`;
                 this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker({
-                    details: `No connection established. Last error: ${this.lastError}`,
-                }));
+                    details: errorMessage,
+                }), errorMessage);
             }
             else {
-                this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, new picker_1.QueuePicker(this));
+                this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, new picker_1.QueuePicker(this), null);
             }
         }
     }
     requestReresolution() {
-        this.requestedResolutionSinceLastUpdate = true;
         this.channelControlHelper.requestReresolution();
     }
     maybeEnterStickyTransientFailureMode() {
         if (!this.allChildrenHaveReportedTF()) {
             return;
         }
-        if (!this.requestedResolutionSinceLastUpdate) {
-            /* Each time we get an update we reset each subchannel's
-             * hasReportedTransientFailure flag, so the next time we get to this
-             * point after that, each subchannel has reported TRANSIENT_FAILURE
-             * at least once since then. That is the trigger for requesting
-             * reresolution, whether or not the LB policy is already in sticky TF
-             * mode. */
-            this.requestReresolution();
-        }
+        this.requestReresolution();
+        this.resetChildrenReportedTF();
         if (this.stickyTransientFailureMode) {
+            this.calculateAndReportNewState();
             return;
         }
         this.stickyTransientFailureMode = true;
@@ -11059,17 +11631,12 @@ class PickFirstLoadBalancer {
     }
     removeCurrentPick() {
         if (this.currentPick !== null) {
-            /* Unref can cause a state change, which can cause a change in the value
-             * of this.currentPick, so we hold a local reference to make sure that
-             * does not impact this function. */
-            const currentPick = this.currentPick;
+            this.currentPick.removeConnectivityStateListener(this.subchannelStateListener);
+            this.channelControlHelper.removeChannelzChild(this.currentPick.getChannelzRef());
+            this.currentPick.removeHealthStateWatcher(this.pickedSubchannelHealthListener);
+            // Unref last, to avoid triggering listeners
+            this.currentPick.unref();
             this.currentPick = null;
-            currentPick.unref();
-            currentPick.removeConnectivityStateListener(this.subchannelStateListener);
-            this.channelControlHelper.removeChannelzChild(currentPick.getChannelzRef());
-            if (this.reportHealthStatus) {
-                currentPick.removeHealthStateWatcher(this.pickedSubchannelHealthListener);
-            }
         }
     }
     onSubchannelStateUpdate(subchannel, previousState, newState, errorMessage) {
@@ -11078,7 +11645,6 @@ class PickFirstLoadBalancer {
             if (newState !== connectivity_state_1.ConnectivityState.READY) {
                 this.removeCurrentPick();
                 this.calculateAndReportNewState();
-                this.requestReresolution();
             }
             return;
         }
@@ -11104,9 +11670,6 @@ class PickFirstLoadBalancer {
     }
     startNextSubchannelConnecting(startIndex) {
         clearTimeout(this.connectionDelayTimeout);
-        if (this.triedAllSubchannels) {
-            return;
-        }
         for (const [index, child] of this.children.entries()) {
             if (index >= startIndex) {
                 const subchannelState = child.subchannel.getConnectivityState();
@@ -11117,7 +11680,6 @@ class PickFirstLoadBalancer {
                 }
             }
         }
-        this.triedAllSubchannels = true;
         this.maybeEnterStickyTransientFailureMode();
     }
     /**
@@ -11142,40 +11704,40 @@ class PickFirstLoadBalancer {
         }, CONNECTION_DELAY_INTERVAL_MS);
         (_b = (_a = this.connectionDelayTimeout).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
     }
+    /**
+     * Declare that the specified subchannel should be used to make requests.
+     * This functions the same independent of whether subchannel is a member of
+     * this.children and whether it is equal to this.currentPick.
+     * Prerequisite: subchannel.getConnectivityState() === READY.
+     * @param subchannel
+     */
     pickSubchannel(subchannel) {
-        if (this.currentPick && subchannel.realSubchannelEquals(this.currentPick)) {
-            return;
-        }
         trace('Pick subchannel with address ' + subchannel.getAddress());
         this.stickyTransientFailureMode = false;
-        this.removeCurrentPick();
-        this.currentPick = subchannel;
+        /* Ref before removeCurrentPick and resetSubchannelList to avoid the
+         * refcount dropping to 0 during this process. */
         subchannel.ref();
-        if (this.reportHealthStatus) {
-            subchannel.addHealthStateWatcher(this.pickedSubchannelHealthListener);
-        }
         this.channelControlHelper.addChannelzChild(subchannel.getChannelzRef());
+        this.removeCurrentPick();
         this.resetSubchannelList();
+        subchannel.addConnectivityStateListener(this.subchannelStateListener);
+        subchannel.addHealthStateWatcher(this.pickedSubchannelHealthListener);
+        this.currentPick = subchannel;
         clearTimeout(this.connectionDelayTimeout);
         this.calculateAndReportNewState();
     }
-    updateState(newState, picker) {
+    updateState(newState, picker, errorMessage) {
         trace(connectivity_state_1.ConnectivityState[this.currentState] +
             ' -> ' +
             connectivity_state_1.ConnectivityState[newState]);
         this.currentState = newState;
-        this.channelControlHelper.updateState(newState, picker);
+        this.channelControlHelper.updateState(newState, picker, errorMessage);
     }
     resetSubchannelList() {
         for (const child of this.children) {
-            if (!(this.currentPick &&
-                child.subchannel.realSubchannelEquals(this.currentPick))) {
-                /* The connectivity state listener is the same whether the subchannel
-                 * is in the list of children or it is the currentPick, so if it is in
-                 * both, removing it here would cause problems. In particular, that
-                 * always happens immediately after the subchannel is picked. */
-                child.subchannel.removeConnectivityStateListener(this.subchannelStateListener);
-            }
+            /* Always remoev the connectivity state listener. If the subchannel is
+               getting picked, it will be re-added then. */
+            child.subchannel.removeConnectivityStateListener(this.subchannelStateListener);
             /* Refs are counted independently for the children list and the
              * currentPick, so we call unref whether or not the child is the
              * currentPick. Channelz child references are also refcounted, so
@@ -11185,14 +11747,19 @@ class PickFirstLoadBalancer {
         }
         this.currentSubchannelIndex = 0;
         this.children = [];
-        this.triedAllSubchannels = false;
-        this.requestedResolutionSinceLastUpdate = false;
     }
-    connectToAddressList(addressList) {
+    connectToAddressList(addressList, options) {
+        trace('connectToAddressList([' + addressList.map(address => (0, subchannel_address_1.subchannelAddressToString)(address)) + '])');
         const newChildrenList = addressList.map(address => ({
-            subchannel: this.channelControlHelper.createSubchannel(address, {}),
+            subchannel: this.channelControlHelper.createSubchannel(address, options),
             hasReportedTransientFailure: false,
         }));
+        for (const { subchannel } of newChildrenList) {
+            if (subchannel.getConnectivityState() === connectivity_state_1.ConnectivityState.READY) {
+                this.pickSubchannel(subchannel);
+                return;
+            }
+        }
         /* Ref each subchannel before resetting the list, to ensure that
          * subchannels shared between the list don't drop to 0 refs during the
          * transition. */
@@ -11204,10 +11771,6 @@ class PickFirstLoadBalancer {
         this.children = newChildrenList;
         for (const { subchannel } of this.children) {
             subchannel.addConnectivityStateListener(this.subchannelStateListener);
-            if (subchannel.getConnectivityState() === connectivity_state_1.ConnectivityState.READY) {
-                this.pickSubchannel(subchannel);
-                return;
-            }
         }
         for (const child of this.children) {
             if (child.subchannel.getConnectivityState() ===
@@ -11218,10 +11781,11 @@ class PickFirstLoadBalancer {
         this.startNextSubchannelConnecting(0);
         this.calculateAndReportNewState();
     }
-    updateAddressList(endpointList, lbConfig) {
+    updateAddressList(endpointList, lbConfig, options) {
         if (!(lbConfig instanceof PickFirstLoadBalancingConfig)) {
             return;
         }
+        this.reportHealthStatus = options[REPORT_HEALTH_STATUS_OPTION_NAME];
         /* Previously, an update would be discarded if it was identical to the
          * previous update, to minimize churn. Now the DNS resolver is
          * rate-limited, so that is less of a concern. */
@@ -11229,17 +11793,19 @@ class PickFirstLoadBalancer {
             endpointList = shuffled(endpointList);
         }
         const rawAddressList = [].concat(...endpointList.map(endpoint => endpoint.addresses));
+        trace('updateAddressList([' + rawAddressList.map(address => (0, subchannel_address_1.subchannelAddressToString)(address)) + '])');
         if (rawAddressList.length === 0) {
-            throw new Error('No addresses in endpoint list passed to pick_first');
+            this.lastError = 'No addresses resolved';
         }
         const addressList = interleaveAddressFamilies(rawAddressList);
         this.latestAddressList = addressList;
-        this.connectToAddressList(addressList);
+        this.latestOptions = options;
+        this.connectToAddressList(addressList, options);
     }
     exitIdle() {
         if (this.currentState === connectivity_state_1.ConnectivityState.IDLE &&
             this.latestAddressList) {
-            this.connectToAddressList(this.latestAddressList);
+            this.connectToAddressList(this.latestAddressList, this.latestOptions);
         }
     }
     resetBackoff() {
@@ -11264,19 +11830,20 @@ const LEAF_CONFIG = new PickFirstLoadBalancingConfig(false);
 class LeafLoadBalancer {
     constructor(endpoint, channelControlHelper, options) {
         this.endpoint = endpoint;
+        this.options = options;
         this.latestState = connectivity_state_1.ConnectivityState.IDLE;
         const childChannelControlHelper = (0, load_balancer_1.createChildChannelControlHelper)(channelControlHelper, {
-            updateState: (connectivityState, picker) => {
+            updateState: (connectivityState, picker, errorMessage) => {
                 this.latestState = connectivityState;
                 this.latestPicker = picker;
-                channelControlHelper.updateState(connectivityState, picker);
+                channelControlHelper.updateState(connectivityState, picker, errorMessage);
             },
         });
-        this.pickFirstBalancer = new PickFirstLoadBalancer(childChannelControlHelper, Object.assign(Object.assign({}, options), { [REPORT_HEALTH_STATUS_OPTION_NAME]: true }));
+        this.pickFirstBalancer = new PickFirstLoadBalancer(childChannelControlHelper);
         this.latestPicker = new picker_1.QueuePicker(this.pickFirstBalancer);
     }
     startConnecting() {
-        this.pickFirstBalancer.updateAddressList([this.endpoint], LEAF_CONFIG);
+        this.pickFirstBalancer.updateAddressList([this.endpoint], LEAF_CONFIG, Object.assign(Object.assign({}, this.options), { [REPORT_HEALTH_STATUS_OPTION_NAME]: true }));
     }
     /**
      * Update the endpoint associated with this LeafLoadBalancer to a new
@@ -11284,7 +11851,8 @@ class LeafLoadBalancer {
      * attempt is not already in progress.
      * @param newEndpoint
      */
-    updateEndpoint(newEndpoint) {
+    updateEndpoint(newEndpoint, newOptions) {
+        this.options = newOptions;
         this.endpoint = newEndpoint;
         if (this.latestState !== connectivity_state_1.ConnectivityState.IDLE) {
             this.startConnecting();
@@ -11311,7 +11879,6 @@ function setup() {
     (0, load_balancer_1.registerLoadBalancerType)(TYPE_NAME, PickFirstLoadBalancer, PickFirstLoadBalancingConfig);
     (0, load_balancer_1.registerDefaultLoadBalancerType)(TYPE_NAME);
 }
-exports.setup = setup;
 //# sourceMappingURL=load-balancer-pick-first.js.map
 
 /***/ }),
@@ -11338,7 +11905,8 @@ exports.setup = setup;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = exports.RoundRobinLoadBalancer = void 0;
+exports.RoundRobinLoadBalancer = void 0;
+exports.setup = setup;
 const load_balancer_1 = __nccwpck_require__(52680);
 const connectivity_state_1 = __nccwpck_require__(80878);
 const picker_1 = __nccwpck_require__(81611);
@@ -11386,16 +11954,25 @@ class RoundRobinPicker {
     }
 }
 class RoundRobinLoadBalancer {
-    constructor(channelControlHelper, options) {
+    constructor(channelControlHelper) {
         this.channelControlHelper = channelControlHelper;
-        this.options = options;
         this.children = [];
         this.currentState = connectivity_state_1.ConnectivityState.IDLE;
         this.currentReadyPicker = null;
         this.updatesPaused = false;
         this.lastError = null;
         this.childChannelControlHelper = (0, load_balancer_1.createChildChannelControlHelper)(channelControlHelper, {
-            updateState: (connectivityState, picker) => {
+            updateState: (connectivityState, picker, errorMessage) => {
+                /* Ensure that name resolution is requested again after active
+                 * connections are dropped. This is more aggressive than necessary to
+                 * accomplish that, so we are counting on resolvers to have
+                 * reasonable rate limits. */
+                if (this.currentState === connectivity_state_1.ConnectivityState.READY && connectivityState !== connectivity_state_1.ConnectivityState.READY) {
+                    this.channelControlHelper.requestReresolution();
+                }
+                if (errorMessage) {
+                    this.lastError = errorMessage;
+                }
                 this.calculateAndUpdateState();
             },
         });
@@ -11421,18 +11998,19 @@ class RoundRobinLoadBalancer {
             this.updateState(connectivity_state_1.ConnectivityState.READY, new RoundRobinPicker(readyChildren.map(child => ({
                 endpoint: child.getEndpoint(),
                 picker: child.getPicker(),
-            })), index));
+            })), index), null);
         }
         else if (this.countChildrenWithState(connectivity_state_1.ConnectivityState.CONNECTING) > 0) {
-            this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, new picker_1.QueuePicker(this));
+            this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, new picker_1.QueuePicker(this), null);
         }
         else if (this.countChildrenWithState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE) > 0) {
+            const errorMessage = `round_robin: No connection established. Last error: ${this.lastError}`;
             this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker({
-                details: `No connection established. Last error: ${this.lastError}`,
-            }));
+                details: errorMessage,
+            }), errorMessage);
         }
         else {
-            this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this));
+            this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this), null);
         }
         /* round_robin should keep all children connected, this is how we do that.
          * We can't do this more efficiently in the individual child's updateState
@@ -11444,7 +12022,7 @@ class RoundRobinLoadBalancer {
             }
         }
     }
-    updateState(newState, picker) {
+    updateState(newState, picker, errorMessage) {
         trace(connectivity_state_1.ConnectivityState[this.currentState] +
             ' -> ' +
             connectivity_state_1.ConnectivityState[newState]);
@@ -11455,18 +12033,18 @@ class RoundRobinLoadBalancer {
             this.currentReadyPicker = null;
         }
         this.currentState = newState;
-        this.channelControlHelper.updateState(newState, picker);
+        this.channelControlHelper.updateState(newState, picker, errorMessage);
     }
     resetSubchannelList() {
         for (const child of this.children) {
             child.destroy();
         }
     }
-    updateAddressList(endpointList, lbConfig) {
+    updateAddressList(endpointList, lbConfig, options) {
         this.resetSubchannelList();
         trace('Connect to endpoint list ' + endpointList.map(subchannel_address_1.endpointToString));
         this.updatesPaused = true;
-        this.children = endpointList.map(endpoint => new load_balancer_pick_first_1.LeafLoadBalancer(endpoint, this.childChannelControlHelper, this.options));
+        this.children = endpointList.map(endpoint => new load_balancer_pick_first_1.LeafLoadBalancer(endpoint, this.childChannelControlHelper, options));
         for (const child of this.children) {
             child.startConnecting();
         }
@@ -11492,7 +12070,6 @@ exports.RoundRobinLoadBalancer = RoundRobinLoadBalancer;
 function setup() {
     (0, load_balancer_1.registerLoadBalancerType)(TYPE_NAME, RoundRobinLoadBalancer, RoundRobinLoadBalancingConfig);
 }
-exports.setup = setup;
 //# sourceMappingURL=load-balancer-round-robin.js.map
 
 /***/ }),
@@ -11519,7 +12096,14 @@ exports.setup = setup;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.selectLbConfigFromList = exports.getDefaultConfig = exports.parseLoadBalancingConfig = exports.isLoadBalancerNameRegistered = exports.createLoadBalancer = exports.registerDefaultLoadBalancerType = exports.registerLoadBalancerType = exports.createChildChannelControlHelper = void 0;
+exports.createChildChannelControlHelper = createChildChannelControlHelper;
+exports.registerLoadBalancerType = registerLoadBalancerType;
+exports.registerDefaultLoadBalancerType = registerDefaultLoadBalancerType;
+exports.createLoadBalancer = createLoadBalancer;
+exports.isLoadBalancerNameRegistered = isLoadBalancerNameRegistered;
+exports.parseLoadBalancingConfig = parseLoadBalancingConfig;
+exports.getDefaultConfig = getDefaultConfig;
+exports.selectLbConfigFromList = selectLbConfigFromList;
 const logging_1 = __nccwpck_require__(35993);
 const constants_1 = __nccwpck_require__(90634);
 /**
@@ -11540,7 +12124,6 @@ function createChildChannelControlHelper(parent, overrides) {
         removeChannelzChild: (_k = (_j = overrides.removeChannelzChild) === null || _j === void 0 ? void 0 : _j.bind(overrides)) !== null && _k !== void 0 ? _k : parent.removeChannelzChild.bind(parent),
     };
 }
-exports.createChildChannelControlHelper = createChildChannelControlHelper;
 const registeredLoadBalancerTypes = {};
 let defaultLoadBalancerType = null;
 function registerLoadBalancerType(typeName, loadBalancerType, loadBalancingConfigType) {
@@ -11549,25 +12132,21 @@ function registerLoadBalancerType(typeName, loadBalancerType, loadBalancingConfi
         LoadBalancingConfig: loadBalancingConfigType,
     };
 }
-exports.registerLoadBalancerType = registerLoadBalancerType;
 function registerDefaultLoadBalancerType(typeName) {
     defaultLoadBalancerType = typeName;
 }
-exports.registerDefaultLoadBalancerType = registerDefaultLoadBalancerType;
-function createLoadBalancer(config, channelControlHelper, options) {
+function createLoadBalancer(config, channelControlHelper) {
     const typeName = config.getLoadBalancerName();
     if (typeName in registeredLoadBalancerTypes) {
-        return new registeredLoadBalancerTypes[typeName].LoadBalancer(channelControlHelper, options);
+        return new registeredLoadBalancerTypes[typeName].LoadBalancer(channelControlHelper);
     }
     else {
         return null;
     }
 }
-exports.createLoadBalancer = createLoadBalancer;
 function isLoadBalancerNameRegistered(typeName) {
     return typeName in registeredLoadBalancerTypes;
 }
-exports.isLoadBalancerNameRegistered = isLoadBalancerNameRegistered;
 function parseLoadBalancingConfig(rawConfig) {
     const keys = Object.keys(rawConfig);
     if (keys.length !== 1) {
@@ -11586,14 +12165,12 @@ function parseLoadBalancingConfig(rawConfig) {
         throw new Error(`Unrecognized load balancing config name ${typeName}`);
     }
 }
-exports.parseLoadBalancingConfig = parseLoadBalancingConfig;
 function getDefaultConfig() {
     if (!defaultLoadBalancerType) {
         throw new Error('No default load balancer type registered');
     }
     return new registeredLoadBalancerTypes[defaultLoadBalancerType].LoadBalancingConfig();
 }
-exports.getDefaultConfig = getDefaultConfig;
 function selectLbConfigFromList(configs, fallbackTodefault = false) {
     for (const config of configs) {
         try {
@@ -11616,7 +12193,6 @@ function selectLbConfigFromList(configs, fallbackTodefault = false) {
         return null;
     }
 }
-exports.selectLbConfigFromList = selectLbConfigFromList;
 //# sourceMappingURL=load-balancer.js.map
 
 /***/ }),
@@ -11753,10 +12329,11 @@ class LoadBalancingCall {
             ((_b = pickResult.status) === null || _b === void 0 ? void 0 : _b.details));
         switch (pickResult.pickResultType) {
             case picker_1.PickResultType.COMPLETE:
-                this.credentials
-                    .generateMetadata({ service_url: this.serviceUrl })
+                const combinedCallCredentials = this.credentials.compose(pickResult.subchannel.getCallCredentials());
+                combinedCallCredentials
+                    .generateMetadata({ method_name: this.methodName, service_url: this.serviceUrl })
                     .then(credsMetadata => {
-                    var _a, _b, _c;
+                    var _a;
                     /* If this call was cancelled (e.g. by the deadline) before
                      * metadata generation finished, we shouldn't do anything with
                      * it. */
@@ -11823,8 +12400,7 @@ class LoadBalancingCall {
                         }, 'NOT_STARTED');
                         return;
                     }
-                    (_b = (_a = this.callConfig).onCommitted) === null || _b === void 0 ? void 0 : _b.call(_a);
-                    (_c = pickResult.onCallStarted) === null || _c === void 0 ? void 0 : _c.call(pickResult);
+                    (_a = pickResult.onCallStarted) === null || _a === void 0 ? void 0 : _a.call(pickResult);
                     this.onCallEnded = pickResult.onCallEnded;
                     this.trace('Created child call [' + this.child.getCallNumber() + ']');
                     if (this.readPending) {
@@ -11945,7 +12521,9 @@ exports.LoadBalancingCall = LoadBalancingCall;
  */
 var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isTracerEnabled = exports.trace = exports.log = exports.setLoggerVerbosity = exports.setLogger = exports.getLogger = void 0;
+exports.log = exports.setLoggerVerbosity = exports.setLogger = exports.getLogger = void 0;
+exports.trace = trace;
+exports.isTracerEnabled = isTracerEnabled;
 const constants_1 = __nccwpck_require__(90634);
 const process_1 = __nccwpck_require__(77282);
 const clientVersion = (__nccwpck_require__(56569)/* .version */ .i8);
@@ -12042,11 +12620,9 @@ function trace(severity, tracer, text) {
             text);
     }
 }
-exports.trace = trace;
 function isTracerEnabled(tracer) {
     return (!disabledTracers.has(tracer) && (allEnabled || enabledTracers.has(tracer)));
 }
-exports.isTracerEnabled = isTracerEnabled;
 //# sourceMappingURL=logging.js.map
 
 /***/ }),
@@ -12073,7 +12649,8 @@ exports.isTracerEnabled = isTracerEnabled;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.loadPackageDefinition = exports.makeClientConstructor = void 0;
+exports.makeClientConstructor = makeClientConstructor;
+exports.loadPackageDefinition = loadPackageDefinition;
 const client_1 = __nccwpck_require__(87172);
 /**
  * Map with short names for each of the requester maker functions. Used in
@@ -12155,7 +12732,6 @@ function makeClientConstructor(methods, serviceName, classOptions) {
     ServiceClientImpl.serviceName = serviceName;
     return ServiceClientImpl;
 }
-exports.makeClientConstructor = makeClientConstructor;
 function partial(fn, path, serialize, deserialize) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return function (...args) {
@@ -12197,7 +12773,6 @@ function loadPackageDefinition(packageDef) {
     }
     return result;
 }
-exports.loadPackageDefinition = loadPackageDefinition;
 //# sourceMappingURL=make-client.js.map
 
 /***/ }),
@@ -12572,10 +13147,10 @@ exports.QueuePicker = QueuePicker;
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = exports.DEFAULT_PORT = void 0;
+exports.DEFAULT_PORT = void 0;
+exports.setup = setup;
 const resolver_1 = __nccwpck_require__(31594);
-const dns = __nccwpck_require__(9523);
-const util = __nccwpck_require__(73837);
+const dns_1 = __nccwpck_require__(9523);
 const service_config_1 = __nccwpck_require__(21761);
 const constants_1 = __nccwpck_require__(90634);
 const metadata_1 = __nccwpck_require__(83665);
@@ -12584,6 +13159,7 @@ const constants_2 = __nccwpck_require__(90634);
 const uri_parser_1 = __nccwpck_require__(65974);
 const net_1 = __nccwpck_require__(41808);
 const backoff_timeout_1 = __nccwpck_require__(34186);
+const environment_1 = __nccwpck_require__(29160);
 const TRACER_NAME = 'dns_resolver';
 function trace(text) {
     logging.trace(constants_2.LogVerbosity.DEBUG, TRACER_NAME, text);
@@ -12593,8 +13169,6 @@ function trace(text) {
  */
 exports.DEFAULT_PORT = 443;
 const DEFAULT_MIN_TIME_BETWEEN_RESOLUTIONS_MS = 30000;
-const resolveTxtPromise = util.promisify(dns.resolveTxt);
-const dnsLookupPromise = util.promisify(dns.lookup);
 /**
  * Resolver implementation that handles DNS names and IP addresses.
  */
@@ -12612,7 +13186,11 @@ class DnsResolver {
         this.isNextResolutionTimerRunning = false;
         this.isServiceConfigEnabled = true;
         this.returnedIpResult = false;
+        this.alternativeResolver = new dns_1.promises.Resolver();
         trace('Resolver constructed for target ' + (0, uri_parser_1.uriToString)(target));
+        if (target.authority) {
+            this.alternativeResolver.setServers([target.authority]);
+        }
         const hostPort = (0, uri_parser_1.splitHostPort)(target.path);
         if (hostPort === null) {
             this.ipResult = null;
@@ -12706,11 +13284,7 @@ class DnsResolver {
              * revert to an effectively blank one. */
             this.latestLookupResult = null;
             const hostname = this.dnsHostname;
-            /* We lookup both address families here and then split them up later
-             * because when looking up a single family, dns.lookup outputs an error
-             * if the name exists but there are no records for that family, and that
-             * error is indistinguishable from other kinds of errors */
-            this.pendingLookupPromise = dnsLookupPromise(hostname, { all: true });
+            this.pendingLookupPromise = this.lookup(hostname);
             this.pendingLookupPromise.then(addressList => {
                 if (this.pendingLookupPromise === null) {
                     return;
@@ -12718,14 +13292,11 @@ class DnsResolver {
                 this.pendingLookupPromise = null;
                 this.backoff.reset();
                 this.backoff.stop();
-                const subchannelAddresses = addressList.map(addr => ({ host: addr.address, port: +this.port }));
-                this.latestLookupResult = subchannelAddresses.map(address => ({
+                this.latestLookupResult = addressList.map(address => ({
                     addresses: [address],
                 }));
                 const allAddressesString = '[' +
-                    subchannelAddresses
-                        .map(addr => addr.host + ':' + addr.port)
-                        .join(',') +
+                    addressList.map(addr => addr.host + ':' + addr.port).join(',') +
                     ']';
                 trace('Resolved addresses for target ' +
                     (0, uri_parser_1.uriToString)(this.target) +
@@ -12758,7 +13329,7 @@ class DnsResolver {
                 /* We handle the TXT query promise differently than the others because
                  * the name resolution attempt as a whole is a success even if the TXT
                  * lookup fails */
-                this.pendingTxtPromise = resolveTxtPromise(hostname);
+                this.pendingTxtPromise = this.resolveTxt(hostname);
                 this.pendingTxtPromise.then(txtRecord => {
                     if (this.pendingTxtPromise === null) {
                         return;
@@ -12792,6 +13363,41 @@ class DnsResolver {
                 });
             }
         }
+    }
+    async lookup(hostname) {
+        if (environment_1.GRPC_NODE_USE_ALTERNATIVE_RESOLVER) {
+            trace('Using alternative DNS resolver.');
+            const records = await Promise.allSettled([
+                this.alternativeResolver.resolve4(hostname),
+                this.alternativeResolver.resolve6(hostname),
+            ]);
+            if (records.every(result => result.status === 'rejected')) {
+                throw new Error(records[0].reason);
+            }
+            return records
+                .reduce((acc, result) => {
+                return result.status === 'fulfilled'
+                    ? [...acc, ...result.value]
+                    : acc;
+            }, [])
+                .map(addr => ({
+                host: addr,
+                port: +this.port,
+            }));
+        }
+        /* We lookup both address families here and then split them up later
+         * because when looking up a single family, dns.lookup outputs an error
+         * if the name exists but there are no records for that family, and that
+         * error is indistinguishable from other kinds of errors */
+        const addressList = await dns_1.promises.lookup(hostname, { all: true });
+        return addressList.map(addr => ({ host: addr.address, port: +this.port }));
+    }
+    async resolveTxt(hostname) {
+        if (environment_1.GRPC_NODE_USE_ALTERNATIVE_RESOLVER) {
+            trace('Using alternative DNS resolver.');
+            return this.alternativeResolver.resolveTxt(hostname);
+        }
+        return dns_1.promises.resolveTxt(hostname);
     }
     startNextResolutionTimer() {
         var _a, _b;
@@ -12872,7 +13478,6 @@ function setup() {
     (0, resolver_1.registerResolver)('dns', DnsResolver);
     (0, resolver_1.registerDefaultScheme)('dns');
 }
-exports.setup = setup;
 //# sourceMappingURL=resolver-dns.js.map
 
 /***/ }),
@@ -12898,7 +13503,7 @@ exports.setup = setup;
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = void 0;
+exports.setup = setup;
 const net_1 = __nccwpck_require__(41808);
 const constants_1 = __nccwpck_require__(90634);
 const metadata_1 = __nccwpck_require__(83665);
@@ -12984,7 +13589,6 @@ function setup() {
     (0, resolver_1.registerResolver)(IPV4_SCHEME, IpResolver);
     (0, resolver_1.registerResolver)(IPV6_SCHEME, IpResolver);
 }
-exports.setup = setup;
 //# sourceMappingURL=resolver-ip.js.map
 
 /***/ }),
@@ -13010,7 +13614,7 @@ exports.setup = setup;
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setup = void 0;
+exports.setup = setup;
 const resolver_1 = __nccwpck_require__(31594);
 class UdsResolver {
     constructor(target, listener, channelOptions) {
@@ -13042,7 +13646,6 @@ class UdsResolver {
 function setup() {
     (0, resolver_1.registerResolver)('unix', UdsResolver);
 }
-exports.setup = setup;
 //# sourceMappingURL=resolver-uds.js.map
 
 /***/ }),
@@ -13069,7 +13672,11 @@ exports.setup = setup;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.mapUriDefaultScheme = exports.getDefaultAuthority = exports.createResolver = exports.registerDefaultScheme = exports.registerResolver = void 0;
+exports.registerResolver = registerResolver;
+exports.registerDefaultScheme = registerDefaultScheme;
+exports.createResolver = createResolver;
+exports.getDefaultAuthority = getDefaultAuthority;
+exports.mapUriDefaultScheme = mapUriDefaultScheme;
 const uri_parser_1 = __nccwpck_require__(65974);
 const registeredResolvers = {};
 let defaultScheme = null;
@@ -13083,7 +13690,6 @@ let defaultScheme = null;
 function registerResolver(scheme, resolverClass) {
     registeredResolvers[scheme] = resolverClass;
 }
-exports.registerResolver = registerResolver;
 /**
  * Register a default resolver to handle target names that do not start with
  * any registered prefix.
@@ -13092,7 +13698,6 @@ exports.registerResolver = registerResolver;
 function registerDefaultScheme(scheme) {
     defaultScheme = scheme;
 }
-exports.registerDefaultScheme = registerDefaultScheme;
 /**
  * Create a name resolver for the specified target, if possible. Throws an
  * error if no such name resolver can be created.
@@ -13107,7 +13712,6 @@ function createResolver(target, listener, options) {
         throw new Error(`No resolver could be created for target ${(0, uri_parser_1.uriToString)(target)}`);
     }
 }
-exports.createResolver = createResolver;
 /**
  * Get the default authority for the specified target, if possible. Throws an
  * error if no registered name resolver can parse that target string.
@@ -13121,7 +13725,6 @@ function getDefaultAuthority(target) {
         throw new Error(`Invalid target ${(0, uri_parser_1.uriToString)(target)}`);
     }
 }
-exports.getDefaultAuthority = getDefaultAuthority;
 function mapUriDefaultScheme(target) {
     if (target.scheme === undefined || !(target.scheme in registeredResolvers)) {
         if (defaultScheme !== null) {
@@ -13137,7 +13740,6 @@ function mapUriDefaultScheme(target) {
     }
     return target;
 }
-exports.mapUriDefaultScheme = mapUriDefaultScheme;
 //# sourceMappingURL=resolver.js.map
 
 /***/ }),
@@ -13165,6 +13767,7 @@ exports.mapUriDefaultScheme = mapUriDefaultScheme;
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ResolvingCall = void 0;
+const call_credentials_1 = __nccwpck_require__(21426);
 const constants_1 = __nccwpck_require__(90634);
 const deadline_1 = __nccwpck_require__(511);
 const metadata_1 = __nccwpck_require__(83665);
@@ -13172,11 +13775,10 @@ const logging = __nccwpck_require__(35993);
 const control_plane_status_1 = __nccwpck_require__(39129);
 const TRACER_NAME = 'resolving_call';
 class ResolvingCall {
-    constructor(channel, method, options, filterStackFactory, credentials, callNumber) {
+    constructor(channel, method, options, filterStackFactory, callNumber) {
         this.channel = channel;
         this.method = method;
         this.filterStackFactory = filterStackFactory;
-        this.credentials = credentials;
         this.callNumber = callNumber;
         this.child = null;
         this.readPending = false;
@@ -13194,6 +13796,12 @@ class ResolvingCall {
         this.deadlineStartTime = null;
         this.configReceivedTime = null;
         this.childStartTime = null;
+        /**
+         * Credentials configured for this specific call. Does not include
+         * call credentials associated with the channel credentials used to create
+         * the channel.
+         */
+        this.credentials = call_credentials_1.CallCredentials.createEmpty();
         this.deadline = options.deadline;
         this.host = options.host;
         if (options.parentCall) {
@@ -13338,7 +13946,7 @@ class ResolvingCall {
         this.filterStackFactory.push(config.dynamicFilterFactories);
         this.filterStack = this.filterStackFactory.createFilter();
         this.filterStack.sendMetadata(Promise.resolve(this.metadata)).then(filteredMetadata => {
-            this.child = this.channel.createInnerCall(config, this.method, this.host, this.credentials, this.deadline);
+            this.child = this.channel.createRetryingCall(config, this.method, this.host, this.credentials, this.deadline);
             this.trace('Created child [' + this.child.getCallNumber() + ']');
             this.childStartTime = new Date();
             this.child.start(filteredMetadata, {
@@ -13440,7 +14048,7 @@ class ResolvingCall {
         }
     }
     setCredentials(credentials) {
-        this.credentials = this.credentials.compose(credentials);
+        this.credentials = credentials;
     }
     addStatusWatcher(watcher) {
         this.statusWatchers.push(watcher);
@@ -13532,36 +14140,39 @@ function findMatchingConfig(service, method, methodConfigs, matchLevel) {
     return null;
 }
 function getDefaultConfigSelector(serviceConfig) {
-    return function defaultConfigSelector(methodName, metadata) {
-        var _a, _b;
-        const splitName = methodName.split('/').filter(x => x.length > 0);
-        const service = (_a = splitName[0]) !== null && _a !== void 0 ? _a : '';
-        const method = (_b = splitName[1]) !== null && _b !== void 0 ? _b : '';
-        if (serviceConfig && serviceConfig.methodConfig) {
-            /* Check for the following in order, and return the first method
-             * config that matches:
-             * 1. A name that exactly matches the service and method
-             * 2. A name with no method set that matches the service
-             * 3. An empty name
-             */
-            for (const matchLevel of NAME_MATCH_LEVEL_ORDER) {
-                const matchingConfig = findMatchingConfig(service, method, serviceConfig.methodConfig, matchLevel);
-                if (matchingConfig) {
-                    return {
-                        methodConfig: matchingConfig,
-                        pickInformation: {},
-                        status: constants_1.Status.OK,
-                        dynamicFilterFactories: [],
-                    };
+    return {
+        invoke(methodName, metadata) {
+            var _a, _b;
+            const splitName = methodName.split('/').filter(x => x.length > 0);
+            const service = (_a = splitName[0]) !== null && _a !== void 0 ? _a : '';
+            const method = (_b = splitName[1]) !== null && _b !== void 0 ? _b : '';
+            if (serviceConfig && serviceConfig.methodConfig) {
+                /* Check for the following in order, and return the first method
+                * config that matches:
+                * 1. A name that exactly matches the service and method
+                * 2. A name with no method set that matches the service
+                * 3. An empty name
+                */
+                for (const matchLevel of NAME_MATCH_LEVEL_ORDER) {
+                    const matchingConfig = findMatchingConfig(service, method, serviceConfig.methodConfig, matchLevel);
+                    if (matchingConfig) {
+                        return {
+                            methodConfig: matchingConfig,
+                            pickInformation: {},
+                            status: constants_1.Status.OK,
+                            dynamicFilterFactories: [],
+                        };
+                    }
                 }
             }
-        }
-        return {
-            methodConfig: { name: [] },
-            pickInformation: {},
-            status: constants_1.Status.OK,
-            dynamicFilterFactories: [],
-        };
+            return {
+                methodConfig: { name: [] },
+                pickInformation: {},
+                status: constants_1.Status.OK,
+                dynamicFilterFactories: [],
+            };
+        },
+        unref() { }
     };
 }
 class ResolvingLoadBalancer {
@@ -13580,10 +14191,12 @@ class ResolvingLoadBalancer {
     constructor(target, channelControlHelper, channelOptions, onSuccessfulResolution, onFailedResolution) {
         this.target = target;
         this.channelControlHelper = channelControlHelper;
+        this.channelOptions = channelOptions;
         this.onSuccessfulResolution = onSuccessfulResolution;
         this.onFailedResolution = onFailedResolution;
         this.latestChildState = connectivity_state_1.ConnectivityState.IDLE;
         this.latestChildPicker = new picker_1.QueuePicker(this);
+        this.latestChildErrorMessage = null;
         /**
          * This resolving load balancer's current connectivity state.
          */
@@ -13608,7 +14221,7 @@ class ResolvingLoadBalancer {
                 methodConfig: [],
             };
         }
-        this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this));
+        this.updateState(connectivity_state_1.ConnectivityState.IDLE, new picker_1.QueuePicker(this), null);
         this.childLoadBalancer = new load_balancer_child_handler_1.ChildLoadBalancerHandler({
             createSubchannel: channelControlHelper.createSubchannel.bind(channelControlHelper),
             requestReresolution: () => {
@@ -13625,14 +14238,15 @@ class ResolvingLoadBalancer {
                     this.updateResolution();
                 }
             },
-            updateState: (newState, picker) => {
+            updateState: (newState, picker, errorMessage) => {
                 this.latestChildState = newState;
                 this.latestChildPicker = picker;
-                this.updateState(newState, picker);
+                this.latestChildErrorMessage = errorMessage;
+                this.updateState(newState, picker, errorMessage);
             },
             addChannelzChild: channelControlHelper.addChannelzChild.bind(channelControlHelper),
             removeChannelzChild: channelControlHelper.removeChannelzChild.bind(channelControlHelper),
-        }, channelOptions);
+        });
         this.innerResolver = (0, resolver_1.createResolver)(target, {
             onSuccessfulResolution: (endpointList, serviceConfig, serviceConfigError, configSelector, attributes) => {
                 var _a;
@@ -13676,9 +14290,10 @@ class ResolvingLoadBalancer {
                         details: 'All load balancer options in service config are not compatible',
                         metadata: new metadata_1.Metadata(),
                     });
+                    configSelector === null || configSelector === void 0 ? void 0 : configSelector.unref();
                     return;
                 }
-                this.childLoadBalancer.updateAddressList(endpointList, loadBalancingConfig, attributes);
+                this.childLoadBalancer.updateAddressList(endpointList, loadBalancingConfig, Object.assign(Object.assign({}, this.channelOptions), attributes));
                 const finalServiceConfig = workingServiceConfig !== null && workingServiceConfig !== void 0 ? workingServiceConfig : this.defaultServiceConfig;
                 this.onSuccessfulResolution(finalServiceConfig, configSelector !== null && configSelector !== void 0 ? configSelector : getDefaultConfigSelector(finalServiceConfig));
             },
@@ -13696,7 +14311,7 @@ class ResolvingLoadBalancer {
                 this.continueResolving = false;
             }
             else {
-                this.updateState(this.latestChildState, this.latestChildPicker);
+                this.updateState(this.latestChildState, this.latestChildPicker, this.latestChildErrorMessage);
             }
         }, backoffOptions);
         this.backoffTimeout.unref();
@@ -13708,11 +14323,11 @@ class ResolvingLoadBalancer {
              * is an appropriate value here if the child LB policy is unset.
              * Otherwise, we want to delegate to the child here, in case that
              * triggers something. */
-            this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, this.latestChildPicker);
+            this.updateState(connectivity_state_1.ConnectivityState.CONNECTING, this.latestChildPicker, this.latestChildErrorMessage);
         }
         this.backoffTimeout.runOnce();
     }
-    updateState(connectivityState, picker) {
+    updateState(connectivityState, picker, errorMessage) {
         trace((0, uri_parser_1.uriToString)(this.target) +
             ' ' +
             connectivity_state_1.ConnectivityState[this.currentState] +
@@ -13723,11 +14338,11 @@ class ResolvingLoadBalancer {
             picker = new picker_1.QueuePicker(this, picker);
         }
         this.currentState = connectivityState;
-        this.channelControlHelper.updateState(connectivityState, picker);
+        this.channelControlHelper.updateState(connectivityState, picker, errorMessage);
     }
     handleResolutionFailure(error) {
         if (this.latestChildState === connectivity_state_1.ConnectivityState.IDLE) {
-            this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker(error));
+            this.updateState(connectivity_state_1.ConnectivityState.TRANSIENT_FAILURE, new picker_1.UnavailablePicker(error), error.details);
             this.onFailedResolution(error);
         }
     }
@@ -13814,13 +14429,13 @@ class RetryThrottler {
         }
     }
     addCallSucceeded() {
-        this.tokens = Math.max(this.tokens + this.tokenRatio, this.maxTokens);
+        this.tokens = Math.min(this.tokens + this.tokenRatio, this.maxTokens);
     }
     addCallFailed() {
-        this.tokens = Math.min(this.tokens - 1, 0);
+        this.tokens = Math.max(this.tokens - 1, 0);
     }
     canRetryCall() {
-        return this.tokens > this.maxTokens / 2;
+        return this.tokens > (this.maxTokens / 2);
     }
 }
 exports.RetryThrottler = RetryThrottler;
@@ -13866,8 +14481,10 @@ class MessageBufferTracker {
 }
 exports.MessageBufferTracker = MessageBufferTracker;
 const PREVIONS_RPC_ATTEMPTS_METADATA_KEY = 'grpc-previous-rpc-attempts';
+const DEFAULT_MAX_ATTEMPTS_LIMIT = 5;
 class RetryingCall {
     constructor(channel, callConfig, methodName, host, credentials, deadline, callNumber, bufferTracker, retryThrottler) {
+        var _a;
         this.channel = channel;
         this.callConfig = callConfig;
         this.methodName = methodName;
@@ -13903,16 +14520,24 @@ class RetryingCall {
         this.committedCallIndex = null;
         this.initialRetryBackoffSec = 0;
         this.nextRetryBackoffSec = 0;
-        if (callConfig.methodConfig.retryPolicy) {
+        const maxAttemptsLimit = (_a = channel.getOptions()['grpc-node.retry_max_attempts_limit']) !== null && _a !== void 0 ? _a : DEFAULT_MAX_ATTEMPTS_LIMIT;
+        if (channel.getOptions()['grpc.enable_retries'] === 0) {
+            this.state = 'NO_RETRY';
+            this.maxAttempts = 1;
+        }
+        else if (callConfig.methodConfig.retryPolicy) {
             this.state = 'RETRY';
             const retryPolicy = callConfig.methodConfig.retryPolicy;
             this.nextRetryBackoffSec = this.initialRetryBackoffSec = Number(retryPolicy.initialBackoff.substring(0, retryPolicy.initialBackoff.length - 1));
+            this.maxAttempts = Math.min(retryPolicy.maxAttempts, maxAttemptsLimit);
         }
         else if (callConfig.methodConfig.hedgingPolicy) {
             this.state = 'HEDGING';
+            this.maxAttempts = Math.min(callConfig.methodConfig.hedgingPolicy.maxAttempts, maxAttemptsLimit);
         }
         else {
             this.state = 'TRANSPARENT_ONLY';
+            this.maxAttempts = 1;
         }
         this.startTime = new Date();
     }
@@ -13986,7 +14611,16 @@ class RetryingCall {
         if (this.state !== 'COMMITTED') {
             return;
         }
-        const earliestNeededMessageIndex = this.underlyingCalls[this.committedCallIndex].nextMessageToSend;
+        let earliestNeededMessageIndex;
+        if (this.underlyingCalls[this.committedCallIndex].state === 'COMPLETED') {
+            /* If the committed call is completed, clear all messages, even if some
+             * have not been sent. */
+            earliestNeededMessageIndex = this.getNextBufferIndex();
+        }
+        else {
+            earliestNeededMessageIndex =
+                this.underlyingCalls[this.committedCallIndex].nextMessageToSend;
+        }
         for (let messageIndex = this.writeBufferOffset; messageIndex < earliestNeededMessageIndex; messageIndex++) {
             const bufferEntry = this.getBufferEntry(messageIndex);
             if (bufferEntry.allocated) {
@@ -13997,10 +14631,8 @@ class RetryingCall {
         this.writeBufferOffset = earliestNeededMessageIndex;
     }
     commitCall(index) {
+        var _a, _b;
         if (this.state === 'COMMITTED') {
-            return;
-        }
-        if (this.underlyingCalls[index].state === 'COMPLETED') {
             return;
         }
         this.trace('Committing call [' +
@@ -14008,6 +14640,7 @@ class RetryingCall {
             '] at index ' +
             index);
         this.state = 'COMMITTED';
+        (_b = (_a = this.callConfig).onCommitted) === null || _b === void 0 ? void 0 : _b.call(_a);
         this.committedCallIndex = index;
         for (let i = 0; i < this.underlyingCalls.length; i++) {
             if (i === index) {
@@ -14044,8 +14677,11 @@ class RetryingCall {
         }
     }
     isStatusCodeInList(list, code) {
-        return list.some(value => value === code ||
-            value.toString().toLowerCase() === constants_1.Status[code].toLowerCase());
+        return list.some(value => {
+            var _a;
+            return value === code ||
+                value.toString().toLowerCase() === ((_a = constants_1.Status[code]) === null || _a === void 0 ? void 0 : _a.toLowerCase());
+        });
     }
     getNextRetryBackoffMs() {
         var _a;
@@ -14063,8 +14699,7 @@ class RetryingCall {
             callback(false);
             return;
         }
-        const retryPolicy = this.callConfig.methodConfig.retryPolicy;
-        if (this.attempts >= Math.min(retryPolicy.maxAttempts, 5)) {
+        if (this.attempts >= this.maxAttempts) {
             callback(false);
             return;
         }
@@ -14092,6 +14727,10 @@ class RetryingCall {
                 this.attempts += 1;
                 this.startNewAttempt();
             }
+            else {
+                this.trace('Retry attempt denied by throttling policy');
+                callback(false);
+            }
         }, retryDelayMs);
     }
     countActiveCalls() {
@@ -14107,6 +14746,7 @@ class RetryingCall {
         var _a, _b, _c;
         switch (this.state) {
             case 'COMMITTED':
+            case 'NO_RETRY':
             case 'TRANSPARENT_ONLY':
                 this.commitCall(callIndex);
                 this.reportStatus(status);
@@ -14190,6 +14830,11 @@ class RetryingCall {
             this.reportStatus(status);
             return;
         }
+        if (this.state === 'NO_RETRY') {
+            this.commitCall(callIndex);
+            this.reportStatus(status);
+            return;
+        }
         if (this.state === 'COMMITTED') {
             this.reportStatus(status);
             return;
@@ -14226,8 +14871,7 @@ class RetryingCall {
         if (!this.callConfig.methodConfig.hedgingPolicy) {
             return;
         }
-        const hedgingPolicy = this.callConfig.methodConfig.hedgingPolicy;
-        if (this.attempts >= Math.min(hedgingPolicy.maxAttempts, 5)) {
+        if (this.attempts >= this.maxAttempts) {
             return;
         }
         this.attempts += 1;
@@ -14246,7 +14890,7 @@ class RetryingCall {
             return;
         }
         const hedgingPolicy = this.callConfig.methodConfig.hedgingPolicy;
-        if (this.attempts >= Math.min(hedgingPolicy.maxAttempts, 5)) {
+        if (this.attempts >= this.maxAttempts) {
             return;
         }
         const hedgingDelayString = (_a = hedgingPolicy.hedgingDelay) !== null && _a !== void 0 ? _a : '0s';
@@ -14457,7 +15101,8 @@ exports.RetryingCall = RetryingCall;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ServerDuplexStreamImpl = exports.ServerWritableStreamImpl = exports.ServerReadableStreamImpl = exports.ServerUnaryCallImpl = exports.serverErrorToStatus = void 0;
+exports.ServerDuplexStreamImpl = exports.ServerWritableStreamImpl = exports.ServerReadableStreamImpl = exports.ServerUnaryCallImpl = void 0;
+exports.serverErrorToStatus = serverErrorToStatus;
 const events_1 = __nccwpck_require__(82361);
 const stream_1 = __nccwpck_require__(12781);
 const constants_1 = __nccwpck_require__(90634);
@@ -14479,7 +15124,6 @@ function serverErrorToStatus(error, overrideTrailers) {
     }
     return status;
 }
-exports.serverErrorToStatus = serverErrorToStatus;
 class ServerUnaryCallImpl extends events_1.EventEmitter {
     constructor(path, call, metadata, request) {
         super();
@@ -14500,6 +15144,9 @@ class ServerUnaryCallImpl extends events_1.EventEmitter {
     }
     getPath() {
         return this.path;
+    }
+    getHost() {
+        return this.call.getHost();
     }
 }
 exports.ServerUnaryCallImpl = ServerUnaryCallImpl;
@@ -14525,6 +15172,9 @@ class ServerReadableStreamImpl extends stream_1.Readable {
     }
     getPath() {
         return this.path;
+    }
+    getHost() {
+        return this.call.getHost();
     }
 }
 exports.ServerReadableStreamImpl = ServerReadableStreamImpl;
@@ -14557,6 +15207,9 @@ class ServerWritableStreamImpl extends stream_1.Writable {
     }
     getPath() {
         return this.path;
+    }
+    getHost() {
+        return this.call.getHost();
     }
     _write(chunk, encoding, 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14605,6 +15258,9 @@ class ServerDuplexStreamImpl extends stream_1.Duplex {
     }
     getPath() {
         return this.path;
+    }
+    getHost() {
+        return this.call.getHost();
     }
     _read(size) {
         this.call.startRead();
@@ -14655,8 +15311,43 @@ exports.ServerDuplexStreamImpl = ServerDuplexStreamImpl;
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ServerCredentials = void 0;
+exports.createCertificateProviderServerCredentials = createCertificateProviderServerCredentials;
+exports.createServerCredentialsWithInterceptors = createServerCredentialsWithInterceptors;
 const tls_helpers_1 = __nccwpck_require__(86581);
 class ServerCredentials {
+    constructor(serverConstructorOptions, contextOptions) {
+        this.serverConstructorOptions = serverConstructorOptions;
+        this.watchers = new Set();
+        this.latestContextOptions = null;
+        this.latestContextOptions = contextOptions !== null && contextOptions !== void 0 ? contextOptions : null;
+    }
+    _addWatcher(watcher) {
+        this.watchers.add(watcher);
+    }
+    _removeWatcher(watcher) {
+        this.watchers.delete(watcher);
+    }
+    getWatcherCount() {
+        return this.watchers.size;
+    }
+    updateSecureContextOptions(options) {
+        this.latestContextOptions = options;
+        for (const watcher of this.watchers) {
+            watcher(this.latestContextOptions);
+        }
+    }
+    _isSecure() {
+        return this.serverConstructorOptions !== null;
+    }
+    _getSecureContextOptions() {
+        return this.latestContextOptions;
+    }
+    _getConstructorOptions() {
+        return this.serverConstructorOptions;
+    }
+    _getInterceptors() {
+        return [];
+    }
     static createInsecure() {
         return new InsecureServerCredentials();
     }
@@ -14688,18 +15379,19 @@ class ServerCredentials {
             key.push(pair.private_key);
         }
         return new SecureServerCredentials({
+            requestCert: checkClientCertificate,
+            ciphers: tls_helpers_1.CIPHER_SUITES,
+        }, {
             ca: (_a = rootCerts !== null && rootCerts !== void 0 ? rootCerts : (0, tls_helpers_1.getDefaultRootsData)()) !== null && _a !== void 0 ? _a : undefined,
             cert,
             key,
-            requestCert: checkClientCertificate,
-            ciphers: tls_helpers_1.CIPHER_SUITES,
         });
     }
 }
 exports.ServerCredentials = ServerCredentials;
 class InsecureServerCredentials extends ServerCredentials {
-    _isSecure() {
-        return false;
+    constructor() {
+        super(null);
     }
     _getSettings() {
         return null;
@@ -14709,15 +15401,9 @@ class InsecureServerCredentials extends ServerCredentials {
     }
 }
 class SecureServerCredentials extends ServerCredentials {
-    constructor(options) {
-        super();
-        this.options = options;
-    }
-    _isSecure() {
-        return true;
-    }
-    _getSettings() {
-        return this.options;
+    constructor(constructorOptions, contextOptions) {
+        super(constructorOptions, contextOptions);
+        this.options = Object.assign(Object.assign({}, constructorOptions), contextOptions);
     }
     /**
      * Checks equality by checking the options that are actually set by
@@ -14802,6 +15488,123 @@ class SecureServerCredentials extends ServerCredentials {
         return true;
     }
 }
+class CertificateProviderServerCredentials extends ServerCredentials {
+    constructor(identityCertificateProvider, caCertificateProvider, requireClientCertificate) {
+        super({
+            requestCert: caCertificateProvider !== null,
+            rejectUnauthorized: requireClientCertificate,
+            ciphers: tls_helpers_1.CIPHER_SUITES
+        });
+        this.identityCertificateProvider = identityCertificateProvider;
+        this.caCertificateProvider = caCertificateProvider;
+        this.requireClientCertificate = requireClientCertificate;
+        this.latestCaUpdate = null;
+        this.latestIdentityUpdate = null;
+        this.caCertificateUpdateListener = this.handleCaCertificateUpdate.bind(this);
+        this.identityCertificateUpdateListener = this.handleIdentityCertitificateUpdate.bind(this);
+    }
+    _addWatcher(watcher) {
+        var _a;
+        if (this.getWatcherCount() === 0) {
+            (_a = this.caCertificateProvider) === null || _a === void 0 ? void 0 : _a.addCaCertificateListener(this.caCertificateUpdateListener);
+            this.identityCertificateProvider.addIdentityCertificateListener(this.identityCertificateUpdateListener);
+        }
+        super._addWatcher(watcher);
+    }
+    _removeWatcher(watcher) {
+        var _a;
+        super._removeWatcher(watcher);
+        if (this.getWatcherCount() === 0) {
+            (_a = this.caCertificateProvider) === null || _a === void 0 ? void 0 : _a.removeCaCertificateListener(this.caCertificateUpdateListener);
+            this.identityCertificateProvider.removeIdentityCertificateListener(this.identityCertificateUpdateListener);
+        }
+    }
+    _equals(other) {
+        if (this === other) {
+            return true;
+        }
+        if (!(other instanceof CertificateProviderServerCredentials)) {
+            return false;
+        }
+        return (this.caCertificateProvider === other.caCertificateProvider &&
+            this.identityCertificateProvider === other.identityCertificateProvider &&
+            this.requireClientCertificate === other.requireClientCertificate);
+    }
+    calculateSecureContextOptions() {
+        var _a;
+        if (this.latestIdentityUpdate === null) {
+            return null;
+        }
+        if (this.caCertificateProvider !== null && this.latestCaUpdate === null) {
+            return null;
+        }
+        return {
+            ca: (_a = this.latestCaUpdate) === null || _a === void 0 ? void 0 : _a.caCertificate,
+            cert: [this.latestIdentityUpdate.certificate],
+            key: [this.latestIdentityUpdate.privateKey],
+        };
+    }
+    finalizeUpdate() {
+        const secureContextOptions = this.calculateSecureContextOptions();
+        this.updateSecureContextOptions(secureContextOptions);
+    }
+    handleCaCertificateUpdate(update) {
+        this.latestCaUpdate = update;
+        this.finalizeUpdate();
+    }
+    handleIdentityCertitificateUpdate(update) {
+        this.latestIdentityUpdate = update;
+        this.finalizeUpdate();
+    }
+}
+function createCertificateProviderServerCredentials(caCertificateProvider, identityCertificateProvider, requireClientCertificate) {
+    return new CertificateProviderServerCredentials(caCertificateProvider, identityCertificateProvider, requireClientCertificate);
+}
+class InterceptorServerCredentials extends ServerCredentials {
+    constructor(childCredentials, interceptors) {
+        super({});
+        this.childCredentials = childCredentials;
+        this.interceptors = interceptors;
+    }
+    _isSecure() {
+        return this.childCredentials._isSecure();
+    }
+    _equals(other) {
+        if (!(other instanceof InterceptorServerCredentials)) {
+            return false;
+        }
+        if (!(this.childCredentials._equals(other.childCredentials))) {
+            return false;
+        }
+        if (this.interceptors.length !== other.interceptors.length) {
+            return false;
+        }
+        for (let i = 0; i < this.interceptors.length; i++) {
+            if (this.interceptors[i] !== other.interceptors[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    _getInterceptors() {
+        return this.interceptors;
+    }
+    _addWatcher(watcher) {
+        this.childCredentials._addWatcher(watcher);
+    }
+    _removeWatcher(watcher) {
+        this.childCredentials._removeWatcher(watcher);
+    }
+    _getConstructorOptions() {
+        return this.childCredentials._getConstructorOptions();
+    }
+    _getSecureContextOptions() {
+        return this.childCredentials._getSecureContextOptions();
+    }
+}
+function createServerCredentialsWithInterceptors(credentials, interceptors) {
+    return new InterceptorServerCredentials(credentials, interceptors);
+}
 //# sourceMappingURL=server-credentials.js.map
 
 /***/ }),
@@ -14828,7 +15631,9 @@ class SecureServerCredentials extends ServerCredentials {
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getServerInterceptingCall = exports.BaseServerInterceptingCall = exports.ServerInterceptingCall = exports.ResponderBuilder = exports.isInterceptingServerListener = exports.ServerListenerBuilder = void 0;
+exports.BaseServerInterceptingCall = exports.ServerInterceptingCall = exports.ResponderBuilder = exports.ServerListenerBuilder = void 0;
+exports.isInterceptingServerListener = isInterceptingServerListener;
+exports.getServerInterceptingCall = getServerInterceptingCall;
 const metadata_1 = __nccwpck_require__(83665);
 const constants_1 = __nccwpck_require__(90634);
 const http2 = __nccwpck_require__(85158);
@@ -14877,7 +15682,6 @@ function isInterceptingServerListener(listener) {
     return (listener.onReceiveMetadata !== undefined &&
         listener.onReceiveMetadata.length === 1);
 }
-exports.isInterceptingServerListener = isInterceptingServerListener;
 class InterceptingServerListenerImpl {
     constructor(listener, nextListener) {
         this.listener = listener;
@@ -15026,6 +15830,7 @@ class ServerInterceptingCall {
         var _a, _b, _c, _d;
         this.nextCall = nextCall;
         this.processingMetadata = false;
+        this.sentMetadata = false;
         this.processingMessage = false;
         this.pendingMessage = null;
         this.pendingMessageCallback = null;
@@ -15065,6 +15870,7 @@ class ServerInterceptingCall {
     }
     sendMetadata(metadata) {
         this.processingMetadata = true;
+        this.sentMetadata = true;
         this.responder.sendMetadata(metadata, interceptedMetadata => {
             this.processingMetadata = false;
             this.nextCall.sendMetadata(interceptedMetadata);
@@ -15074,6 +15880,9 @@ class ServerInterceptingCall {
     }
     sendMessage(message, callback) {
         this.processingMessage = true;
+        if (!this.sentMetadata) {
+            this.sendMetadata(new metadata_1.Metadata());
+        }
         this.responder.sendMessage(message, interceptedMessage => {
             this.processingMessage = false;
             if (this.processingMetadata) {
@@ -15103,6 +15912,9 @@ class ServerInterceptingCall {
     }
     getDeadline() {
         return this.nextCall.getDeadline();
+    }
+    getHost() {
+        return this.nextCall.getHost();
     }
 }
 exports.ServerInterceptingCall = ServerInterceptingCall;
@@ -15135,6 +15947,7 @@ const defaultResponseOptions = {
 };
 class BaseServerInterceptingCall {
     constructor(stream, headers, callEventTracker, handler, options) {
+        var _a;
         this.stream = stream;
         this.callEventTracker = callEventTracker;
         this.handler = handler;
@@ -15189,6 +16002,7 @@ class BaseServerInterceptingCall {
         if ('grpc.max_receive_message_length' in options) {
             this.maxReceiveMessageSize = options['grpc.max_receive_message_length'];
         }
+        this.host = (_a = headers[':authority']) !== null && _a !== void 0 ? _a : headers.host;
         this.decoder = new stream_decoder_1.StreamDecoder(this.maxReceiveMessageSize);
         const metadata = metadata_1.Metadata.fromHttp2Headers(headers);
         if (logging.isTracerEnabled(TRACER_NAME)) {
@@ -15555,6 +16369,9 @@ class BaseServerInterceptingCall {
     getDeadline() {
         return this.deadline;
     }
+    getHost() {
+        return this.host;
+    }
 }
 exports.BaseServerInterceptingCall = BaseServerInterceptingCall;
 function getServerInterceptingCall(interceptors, stream, headers, callEventTracker, handler, options) {
@@ -15570,7 +16387,6 @@ function getServerInterceptingCall(interceptors, stream, headers, callEventTrack
         return interceptor(methodDefinition, call);
     }, baseCall);
 }
-exports.getServerInterceptingCall = getServerInterceptingCall;
 //# sourceMappingURL=server-interceptors.js.map
 
 /***/ }),
@@ -15650,6 +16466,9 @@ const MAX_CONNECTION_IDLE_MS = ~(1 << 31);
 const { HTTP2_HEADER_PATH } = http2.constants;
 const TRACER_NAME = 'server';
 const kMaxAge = Buffer.from('max_age');
+function serverCallTrace(text) {
+    logging.trace(constants_1.LogVerbosity.DEBUG, 'server_call', text);
+}
 function noop() { }
 /**
  * Decorator to wrap a class method with util.deprecate
@@ -15818,6 +16637,9 @@ let Server = (() => {
             trace(text) {
                 logging.trace(constants_1.LogVerbosity.DEBUG, TRACER_NAME, '(' + this.channelzRef.id + ') ' + text);
             }
+            keepaliveTrace(text) {
+                logging.trace(constants_1.LogVerbosity.DEBUG, 'keepalive', '(' + this.channelzRef.id + ') ' + text);
+            }
             addProtoService() {
                 throw new Error('Not implemented. Use addService() instead');
             }
@@ -15881,7 +16703,12 @@ let Server = (() => {
             bind(port, creds) {
                 throw new Error('Not implemented. Use bindAsync() instead');
             }
-            registerListenerToChannelz(boundAddress) {
+            /**
+             * This API is experimental, so API stability is not guaranteed across minor versions.
+             * @param boundAddress
+             * @returns
+             */
+            experimentalRegisterListenerToChannelz(boundAddress) {
                 return (0, channelz_1.registerChannelzSocket)((0, subchannel_address_1.subchannelAddressToString)(boundAddress), () => {
                     return {
                         localAddress: boundAddress,
@@ -15903,13 +16730,24 @@ let Server = (() => {
                     };
                 }, this.channelzEnabled);
             }
+            experimentalUnregisterListenerFromChannelz(channelzRef) {
+                (0, channelz_1.unregisterChannelzRef)(channelzRef);
+            }
             createHttp2Server(credentials) {
                 let http2Server;
                 if (credentials._isSecure()) {
-                    const secureServerOptions = Object.assign(this.commonServerOptions, credentials._getSettings());
-                    secureServerOptions.enableTrace =
-                        this.options['grpc-node.tls_enable_trace'] === 1;
+                    const constructorOptions = credentials._getConstructorOptions();
+                    const contextOptions = credentials._getSecureContextOptions();
+                    const secureServerOptions = Object.assign(Object.assign(Object.assign(Object.assign({}, this.commonServerOptions), constructorOptions), contextOptions), { enableTrace: this.options['grpc-node.tls_enable_trace'] === 1 });
+                    let areCredentialsValid = contextOptions !== null;
+                    this.trace('Initial credentials valid: ' + areCredentialsValid);
                     http2Server = http2.createSecureServer(secureServerOptions);
+                    http2Server.prependListener('connection', (socket) => {
+                        if (!areCredentialsValid) {
+                            this.trace('Dropped connection from ' + JSON.stringify(socket.address()) + ' due to unloaded credentials');
+                            socket.destroy();
+                        }
+                    });
                     http2Server.on('secureConnection', (socket) => {
                         /* These errors need to be handled by the user of Http2SecureServer,
                          * according to https://github.com/nodejs/node/issues/35824 */
@@ -15917,12 +16755,30 @@ let Server = (() => {
                             this.trace('An incoming TLS connection closed with error: ' + e.message);
                         });
                     });
+                    const credsWatcher = options => {
+                        if (options) {
+                            const secureServer = http2Server;
+                            try {
+                                secureServer.setSecureContext(options);
+                            }
+                            catch (e) {
+                                logging.log(constants_1.LogVerbosity.ERROR, 'Failed to set secure context with error ' + e.message);
+                                options = null;
+                            }
+                        }
+                        areCredentialsValid = options !== null;
+                        this.trace('Post-update credentials valid: ' + areCredentialsValid);
+                    };
+                    credentials._addWatcher(credsWatcher);
+                    http2Server.on('close', () => {
+                        credentials._removeWatcher(credsWatcher);
+                    });
                 }
                 else {
                     http2Server = http2.createServer(this.commonServerOptions);
                 }
                 http2Server.setTimeout(0, noop);
-                this._setupHandlers(http2Server);
+                this._setupHandlers(http2Server, credentials._getInterceptors());
                 return http2Server;
             }
             bindOneAddress(address, boundPortObject) {
@@ -15954,11 +16810,12 @@ let Server = (() => {
                                 port: boundAddress.port,
                             };
                         }
-                        const channelzRef = this.registerListenerToChannelz(boundSubchannelAddress);
+                        const channelzRef = this.experimentalRegisterListenerToChannelz(boundSubchannelAddress);
                         this.listenerChildrenTracker.refChild(channelzRef);
                         this.http2Servers.set(http2Server, {
                             channelzRef: channelzRef,
                             sessions: new Set(),
+                            ownsChannelzRef: true
                         });
                         boundPortObject.listeningServers.add(http2Server);
                         this.trace('Successfully bound ' +
@@ -16154,11 +17011,83 @@ let Server = (() => {
                     });
                 }
             }
+            registerInjectorToChannelz() {
+                return (0, channelz_1.registerChannelzSocket)('injector', () => {
+                    return {
+                        localAddress: null,
+                        remoteAddress: null,
+                        security: null,
+                        remoteName: null,
+                        streamsStarted: 0,
+                        streamsSucceeded: 0,
+                        streamsFailed: 0,
+                        messagesSent: 0,
+                        messagesReceived: 0,
+                        keepAlivesSent: 0,
+                        lastLocalStreamCreatedTimestamp: null,
+                        lastRemoteStreamCreatedTimestamp: null,
+                        lastMessageSentTimestamp: null,
+                        lastMessageReceivedTimestamp: null,
+                        localFlowControlWindow: null,
+                        remoteFlowControlWindow: null,
+                    };
+                }, this.channelzEnabled);
+            }
+            /**
+             * This API is experimental, so API stability is not guaranteed across minor versions.
+             * @param credentials
+             * @param channelzRef
+             * @returns
+             */
+            experimentalCreateConnectionInjectorWithChannelzRef(credentials, channelzRef, ownsChannelzRef = false) {
+                if (credentials === null || !(credentials instanceof server_credentials_1.ServerCredentials)) {
+                    throw new TypeError('creds must be a ServerCredentials object');
+                }
+                if (this.channelzEnabled) {
+                    this.listenerChildrenTracker.refChild(channelzRef);
+                }
+                const server = this.createHttp2Server(credentials);
+                const sessionsSet = new Set();
+                this.http2Servers.set(server, {
+                    channelzRef: channelzRef,
+                    sessions: sessionsSet,
+                    ownsChannelzRef
+                });
+                return {
+                    injectConnection: (connection) => {
+                        server.emit('connection', connection);
+                    },
+                    drain: (graceTimeMs) => {
+                        var _b, _c;
+                        for (const session of sessionsSet) {
+                            this.closeSession(session);
+                        }
+                        (_c = (_b = setTimeout(() => {
+                            for (const session of sessionsSet) {
+                                session.destroy(http2.constants.NGHTTP2_CANCEL);
+                            }
+                        }, graceTimeMs)).unref) === null || _c === void 0 ? void 0 : _c.call(_b);
+                    },
+                    destroy: () => {
+                        this.closeServer(server);
+                        for (const session of sessionsSet) {
+                            this.closeSession(session);
+                        }
+                    }
+                };
+            }
+            createConnectionInjector(credentials) {
+                if (credentials === null || !(credentials instanceof server_credentials_1.ServerCredentials)) {
+                    throw new TypeError('creds must be a ServerCredentials object');
+                }
+                const channelzRef = this.registerInjectorToChannelz();
+                return this.experimentalCreateConnectionInjectorWithChannelzRef(credentials, channelzRef, true);
+            }
             closeServer(server, callback) {
                 this.trace('Closing server with address ' + JSON.stringify(server.address()));
                 const serverInfo = this.http2Servers.get(server);
                 server.close(() => {
-                    if (serverInfo) {
+                    if (serverInfo && serverInfo.ownsChannelzRef) {
                         this.listenerChildrenTracker.unrefChild(serverInfo.channelzRef);
                         (0, channelz_1.unregisterChannelzRef)(serverInfo.channelzRef);
                     }
@@ -16381,13 +17310,13 @@ let Server = (() => {
                 return true;
             }
             _retrieveHandler(path) {
-                this.trace('Received call to method ' +
+                serverCallTrace('Received call to method ' +
                     path +
                     ' at address ' +
                     this.serverAddressString);
                 const handler = this.handlers.get(path);
                 if (handler === undefined) {
-                    this.trace('No handler registered for method ' +
+                    serverCallTrace('No handler registered for method ' +
                         path +
                         '. Sending UNIMPLEMENTED status.');
                     return null;
@@ -16401,7 +17330,7 @@ let Server = (() => {
                 this.callTracker.addCallFailed();
                 channelzSessionInfo === null || channelzSessionInfo === void 0 ? void 0 : channelzSessionInfo.streamTracker.addCallFailed();
             }
-            _channelzHandler(stream, headers) {
+            _channelzHandler(extraInterceptors, stream, headers) {
                 // for handling idle timeout
                 this.onStreamOpened(stream);
                 const channelzSessionInfo = this.sessions.get(stream.session);
@@ -16450,7 +17379,7 @@ let Server = (() => {
                         }
                     },
                 };
-                const call = (0, server_interceptors_1.getServerInterceptingCall)(this.interceptors, stream, headers, callEventTracker, handler, this.options);
+                const call = (0, server_interceptors_1.getServerInterceptingCall)([...extraInterceptors, ...this.interceptors], stream, headers, callEventTracker, handler, this.options);
                 if (!this._runHandlerForCall(call, handler)) {
                     this.callTracker.addCallFailed();
                     channelzSessionInfo === null || channelzSessionInfo === void 0 ? void 0 : channelzSessionInfo.streamTracker.addCallFailed();
@@ -16460,7 +17389,7 @@ let Server = (() => {
                     });
                 }
             }
-            _streamHandler(stream, headers) {
+            _streamHandler(extraInterceptors, stream, headers) {
                 // for handling idle timeout
                 this.onStreamOpened(stream);
                 if (this._verifyContentType(stream, headers) !== true) {
@@ -16472,7 +17401,7 @@ let Server = (() => {
                     this._respondWithError(getUnimplementedStatusResponse(path), stream, null);
                     return;
                 }
-                const call = (0, server_interceptors_1.getServerInterceptingCall)(this.interceptors, stream, headers, null, handler, this.options);
+                const call = (0, server_interceptors_1.getServerInterceptingCall)([...extraInterceptors, ...this.interceptors], stream, headers, null, handler, this.options);
                 if (!this._runHandlerForCall(call, handler)) {
                     call.sendStatus({
                         code: constants_1.Status.INTERNAL,
@@ -16499,7 +17428,7 @@ let Server = (() => {
                 }
                 return true;
             }
-            _setupHandlers(http2Server) {
+            _setupHandlers(http2Server, extraInterceptors) {
                 if (http2Server === null) {
                     return;
                 }
@@ -16520,17 +17449,16 @@ let Server = (() => {
                 const sessionHandler = this.channelzEnabled
                     ? this._channelzSessionHandler(http2Server)
                     : this._sessionHandler(http2Server);
-                http2Server.on('stream', handler.bind(this));
+                http2Server.on('stream', handler.bind(this, extraInterceptors));
                 http2Server.on('session', sessionHandler);
             }
             _sessionHandler(http2Server) {
                 return (session) => {
-                    var _b, _c, _d;
+                    var _b, _c;
                     (_b = this.http2Servers.get(http2Server)) === null || _b === void 0 ? void 0 : _b.sessions.add(session);
                     let connectionAgeTimer = null;
                     let connectionAgeGraceTimer = null;
-                    let keeapliveTimeTimer = null;
-                    let keepaliveTimeoutTimer = null;
+                    let keepaliveTimer = null;
                     let sessionClosedByServer = false;
                     const idleTimeoutObj = this.enableIdleTimeout(session);
                     if (this.maxConnectionAgeMs !== UNLIMITED_CONNECTION_AGE_MS) {
@@ -16562,37 +17490,77 @@ let Server = (() => {
                         }, this.maxConnectionAgeMs + jitter);
                         (_c = connectionAgeTimer.unref) === null || _c === void 0 ? void 0 : _c.call(connectionAgeTimer);
                     }
-                    if (this.keepaliveTimeMs < KEEPALIVE_MAX_TIME_MS) {
-                        keeapliveTimeTimer = setInterval(() => {
-                            var _b;
-                            keepaliveTimeoutTimer = setTimeout(() => {
-                                sessionClosedByServer = true;
-                                session.close();
-                            }, this.keepaliveTimeoutMs);
-                            (_b = keepaliveTimeoutTimer.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimeoutTimer);
-                            try {
-                                session.ping((err, duration, payload) => {
-                                    if (keepaliveTimeoutTimer) {
-                                        clearTimeout(keepaliveTimeoutTimer);
-                                    }
-                                    if (err) {
-                                        sessionClosedByServer = true;
-                                        this.trace('Connection dropped due to error of a ping frame ' +
-                                            err.message +
-                                            ' return in ' +
-                                            duration);
-                                        session.close();
-                                    }
-                                });
-                            }
-                            catch (e) {
-                                clearTimeout(keepaliveTimeoutTimer);
-                                // The ping can't be sent because the session is already closed
-                                session.destroy();
-                            }
+                    const clearKeepaliveTimeout = () => {
+                        if (keepaliveTimer) {
+                            clearTimeout(keepaliveTimer);
+                            keepaliveTimer = null;
+                        }
+                    };
+                    const canSendPing = () => {
+                        return (!session.destroyed &&
+                            this.keepaliveTimeMs < KEEPALIVE_MAX_TIME_MS &&
+                            this.keepaliveTimeMs > 0);
+                    };
+                    /* eslint-disable-next-line prefer-const */
+                    let sendPing; // hoisted for use in maybeStartKeepalivePingTimer
+                    const maybeStartKeepalivePingTimer = () => {
+                        var _b;
+                        if (!canSendPing()) {
+                            return;
+                        }
+                        this.keepaliveTrace('Starting keepalive timer for ' + this.keepaliveTimeMs + 'ms');
+                        keepaliveTimer = setTimeout(() => {
+                            clearKeepaliveTimeout();
+                            sendPing();
                         }, this.keepaliveTimeMs);
-                        (_d = keeapliveTimeTimer.unref) === null || _d === void 0 ? void 0 : _d.call(keeapliveTimeTimer);
-                    }
+                        (_b = keepaliveTimer.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimer);
+                    };
+                    sendPing = () => {
+                        var _b;
+                        if (!canSendPing()) {
+                            return;
+                        }
+                        this.keepaliveTrace('Sending ping with timeout ' + this.keepaliveTimeoutMs + 'ms');
+                        let pingSendError = '';
+                        try {
+                            const pingSentSuccessfully = session.ping((err, duration, payload) => {
+                                clearKeepaliveTimeout();
+                                if (err) {
+                                    this.keepaliveTrace('Ping failed with error: ' + err.message);
+                                    sessionClosedByServer = true;
+                                    session.close();
+                                }
+                                else {
+                                    this.keepaliveTrace('Received ping response');
+                                    maybeStartKeepalivePingTimer();
+                                }
+                            });
+                            if (!pingSentSuccessfully) {
+                                pingSendError = 'Ping returned false';
+                            }
+                        }
+                        catch (e) {
+                            // grpc/grpc-node#2139
+                            pingSendError =
+                                (e instanceof Error ? e.message : '') || 'Unknown error';
+                        }
+                        if (pingSendError) {
+                            this.keepaliveTrace('Ping send failed: ' + pingSendError);
+                            this.trace('Connection dropped due to ping send error: ' + pingSendError);
+                            sessionClosedByServer = true;
+                            session.close();
+                            return;
+                        }
+                        keepaliveTimer = setTimeout(() => {
+                            clearKeepaliveTimeout();
+                            this.keepaliveTrace('Ping timeout passed without response');
+                            this.trace('Connection dropped by keepalive timeout');
+                            sessionClosedByServer = true;
+                            session.close();
+                        }, this.keepaliveTimeoutMs);
+                        (_b = keepaliveTimer.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimer);
+                    };
+                    maybeStartKeepalivePingTimer();
                     session.on('close', () => {
                         var _b, _c;
                         if (!sessionClosedByServer) {
@@ -16604,12 +17572,7 @@ let Server = (() => {
                         if (connectionAgeGraceTimer) {
                             clearTimeout(connectionAgeGraceTimer);
                         }
-                        if (keeapliveTimeTimer) {
-                            clearInterval(keeapliveTimeTimer);
-                            if (keepaliveTimeoutTimer) {
-                                clearTimeout(keepaliveTimeoutTimer);
-                            }
-                        }
+                        clearKeepaliveTimeout();
                         if (idleTimeoutObj !== null) {
                             clearTimeout(idleTimeoutObj.timeout);
                             this.sessionIdleTimeouts.delete(session);
@@ -16620,7 +17583,7 @@ let Server = (() => {
             }
             _channelzSessionHandler(http2Server) {
                 return (session) => {
-                    var _b, _c, _d, _e, _f;
+                    var _b, _c, _d, _e;
                     const channelzRef = (0, channelz_1.registerChannelzSocket)((_c = (_b = session.socket) === null || _b === void 0 ? void 0 : _b.remoteAddress) !== null && _c !== void 0 ? _c : 'unknown', this.getChannelzSessionInfo.bind(this, session), this.channelzEnabled);
                     const channelzSessionInfo = {
                         ref: channelzRef,
@@ -16639,8 +17602,7 @@ let Server = (() => {
                     this.sessionChildrenTracker.refChild(channelzRef);
                     let connectionAgeTimer = null;
                     let connectionAgeGraceTimer = null;
-                    let keeapliveTimeTimer = null;
-                    let keepaliveTimeoutTimer = null;
+                    let keepaliveTimeout = null;
                     let sessionClosedByServer = false;
                     const idleTimeoutObj = this.enableIdleTimeout(session);
                     if (this.maxConnectionAgeMs !== UNLIMITED_CONNECTION_AGE_MS) {
@@ -16671,39 +17633,82 @@ let Server = (() => {
                         }, this.maxConnectionAgeMs + jitter);
                         (_e = connectionAgeTimer.unref) === null || _e === void 0 ? void 0 : _e.call(connectionAgeTimer);
                     }
-                    if (this.keepaliveTimeMs < KEEPALIVE_MAX_TIME_MS) {
-                        keeapliveTimeTimer = setInterval(() => {
-                            var _b;
-                            keepaliveTimeoutTimer = setTimeout(() => {
-                                sessionClosedByServer = true;
-                                this.channelzTrace.addTrace('CT_INFO', 'Connection dropped by keepalive timeout from ' + clientAddress);
-                                session.close();
-                            }, this.keepaliveTimeoutMs);
-                            (_b = keepaliveTimeoutTimer.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimeoutTimer);
-                            try {
-                                session.ping((err, duration, payload) => {
-                                    if (keepaliveTimeoutTimer) {
-                                        clearTimeout(keepaliveTimeoutTimer);
-                                    }
-                                    if (err) {
-                                        sessionClosedByServer = true;
-                                        this.channelzTrace.addTrace('CT_INFO', 'Connection dropped due to error of a ping frame ' +
-                                            err.message +
-                                            ' return in ' +
-                                            duration);
-                                        session.close();
-                                    }
-                                });
-                                channelzSessionInfo.keepAlivesSent += 1;
-                            }
-                            catch (e) {
-                                clearTimeout(keepaliveTimeoutTimer);
-                                // The ping can't be sent because the session is already closed
-                                session.destroy();
-                            }
+                    const clearKeepaliveTimeout = () => {
+                        if (keepaliveTimeout) {
+                            clearTimeout(keepaliveTimeout);
+                            keepaliveTimeout = null;
+                        }
+                    };
+                    const canSendPing = () => {
+                        return (!session.destroyed &&
+                            this.keepaliveTimeMs < KEEPALIVE_MAX_TIME_MS &&
+                            this.keepaliveTimeMs > 0);
+                    };
+                    /* eslint-disable-next-line prefer-const */
+                    let sendPing; // hoisted for use in maybeStartKeepalivePingTimer
+                    const maybeStartKeepalivePingTimer = () => {
+                        var _b;
+                        if (!canSendPing()) {
+                            return;
+                        }
+                        this.keepaliveTrace('Starting keepalive timer for ' + this.keepaliveTimeMs + 'ms');
+                        keepaliveTimeout = setTimeout(() => {
+                            clearKeepaliveTimeout();
+                            sendPing();
                         }, this.keepaliveTimeMs);
-                        (_f = keeapliveTimeTimer.unref) === null || _f === void 0 ? void 0 : _f.call(keeapliveTimeTimer);
-                    }
+                        (_b = keepaliveTimeout.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimeout);
+                    };
+                    sendPing = () => {
+                        var _b;
+                        if (!canSendPing()) {
+                            return;
+                        }
+                        this.keepaliveTrace('Sending ping with timeout ' + this.keepaliveTimeoutMs + 'ms');
+                        let pingSendError = '';
+                        try {
+                            const pingSentSuccessfully = session.ping((err, duration, payload) => {
+                                clearKeepaliveTimeout();
+                                if (err) {
+                                    this.keepaliveTrace('Ping failed with error: ' + err.message);
+                                    this.channelzTrace.addTrace('CT_INFO', 'Connection dropped due to error of a ping frame ' +
+                                        err.message +
+                                        ' return in ' +
+                                        duration);
+                                    sessionClosedByServer = true;
+                                    session.close();
+                                }
+                                else {
+                                    this.keepaliveTrace('Received ping response');
+                                    maybeStartKeepalivePingTimer();
+                                }
+                            });
+                            if (!pingSentSuccessfully) {
+                                pingSendError = 'Ping returned false';
+                            }
+                        }
+                        catch (e) {
+                            // grpc/grpc-node#2139
+                            pingSendError =
+                                (e instanceof Error ? e.message : '') || 'Unknown error';
+                        }
+                        if (pingSendError) {
+                            this.keepaliveTrace('Ping send failed: ' + pingSendError);
+                            this.channelzTrace.addTrace('CT_INFO', 'Connection dropped due to ping send error: ' + pingSendError);
+                            sessionClosedByServer = true;
+                            session.close();
+                            return;
+                        }
+                        channelzSessionInfo.keepAlivesSent += 1;
+                        keepaliveTimeout = setTimeout(() => {
+                            clearKeepaliveTimeout();
+                            this.keepaliveTrace('Ping timeout passed without response');
+                            this.channelzTrace.addTrace('CT_INFO', 'Connection dropped by keepalive timeout from ' + clientAddress);
+                            sessionClosedByServer = true;
+                            session.close();
+                        }, this.keepaliveTimeoutMs);
+                        (_b = keepaliveTimeout.unref) === null || _b === void 0 ? void 0 : _b.call(keepaliveTimeout);
+                    };
+                    maybeStartKeepalivePingTimer();
                     session.on('close', () => {
                         var _b;
                         if (!sessionClosedByServer) {
@@ -16717,12 +17722,7 @@ let Server = (() => {
                         if (connectionAgeGraceTimer) {
                             clearTimeout(connectionAgeGraceTimer);
                         }
-                        if (keeapliveTimeTimer) {
-                            clearInterval(keeapliveTimeTimer);
-                            if (keepaliveTimeoutTimer) {
-                                clearTimeout(keepaliveTimeoutTimer);
-                            }
-                        }
+                        clearKeepaliveTimeout();
                         if (idleTimeoutObj !== null) {
                             clearTimeout(idleTimeoutObj.timeout);
                             this.sessionIdleTimeouts.delete(session);
@@ -16760,15 +17760,19 @@ let Server = (() => {
                 // important part is to not clearTimeout(timer) or it becomes unusable
                 // for future refreshes
                 if (sessionInfo !== undefined &&
-                    sessionInfo.activeStreams === 0 &&
-                    Date.now() - sessionInfo.lastIdle >= ctx.sessionIdleTimeout) {
-                    ctx.trace('Session idle timeout triggered for ' +
-                        (socket === null || socket === void 0 ? void 0 : socket.remoteAddress) +
-                        ':' +
-                        (socket === null || socket === void 0 ? void 0 : socket.remotePort) +
-                        ' last idle at ' +
-                        sessionInfo.lastIdle);
-                    ctx.closeSession(session);
+                    sessionInfo.activeStreams === 0) {
+                    if (Date.now() - sessionInfo.lastIdle >= ctx.sessionIdleTimeout) {
+                        ctx.trace('Session idle timeout triggered for ' +
+                            (socket === null || socket === void 0 ? void 0 : socket.remoteAddress) +
+                            ':' +
+                            (socket === null || socket === void 0 ? void 0 : socket.remotePort) +
+                            ' last idle at ' +
+                            sessionInfo.lastIdle);
+                        ctx.closeSession(session);
+                    }
+                    else {
+                        sessionInfo.timeout.refresh();
+                    }
                 }
             }
             onStreamOpened(stream) {
@@ -17021,7 +18025,9 @@ function handleBidiStreaming(call, handler) {
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.extractAndSelectServiceConfig = exports.validateServiceConfig = exports.validateRetryThrottling = void 0;
+exports.validateRetryThrottling = validateRetryThrottling;
+exports.validateServiceConfig = validateServiceConfig;
+exports.extractAndSelectServiceConfig = extractAndSelectServiceConfig;
 /* This file implements gRFC A2 and the service config spec:
  * https://github.com/grpc/proposal/blob/master/A2-service-configs-in-dns.md
  * https://github.com/grpc/grpc/blob/master/doc/service_config.md. Each
@@ -17080,12 +18086,12 @@ function validateRetryPolicy(obj) {
     if (!('initialBackoff' in obj) ||
         typeof obj.initialBackoff !== 'string' ||
         !DURATION_REGEX.test(obj.initialBackoff)) {
-        throw new Error('Invalid method config retry policy: initialBackoff must be a string consisting of a positive integer followed by s');
+        throw new Error('Invalid method config retry policy: initialBackoff must be a string consisting of a positive integer or decimal followed by s');
     }
     if (!('maxBackoff' in obj) ||
         typeof obj.maxBackoff !== 'string' ||
         !DURATION_REGEX.test(obj.maxBackoff)) {
-        throw new Error('Invalid method config retry policy: maxBackoff must be a string consisting of a positive integer followed by s');
+        throw new Error('Invalid method config retry policy: maxBackoff must be a string consisting of a positive integer or decimal followed by s');
     }
     if (!('backoffMultiplier' in obj) ||
         typeof obj.backoffMultiplier !== 'number' ||
@@ -17136,16 +18142,16 @@ function validateHedgingPolicy(obj) {
         for (const value of obj.nonFatalStatusCodes) {
             if (typeof value === 'number') {
                 if (!Object.values(constants_1.Status).includes(value)) {
-                    throw new Error('Invlid method config hedging policy: nonFatalStatusCodes value not in status code range');
+                    throw new Error('Invalid method config hedging policy: nonFatalStatusCodes value not in status code range');
                 }
             }
             else if (typeof value === 'string') {
                 if (!Object.values(constants_1.Status).includes(value.toUpperCase())) {
-                    throw new Error('Invlid method config hedging policy: nonFatalStatusCodes value not a status code name');
+                    throw new Error('Invalid method config hedging policy: nonFatalStatusCodes value not a status code name');
                 }
             }
             else {
-                throw new Error('Invlid method config hedging policy: nonFatalStatusCodes value must be a string or number');
+                throw new Error('Invalid method config hedging policy: nonFatalStatusCodes value must be a string or number');
             }
         }
     }
@@ -17245,7 +18251,6 @@ function validateRetryThrottling(obj) {
         tokenRatio: +obj.tokenRatio.toFixed(3),
     };
 }
-exports.validateRetryThrottling = validateRetryThrottling;
 function validateLoadBalancingConfig(obj) {
     if (!(typeof obj === 'object' && obj !== null)) {
         throw new Error(`Invalid loadBalancingConfig: unexpected type ${typeof obj}`);
@@ -17309,7 +18314,6 @@ function validateServiceConfig(obj) {
     }
     return result;
 }
-exports.validateServiceConfig = validateServiceConfig;
 function validateCanaryConfig(obj) {
     if (!('serviceConfig' in obj)) {
         throw new Error('Invalid service config choice: missing service config');
@@ -17432,7 +18436,6 @@ function extractAndSelectServiceConfig(txtRecord, percentage) {
     }
     return null;
 }
-exports.extractAndSelectServiceConfig = extractAndSelectServiceConfig;
 //# sourceMappingURL=service-config.js.map
 
 /***/ }),
@@ -17641,12 +18644,18 @@ exports.StreamDecoder = StreamDecoder;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EndpointMap = exports.endpointHasAddress = exports.endpointToString = exports.endpointEqual = exports.stringToSubchannelAddress = exports.subchannelAddressToString = exports.subchannelAddressEqual = exports.isTcpSubchannelAddress = void 0;
+exports.EndpointMap = void 0;
+exports.isTcpSubchannelAddress = isTcpSubchannelAddress;
+exports.subchannelAddressEqual = subchannelAddressEqual;
+exports.subchannelAddressToString = subchannelAddressToString;
+exports.stringToSubchannelAddress = stringToSubchannelAddress;
+exports.endpointEqual = endpointEqual;
+exports.endpointToString = endpointToString;
+exports.endpointHasAddress = endpointHasAddress;
 const net_1 = __nccwpck_require__(41808);
 function isTcpSubchannelAddress(address) {
     return 'port' in address;
 }
-exports.isTcpSubchannelAddress = isTcpSubchannelAddress;
 function subchannelAddressEqual(address1, address2) {
     if (!address1 && !address2) {
         return true;
@@ -17663,7 +18672,6 @@ function subchannelAddressEqual(address1, address2) {
         return !isTcpSubchannelAddress(address2) && address1.path === address2.path;
     }
 }
-exports.subchannelAddressEqual = subchannelAddressEqual;
 function subchannelAddressToString(address) {
     if (isTcpSubchannelAddress(address)) {
         if ((0, net_1.isIPv6)(address.host)) {
@@ -17677,7 +18685,6 @@ function subchannelAddressToString(address) {
         return address.path;
     }
 }
-exports.subchannelAddressToString = subchannelAddressToString;
 const DEFAULT_PORT = 443;
 function stringToSubchannelAddress(addressString, port) {
     if ((0, net_1.isIP)(addressString)) {
@@ -17692,7 +18699,6 @@ function stringToSubchannelAddress(addressString, port) {
         };
     }
 }
-exports.stringToSubchannelAddress = stringToSubchannelAddress;
 function endpointEqual(endpoint1, endpoint2) {
     if (endpoint1.addresses.length !== endpoint2.addresses.length) {
         return false;
@@ -17704,11 +18710,9 @@ function endpointEqual(endpoint1, endpoint2) {
     }
     return true;
 }
-exports.endpointEqual = endpointEqual;
 function endpointToString(endpoint) {
     return ('[' + endpoint.addresses.map(subchannelAddressToString).join(', ') + ']');
 }
-exports.endpointToString = endpointToString;
 function endpointHasAddress(endpoint, expectedAddress) {
     for (const address of endpoint.addresses) {
         if (subchannelAddressEqual(address, expectedAddress)) {
@@ -17717,7 +18721,6 @@ function endpointHasAddress(endpoint, expectedAddress) {
     }
     return false;
 }
-exports.endpointHasAddress = endpointHasAddress;
 function endpointEqualUnordered(endpoint1, endpoint2) {
     if (endpoint1.addresses.length !== endpoint2.addresses.length) {
         return false;
@@ -17927,6 +18930,7 @@ class Http2SubchannelCall {
         this.finalStatus = null;
         this.internalError = null;
         this.serverEndedCall = false;
+        this.connectionDropped = false;
         const maxReceiveMessageLength = (_a = transport.getOptions()['grpc.max_receive_message_length']) !== null && _a !== void 0 ? _a : constants_1.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH;
         this.decoder = new stream_decoder_1.StreamDecoder(maxReceiveMessageLength);
         http2Stream.on('response', (headers, flags) => {
@@ -17970,7 +18974,23 @@ class Http2SubchannelCall {
                 messages = this.decoder.write(data);
             }
             catch (e) {
-                this.cancelWithStatus(constants_1.Status.RESOURCE_EXHAUSTED, e.message);
+                /* Some servers send HTML error pages along with HTTP status codes.
+                 * When the client attempts to parse this as a length-delimited
+                 * message, the parsed message size is greater than the default limit,
+                 * resulting in a message decoding error. In that situation, the HTTP
+                 * error code information is more useful to the user than the
+                 * RESOURCE_EXHAUSTED error is, so we report that instead. Normally,
+                 * we delay processing the HTTP status until after the stream ends, to
+                 * prioritize reporting the gRPC status from trailers if it is present,
+                 * but when there is a message parsing error we end the stream early
+                 * before processing trailers. */
+                if (this.httpStatusCode !== undefined && this.httpStatusCode !== 200) {
+                    const mappedStatus = mapHttpStatusCode(this.httpStatusCode);
+                    this.cancelWithStatus(mappedStatus.code, mappedStatus.details);
+                }
+                else {
+                    this.cancelWithStatus(constants_1.Status.RESOURCE_EXHAUSTED, e.message);
+                }
                 return;
             }
             for (const message of messages) {
@@ -18023,8 +19043,17 @@ class Http2SubchannelCall {
                         details = 'Stream refused by server';
                         break;
                     case http2.constants.NGHTTP2_CANCEL:
-                        code = constants_1.Status.CANCELLED;
-                        details = 'Call cancelled';
+                        /* Bug reports indicate that Node synthesizes a NGHTTP2_CANCEL
+                         * code from connection drops. We want to prioritize reporting
+                         * an unavailable status when that happens. */
+                        if (this.connectionDropped) {
+                            code = constants_1.Status.UNAVAILABLE;
+                            details = 'Connection dropped';
+                        }
+                        else {
+                            code = constants_1.Status.CANCELLED;
+                            details = 'Call cancelled';
+                        }
                         break;
                     case http2.constants.NGHTTP2_ENHANCE_YOUR_CALM:
                         code = constants_1.Status.RESOURCE_EXHAUSTED;
@@ -18101,10 +19130,15 @@ class Http2SubchannelCall {
         return [`remote_addr=${this.getPeer()}`];
     }
     onDisconnect() {
-        this.endCall({
-            code: constants_1.Status.UNAVAILABLE,
-            details: 'Connection dropped',
-            metadata: new metadata_1.Metadata(),
+        this.connectionDropped = true;
+        /* Give the call an event loop cycle to finish naturally before reporting
+         * the disconnection as an error. */
+        setImmediate(() => {
+            this.endCall({
+                code: constants_1.Status.UNAVAILABLE,
+                details: 'Connection dropped',
+                metadata: new metadata_1.Metadata(),
+            });
         });
     }
     outputStatus() {
@@ -18439,6 +19473,9 @@ class BaseSubchannelWrapper {
     realSubchannelEquals(other) {
         return this.getRealSubchannel() === other.getRealSubchannel();
     }
+    getCallCredentials() {
+        return this.child.getCallCredentials();
+    }
 }
 exports.BaseSubchannelWrapper = BaseSubchannelWrapper;
 //# sourceMappingURL=subchannel-interface.js.map
@@ -18467,7 +19504,8 @@ exports.BaseSubchannelWrapper = BaseSubchannelWrapper;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getSubchannelPool = exports.SubchannelPool = void 0;
+exports.SubchannelPool = void 0;
+exports.getSubchannelPool = getSubchannelPool;
 const channel_options_1 = __nccwpck_require__(99810);
 const subchannel_1 = __nccwpck_require__(84764);
 const subchannel_address_1 = __nccwpck_require__(99905);
@@ -18584,7 +19622,6 @@ function getSubchannelPool(global) {
         return new SubchannelPool();
     }
 }
-exports.getSubchannelPool = getSubchannelPool;
 //# sourceMappingURL=subchannel-pool.js.map
 
 /***/ }),
@@ -18640,7 +19677,6 @@ class Subchannel {
         this.channelTarget = channelTarget;
         this.subchannelAddress = subchannelAddress;
         this.options = options;
-        this.credentials = credentials;
         this.connector = connector;
         /**
          * The subchannel's current connectivity state. Invariant: `session` === `null`
@@ -18695,6 +19731,7 @@ class Subchannel {
         this.channelzTrace.addTrace('CT_INFO', 'Subchannel created');
         this.trace('Subchannel constructed with options ' +
             JSON.stringify(options, undefined, 2));
+        this.secureConnector = credentials._createSecureConnector(channelTarget, options);
     }
     getChannelzInfo() {
         return {
@@ -18746,7 +19783,7 @@ class Subchannel {
             options = Object.assign(Object.assign({}, options), { 'grpc.keepalive_time_ms': adjustedKeepaliveTime });
         }
         this.connector
-            .connect(this.subchannelAddress, this.credentials, options)
+            .connect(this.subchannelAddress, this.secureConnector, options)
             .then(transport => {
             if (this.transitionToState([connectivity_state_1.ConnectivityState.CONNECTING], connectivity_state_1.ConnectivityState.READY)) {
                 this.transport = transport;
@@ -18782,9 +19819,17 @@ class Subchannel {
         if (oldStates.indexOf(this.connectivityState) === -1) {
             return false;
         }
-        this.trace(connectivity_state_1.ConnectivityState[this.connectivityState] +
-            ' -> ' +
-            connectivity_state_1.ConnectivityState[newState]);
+        if (errorMessage) {
+            this.trace(connectivity_state_1.ConnectivityState[this.connectivityState] +
+                ' -> ' +
+                connectivity_state_1.ConnectivityState[newState] +
+                ' with error "' + errorMessage + '"');
+        }
+        else {
+            this.trace(connectivity_state_1.ConnectivityState[this.connectivityState] +
+                ' -> ' +
+                connectivity_state_1.ConnectivityState[newState]);
+        }
         if (this.channelzEnabled) {
             this.channelzTrace.addTrace('CT_INFO', 'Connectivity state change to ' + connectivity_state_1.ConnectivityState[newState]);
         }
@@ -18839,6 +19884,7 @@ class Subchannel {
         if (this.refcount === 0) {
             this.channelzTrace.addTrace('CT_INFO', 'Shutting down');
             (0, channelz_1.unregisterChannelzRef)(this.channelzRef);
+            this.secureConnector.destroy();
             process.nextTick(() => {
                 this.transitionToState([connectivity_state_1.ConnectivityState.CONNECTING, connectivity_state_1.ConnectivityState.READY], connectivity_state_1.ConnectivityState.IDLE);
             });
@@ -18951,6 +19997,9 @@ class Subchannel {
             this.keepaliveTime = newKeepaliveTime;
         }
     }
+    getCallCredentials() {
+        return this.secureConnector.getCallCredentials();
+    }
 }
 exports.Subchannel = Subchannel;
 //# sourceMappingURL=subchannel.js.map
@@ -18979,7 +20028,8 @@ exports.Subchannel = Subchannel;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getDefaultRootsData = exports.CIPHER_SUITES = void 0;
+exports.CIPHER_SUITES = void 0;
+exports.getDefaultRootsData = getDefaultRootsData;
 const fs = __nccwpck_require__(57147);
 exports.CIPHER_SUITES = process.env.GRPC_SSL_CIPHER_SUITES;
 const DEFAULT_ROOTS_FILE_PATH = process.env.GRPC_DEFAULT_SSL_ROOTS_FILE_PATH;
@@ -18993,7 +20043,6 @@ function getDefaultRootsData() {
     }
     return null;
 }
-exports.getDefaultRootsData = getDefaultRootsData;
 //# sourceMappingURL=tls-helpers.js.map
 
 /***/ }),
@@ -19022,7 +20071,6 @@ exports.getDefaultRootsData = getDefaultRootsData;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Http2SubchannelConnector = void 0;
 const http2 = __nccwpck_require__(85158);
-const tls_1 = __nccwpck_require__(24404);
 const channelz_1 = __nccwpck_require__(79975);
 const constants_1 = __nccwpck_require__(90634);
 const http_proxy_1 = __nccwpck_require__(24000);
@@ -19050,30 +20098,14 @@ class Http2Transport {
         this.options = options;
         this.remoteName = remoteName;
         /**
-         * The amount of time in between sending pings
+         * Timer reference indicating when to send the next ping or when the most recent ping will be considered lost.
          */
-        this.keepaliveTimeMs = -1;
-        /**
-         * The amount of time to wait for an acknowledgement after sending a ping
-         */
-        this.keepaliveTimeoutMs = KEEPALIVE_TIMEOUT_MS;
-        /**
-         * Timer reference for timeout that indicates when to send the next ping
-         */
-        this.keepaliveTimerId = null;
+        this.keepaliveTimer = null;
         /**
          * Indicates that the keepalive timer ran out while there were no active
          * calls, and a ping should be sent the next time a call starts.
          */
         this.pendingSendKeepalivePing = false;
-        /**
-         * Timer reference tracking when the most recent ping will be considered lost
-         */
-        this.keepaliveTimeoutId = null;
-        /**
-         * Indicates whether keepalive pings should be sent without any active calls
-         */
-        this.keepaliveWithoutCalls = false;
         this.activeCalls = new Set();
         this.disconnectListeners = [];
         this.disconnectHandled = false;
@@ -19105,8 +20137,14 @@ class Http2Transport {
         if ('grpc.keepalive_time_ms' in options) {
             this.keepaliveTimeMs = options['grpc.keepalive_time_ms'];
         }
+        else {
+            this.keepaliveTimeMs = -1;
+        }
         if ('grpc.keepalive_timeout_ms' in options) {
             this.keepaliveTimeoutMs = options['grpc.keepalive_timeout_ms'];
+        }
+        else {
+            this.keepaliveTimeoutMs = KEEPALIVE_TIMEOUT_MS;
         }
         if ('grpc.keepalive_permit_without_calls' in options) {
             this.keepaliveWithoutCalls =
@@ -19117,7 +20155,6 @@ class Http2Transport {
         }
         session.once('close', () => {
             this.trace('session closed');
-            this.stopKeepalivePings();
             this.handleDisconnect();
         });
         session.once('goaway', (errorCode, lastStreamID, opaqueData) => {
@@ -19136,9 +20173,12 @@ class Http2Transport {
             this.reportDisconnectToOwner(tooManyPings);
         });
         session.once('error', error => {
-            /* Do nothing here. Any error should also trigger a close event, which is
-             * where we want to handle that.  */
             this.trace('connection closed with error ' + error.message);
+            this.handleDisconnect();
+        });
+        session.socket.once('close', (hadError) => {
+            this.trace('connection closed. hadError=' + hadError);
+            this.handleDisconnect();
         });
         if (logging.isTracerEnabled(TRACER_NAME)) {
             session.on('remoteSettings', (settings) => {
@@ -19259,68 +20299,67 @@ class Http2Transport {
      * Handle connection drops, but not GOAWAYs.
      */
     handleDisconnect() {
+        this.clearKeepaliveTimeout();
         this.reportDisconnectToOwner(false);
-        /* Give calls an event loop cycle to finish naturally before reporting the
-         * disconnnection to them. */
+        for (const call of this.activeCalls) {
+            call.onDisconnect();
+        }
+        // Wait an event loop cycle before destroying the connection
         setImmediate(() => {
-            for (const call of this.activeCalls) {
-                call.onDisconnect();
-            }
+            this.session.destroy();
         });
     }
     addDisconnectListener(listener) {
         this.disconnectListeners.push(listener);
     }
-    clearKeepaliveTimer() {
-        if (!this.keepaliveTimerId) {
-            return;
-        }
-        clearTimeout(this.keepaliveTimerId);
-        this.keepaliveTimerId = null;
-    }
-    clearKeepaliveTimeout() {
-        if (!this.keepaliveTimeoutId) {
-            return;
-        }
-        clearTimeout(this.keepaliveTimeoutId);
-        this.keepaliveTimeoutId = null;
-    }
     canSendPing() {
-        return (this.keepaliveTimeMs > 0 &&
+        return (!this.session.destroyed &&
+            this.keepaliveTimeMs > 0 &&
             (this.keepaliveWithoutCalls || this.activeCalls.size > 0));
     }
     maybeSendPing() {
         var _a, _b;
-        this.clearKeepaliveTimer();
         if (!this.canSendPing()) {
             this.pendingSendKeepalivePing = true;
+            return;
+        }
+        if (this.keepaliveTimer) {
+            console.error('keepaliveTimeout is not null');
             return;
         }
         if (this.channelzEnabled) {
             this.keepalivesSent += 1;
         }
         this.keepaliveTrace('Sending ping with timeout ' + this.keepaliveTimeoutMs + 'ms');
-        if (!this.keepaliveTimeoutId) {
-            this.keepaliveTimeoutId = setTimeout(() => {
-                this.keepaliveTrace('Ping timeout passed without response');
-                this.handleDisconnect();
-            }, this.keepaliveTimeoutMs);
-            (_b = (_a = this.keepaliveTimeoutId).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
-        }
+        this.keepaliveTimer = setTimeout(() => {
+            this.keepaliveTimer = null;
+            this.keepaliveTrace('Ping timeout passed without response');
+            this.handleDisconnect();
+        }, this.keepaliveTimeoutMs);
+        (_b = (_a = this.keepaliveTimer).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
+        let pingSendError = '';
         try {
-            this.session.ping((err, duration, payload) => {
+            const pingSentSuccessfully = this.session.ping((err, duration, payload) => {
+                this.clearKeepaliveTimeout();
                 if (err) {
                     this.keepaliveTrace('Ping failed with error ' + err.message);
                     this.handleDisconnect();
                 }
-                this.keepaliveTrace('Received ping response');
-                this.clearKeepaliveTimeout();
-                this.maybeStartKeepalivePingTimer();
+                else {
+                    this.keepaliveTrace('Received ping response');
+                    this.maybeStartKeepalivePingTimer();
+                }
             });
+            if (!pingSentSuccessfully) {
+                pingSendError = 'Ping returned false';
+            }
         }
         catch (e) {
-            /* If we fail to send a ping, the connection is no longer functional, so
-             * we should discard it. */
+            // grpc/grpc-node#2139
+            pingSendError = (e instanceof Error ? e.message : '') || 'Unknown error';
+        }
+        if (pingSendError) {
+            this.keepaliveTrace('Ping send failed: ' + pingSendError);
             this.handleDisconnect();
         }
     }
@@ -19339,22 +20378,25 @@ class Http2Transport {
             this.pendingSendKeepalivePing = false;
             this.maybeSendPing();
         }
-        else if (!this.keepaliveTimerId && !this.keepaliveTimeoutId) {
+        else if (!this.keepaliveTimer) {
             this.keepaliveTrace('Starting keepalive timer for ' + this.keepaliveTimeMs + 'ms');
-            this.keepaliveTimerId = setTimeout(() => {
+            this.keepaliveTimer = setTimeout(() => {
+                this.keepaliveTimer = null;
                 this.maybeSendPing();
             }, this.keepaliveTimeMs);
-            (_b = (_a = this.keepaliveTimerId).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
+            (_b = (_a = this.keepaliveTimer).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
         }
         /* Otherwise, there is already either a keepalive timer or a ping pending,
          * wait for those to resolve. */
     }
-    stopKeepalivePings() {
-        if (this.keepaliveTimerId) {
-            clearTimeout(this.keepaliveTimerId);
-            this.keepaliveTimerId = null;
+    /**
+     * Clears whichever keepalive timeout is currently active, if any.
+     */
+    clearKeepaliveTimeout() {
+        if (this.keepaliveTimer) {
+            clearTimeout(this.keepaliveTimer);
+            this.keepaliveTimer = null;
         }
-        this.clearKeepaliveTimeout();
     }
     removeActiveCall(call) {
         this.activeCalls.delete(call);
@@ -19488,163 +20530,122 @@ class Http2SubchannelConnector {
     trace(text) {
         logging.trace(constants_1.LogVerbosity.DEBUG, TRACER_NAME, (0, uri_parser_1.uriToString)(this.channelTarget) + ' ' + text);
     }
-    createSession(address, credentials, options, proxyConnectionResult) {
+    createSession(secureConnectResult, address, options) {
         if (this.isShutdown) {
             return Promise.reject();
         }
+        if (secureConnectResult.socket.closed) {
+            return Promise.reject('Connection closed before starting HTTP/2 handshake');
+        }
         return new Promise((resolve, reject) => {
-            var _a, _b, _c, _d;
-            let remoteName;
-            if (proxyConnectionResult.realTarget) {
-                remoteName = (0, uri_parser_1.uriToString)(proxyConnectionResult.realTarget);
-                this.trace('creating HTTP/2 session through proxy to ' +
-                    (0, uri_parser_1.uriToString)(proxyConnectionResult.realTarget));
-            }
-            else {
-                remoteName = null;
-                this.trace('creating HTTP/2 session to ' + (0, subchannel_address_1.subchannelAddressToString)(address));
-            }
-            const targetAuthority = (0, resolver_1.getDefaultAuthority)((_a = proxyConnectionResult.realTarget) !== null && _a !== void 0 ? _a : this.channelTarget);
-            let connectionOptions = credentials._getConnectionOptions() || {};
-            connectionOptions.maxSendHeaderBlockLength = Number.MAX_SAFE_INTEGER;
-            if ('grpc-node.max_session_memory' in options) {
-                connectionOptions.maxSessionMemory =
-                    options['grpc-node.max_session_memory'];
-            }
-            else {
-                /* By default, set a very large max session memory limit, to effectively
-                 * disable enforcement of the limit. Some testing indicates that Node's
-                 * behavior degrades badly when this limit is reached, so we solve that
-                 * by disabling the check entirely. */
-                connectionOptions.maxSessionMemory = Number.MAX_SAFE_INTEGER;
-            }
-            let addressScheme = 'http://';
-            if ('secureContext' in connectionOptions) {
-                addressScheme = 'https://';
-                // If provided, the value of grpc.ssl_target_name_override should be used
-                // to override the target hostname when checking server identity.
-                // This option is used for testing only.
-                if (options['grpc.ssl_target_name_override']) {
-                    const sslTargetNameOverride = options['grpc.ssl_target_name_override'];
-                    const originalCheckServerIdentity = (_b = connectionOptions.checkServerIdentity) !== null && _b !== void 0 ? _b : tls_1.checkServerIdentity;
-                    connectionOptions.checkServerIdentity = (host, cert) => {
-                        return originalCheckServerIdentity(sslTargetNameOverride, cert);
-                    };
-                    connectionOptions.servername = sslTargetNameOverride;
-                }
-                else {
-                    const authorityHostname = (_d = (_c = (0, uri_parser_1.splitHostPort)(targetAuthority)) === null || _c === void 0 ? void 0 : _c.host) !== null && _d !== void 0 ? _d : 'localhost';
-                    // We want to always set servername to support SNI
-                    connectionOptions.servername = authorityHostname;
-                }
-                if (proxyConnectionResult.socket) {
-                    /* This is part of the workaround for
-                     * https://github.com/nodejs/node/issues/32922. Without that bug,
-                     * proxyConnectionResult.socket would always be a plaintext socket and
-                     * this would say
-                     * connectionOptions.socket = proxyConnectionResult.socket; */
-                    connectionOptions.createConnection = (authority, option) => {
-                        return proxyConnectionResult.socket;
-                    };
+            let remoteName = null;
+            let realTarget = this.channelTarget;
+            if ('grpc.http_connect_target' in options) {
+                const parsedTarget = (0, uri_parser_1.parseUri)(options['grpc.http_connect_target']);
+                if (parsedTarget) {
+                    realTarget = parsedTarget;
+                    remoteName = (0, uri_parser_1.uriToString)(parsedTarget);
                 }
             }
-            else {
-                /* In all but the most recent versions of Node, http2.connect does not use
-                 * the options when establishing plaintext connections, so we need to
-                 * establish that connection explicitly. */
-                connectionOptions.createConnection = (authority, option) => {
-                    if (proxyConnectionResult.socket) {
-                        return proxyConnectionResult.socket;
-                    }
-                    else {
-                        /* net.NetConnectOpts is declared in a way that is more restrictive
-                         * than what net.connect will actually accept, so we use the type
-                         * assertion to work around that. */
-                        return net.connect(address);
-                    }
-                };
-            }
-            connectionOptions = Object.assign(Object.assign(Object.assign({}, connectionOptions), address), { enableTrace: options['grpc-node.tls_enable_trace'] === 1 });
-            /* http2.connect uses the options here:
-             * https://github.com/nodejs/node/blob/70c32a6d190e2b5d7b9ff9d5b6a459d14e8b7d59/lib/internal/http2/core.js#L3028-L3036
-             * The spread operator overides earlier values with later ones, so any port
-             * or host values in the options will be used rather than any values extracted
-             * from the first argument. In addition, the path overrides the host and port,
-             * as documented for plaintext connections here:
-             * https://nodejs.org/api/net.html#net_socket_connect_options_connectlistener
-             * and for TLS connections here:
-             * https://nodejs.org/api/tls.html#tls_tls_connect_options_callback. In
-             * earlier versions of Node, http2.connect passes these options to
-             * tls.connect but not net.connect, so in the insecure case we still need
-             * to set the createConnection option above to create the connection
-             * explicitly. We cannot do that in the TLS case because http2.connect
-             * passes necessary additional options to tls.connect.
-             * The first argument just needs to be parseable as a URL and the scheme
-             * determines whether the connection will be established over TLS or not.
-             */
-            const session = http2.connect(addressScheme + targetAuthority, connectionOptions);
-            this.session = session;
-            let errorMessage = 'Failed to connect';
-            session.unref();
-            session.once('connect', () => {
-                session.removeAllListeners();
-                resolve(new Http2Transport(session, address, options, remoteName));
-                this.session = null;
-            });
-            session.once('close', () => {
+            const scheme = secureConnectResult.secure ? 'https' : 'http';
+            const targetPath = (0, resolver_1.getDefaultAuthority)(realTarget);
+            const closeHandler = () => {
+                var _a;
+                (_a = this.session) === null || _a === void 0 ? void 0 : _a.destroy();
                 this.session = null;
                 // Leave time for error event to happen before rejecting
                 setImmediate(() => {
-                    reject(`${errorMessage} (${new Date().toISOString()})`);
+                    if (!reportedError) {
+                        reportedError = true;
+                        reject(`${errorMessage.trim()} (${new Date().toISOString()})`);
+                    }
                 });
-            });
-            session.once('error', error => {
+            };
+            const errorHandler = (error) => {
+                var _a;
+                (_a = this.session) === null || _a === void 0 ? void 0 : _a.destroy();
                 errorMessage = error.message;
                 this.trace('connection failed with error ' + errorMessage);
+                if (!reportedError) {
+                    reportedError = true;
+                    reject(`${errorMessage} (${new Date().toISOString()})`);
+                }
+            };
+            const sessionOptions = {
+                createConnection: (authority, option) => {
+                    return secureConnectResult.socket;
+                }
+            };
+            if (options['grpc-node.flow_control_window'] !== undefined) {
+                sessionOptions.settings = {
+                    initialWindowSize: options['grpc-node.flow_control_window']
+                };
+            }
+            const session = http2.connect(`${scheme}://${targetPath}`, sessionOptions);
+            this.session = session;
+            let errorMessage = 'Failed to connect';
+            let reportedError = false;
+            session.unref();
+            session.once('remoteSettings', () => {
+                session.removeAllListeners();
+                secureConnectResult.socket.removeListener('close', closeHandler);
+                secureConnectResult.socket.removeListener('error', errorHandler);
+                resolve(new Http2Transport(session, address, options, remoteName));
+                this.session = null;
             });
+            session.once('close', closeHandler);
+            session.once('error', errorHandler);
+            secureConnectResult.socket.once('close', closeHandler);
+            secureConnectResult.socket.once('error', errorHandler);
         });
     }
-    connect(address, credentials, options) {
-        var _a, _b, _c;
+    tcpConnect(address, options) {
+        return (0, http_proxy_1.getProxiedConnection)(address, options).then(proxiedSocket => {
+            if (proxiedSocket) {
+                return proxiedSocket;
+            }
+            else {
+                return new Promise((resolve, reject) => {
+                    const closeCallback = () => {
+                        reject(new Error('Socket closed'));
+                    };
+                    const errorCallback = (error) => {
+                        reject(error);
+                    };
+                    const socket = net.connect(address, () => {
+                        socket.removeListener('close', closeCallback);
+                        socket.removeListener('error', errorCallback);
+                        resolve(socket);
+                    });
+                    socket.once('close', closeCallback);
+                    socket.once('error', errorCallback);
+                });
+            }
+        });
+    }
+    async connect(address, secureConnector, options) {
         if (this.isShutdown) {
             return Promise.reject();
         }
-        /* Pass connection options through to the proxy so that it's able to
-         * upgrade it's connection to support tls if needed.
-         * This is a workaround for https://github.com/nodejs/node/issues/32922
-         * See https://github.com/grpc/grpc-node/pull/1369 for more info. */
-        const connectionOptions = credentials._getConnectionOptions() || {};
-        if ('secureContext' in connectionOptions) {
-            connectionOptions.ALPNProtocols = ['h2'];
-            // If provided, the value of grpc.ssl_target_name_override should be used
-            // to override the target hostname when checking server identity.
-            // This option is used for testing only.
-            if (options['grpc.ssl_target_name_override']) {
-                const sslTargetNameOverride = options['grpc.ssl_target_name_override'];
-                const originalCheckServerIdentity = (_a = connectionOptions.checkServerIdentity) !== null && _a !== void 0 ? _a : tls_1.checkServerIdentity;
-                connectionOptions.checkServerIdentity = (host, cert) => {
-                    return originalCheckServerIdentity(sslTargetNameOverride, cert);
-                };
-                connectionOptions.servername = sslTargetNameOverride;
-            }
-            else {
-                if ('grpc.http_connect_target' in options) {
-                    /* This is more or less how servername will be set in createSession
-                     * if a connection is successfully established through the proxy.
-                     * If the proxy is not used, these connectionOptions are discarded
-                     * anyway */
-                    const targetPath = (0, resolver_1.getDefaultAuthority)((_b = (0, uri_parser_1.parseUri)(options['grpc.http_connect_target'])) !== null && _b !== void 0 ? _b : {
-                        path: 'localhost',
-                    });
-                    const hostPort = (0, uri_parser_1.splitHostPort)(targetPath);
-                    connectionOptions.servername = (_c = hostPort === null || hostPort === void 0 ? void 0 : hostPort.host) !== null && _c !== void 0 ? _c : targetPath;
-                }
-            }
-            if (options['grpc-node.tls_enable_trace']) {
-                connectionOptions.enableTrace = true;
-            }
+        let tcpConnection = null;
+        let secureConnectResult = null;
+        const addressString = (0, subchannel_address_1.subchannelAddressToString)(address);
+        try {
+            this.trace(addressString + ' Waiting for secureConnector to be ready');
+            await secureConnector.waitForReady();
+            this.trace(addressString + ' secureConnector is ready');
+            tcpConnection = await this.tcpConnect(address, options);
+            tcpConnection.setNoDelay();
+            this.trace(addressString + ' Established TCP connection');
+            secureConnectResult = await secureConnector.connect(tcpConnection);
+            this.trace(addressString + ' Established secure connection');
+            return this.createSession(secureConnectResult, address, options);
         }
-        return (0, http_proxy_1.getProxiedConnection)(address, options, connectionOptions).then(result => this.createSession(address, credentials, options, result));
+        catch (e) {
+            tcpConnection === null || tcpConnection === void 0 ? void 0 : tcpConnection.destroy();
+            secureConnectResult === null || secureConnectResult === void 0 ? void 0 : secureConnectResult.socket.destroy();
+            throw e;
+        }
     }
     shutdown() {
         var _a;
@@ -19680,7 +20681,10 @@ exports.Http2SubchannelConnector = Http2SubchannelConnector;
  *
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.uriToString = exports.combineHostPort = exports.splitHostPort = exports.parseUri = void 0;
+exports.parseUri = parseUri;
+exports.splitHostPort = splitHostPort;
+exports.combineHostPort = combineHostPort;
+exports.uriToString = uriToString;
 /*
  * The groups correspond to URI parts as follows:
  * 1. scheme
@@ -19699,7 +20703,6 @@ function parseUri(uriString) {
         path: parsedUri[3],
     };
 }
-exports.parseUri = parseUri;
 const NUMBER_REGEX = /^\d+$/;
 function splitHostPort(path) {
     if (path.startsWith('[')) {
@@ -19759,7 +20762,6 @@ function splitHostPort(path) {
         }
     }
 }
-exports.splitHostPort = splitHostPort;
 function combineHostPort(hostPort) {
     if (hostPort.port === undefined) {
         return hostPort.host;
@@ -19774,7 +20776,6 @@ function combineHostPort(hostPort) {
         }
     }
 }
-exports.combineHostPort = combineHostPort;
 function uriToString(uri) {
     let result = '';
     if (uri.scheme !== undefined) {
@@ -19786,7 +20787,6 @@ function uriToString(uri) {
     result += uri.path;
     return result;
 }
-exports.uriToString = uriToString;
 //# sourceMappingURL=uri-parser.js.map
 
 /***/ }),
@@ -25120,7 +26120,7 @@ const fs = __importStar(__nccwpck_require__(57147));
 const got_1 = __importDefault(__nccwpck_require__(93061));
 const os = __importStar(__nccwpck_require__(22037));
 const path = __importStar(__nccwpck_require__(71017));
-const semver = __importStar(__nccwpck_require__(11383));
+const semver = __importStar(__nccwpck_require__(52952));
 const tmp = __importStar(__nccwpck_require__(8517));
 const version_1 = __nccwpck_require__(86921);
 const minimumVersion_1 = __nccwpck_require__(88410);
@@ -25163,7 +26163,7 @@ class PulumiCommand {
      */
     static async get(opts) {
         const command = opts?.root ? path.resolve(path.join(opts.root, "bin/pulumi")) : "pulumi";
-        const { stdout } = await exec(command, ["version"], undefined, { PULUMI_SKIP_UPDATE_CHECK: "true" });
+        const { stdout } = await exec(command, ["version"]);
         const skipVersionCheck = !!opts?.skipVersionCheck || !!process.env[SKIP_VERSION_CHECK_VAR];
         let min = minimumVersion_1.minimumVersion;
         if (opts?.version && semver.gt(opts.version, minimumVersion_1.minimumVersion)) {
@@ -25230,39 +26230,29 @@ class PulumiCommand {
         }
     }
     /** @internal */
-    run(args, cwd, additionalEnv, onOutput, onError, signal) {
+    run(args, cwd, additionalEnv, onOutput, signal) {
         // all commands should be run in non-interactive mode.
         // this causes commands to fail rather than prompting for input (and thus hanging indefinitely)
         if (!args.includes("--non-interactive")) {
             args.push("--non-interactive");
         }
-        const env = { ...additionalEnv };
         // Prepend the folder where the CLI is installed to the path to ensure
         // we pickup the matching bundled plugins.
         if (path.isAbsolute(this.command)) {
             const pulumiBin = path.dirname(this.command);
             const sep = os.platform() === "win32" ? ";" : ":";
             const envPath = pulumiBin + sep + (additionalEnv["PATH"] || process.env.PATH);
-            env["PATH"] = envPath;
+            additionalEnv["PATH"] = envPath;
         }
-        env["PULUMI_AUTOMATION_API"] = "true";
-        return exec(this.command, args, cwd, env, onOutput, onError, signal);
+        return exec(this.command, args, cwd, additionalEnv, onOutput, signal);
     }
 }
 exports.PulumiCommand = PulumiCommand;
-async function exec(command, args, cwd, additionalEnv, onOutput, onError, signal) {
+async function exec(command, args, cwd, additionalEnv, onOutput, signal) {
     const unknownErrCode = -2;
     const env = additionalEnv ? { ...additionalEnv } : undefined;
     try {
         const proc = execa_1.default(command, args, { env, cwd });
-        if (onError && proc.stderr) {
-            proc.stderr.on("data", (data) => {
-                if (data?.toString) {
-                    data = data.toString();
-                }
-                onError(data);
-            });
-        }
         if (onOutput && proc.stdout) {
             proc.stdout.on("data", (data) => {
                 if (data?.toString) {
@@ -25562,7 +26552,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const fs = __importStar(__nccwpck_require__(57147));
 const yaml = __importStar(__nccwpck_require__(21917));
 const os = __importStar(__nccwpck_require__(22037));
-const semver = __importStar(__nccwpck_require__(11383));
+const semver = __importStar(__nccwpck_require__(52952));
 const upath = __importStar(__nccwpck_require__(8004));
 const cmd_1 = __nccwpck_require__(79586);
 const stack_1 = __nccwpck_require__(29010);
@@ -26032,21 +27022,6 @@ class LocalWorkspace {
             const secretArg = value.secret ? "--secret" : "--plaintext";
             args.push(secretArg, `${key}=${value.value}`);
         }
-        await this.runPulumiCmd(args);
-    }
-    /**
-     * Sets all config values from a JSON string for the specified stack name.
-     * The JSON string should be in the format produced by "pulumi config --json".
-     * Will write the config to the matching `Pulumi.<stack>.yaml` file in
-     * `Workspace.workDir`.
-     *
-     * @param stackName
-     *  The stack to operate on
-     * @param configJson
-     *  A JSON string containing the configuration values to set
-     */
-    async setAllConfigJson(stackName, configJson) {
-        const args = ["config", "set-all", "--stack", stackName, "--json", configJson];
         await this.runPulumiCmd(args);
     }
     /**
@@ -26545,7 +27520,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const semver = __importStar(__nccwpck_require__(11383));
+const semver = __importStar(__nccwpck_require__(52952));
 /**
  * @internal
  */
@@ -26880,7 +27855,8 @@ class LanguageServer {
         const req = call.request;
         const resp = new langproto.RunResponse();
         // Setup a new async state store for this run
-        return localState.withLocalStorage(async () => {
+        const store = new localState.LocalStore();
+        return localState.asyncLocalStorage.run(store, async () => {
             const errorSet = new Set();
             const uncaughtHandler = newUncaughtHandler(errorSet);
             try {
@@ -26899,12 +27875,12 @@ class LanguageServer {
                 process.on("unhandledRejection", uncaughtHandler);
                 try {
                     await stack.runInPulumiStack(this.program);
-                    await settings.disconnect(true /* signalShutdown */);
+                    await settings.disconnect();
                     process.off("uncaughtException", uncaughtHandler);
                     process.off("unhandledRejection", uncaughtHandler);
                 }
                 catch (e) {
-                    await settings.disconnect(false /* signalShutdown */);
+                    await settings.disconnect();
                     process.off("uncaughtException", uncaughtHandler);
                     process.off("unhandledRejection", uncaughtHandler);
                     if (!errors_1.isGrpcError(e)) {
@@ -27012,7 +27988,6 @@ const fs = __importStar(__nccwpck_require__(57147));
 const os = __importStar(__nccwpck_require__(22037));
 const pathlib = __importStar(__nccwpck_require__(71017));
 const readline = __importStar(__nccwpck_require__(14521));
-const semver = __importStar(__nccwpck_require__(11383));
 const upath = __importStar(__nccwpck_require__(8004));
 const grpc = __importStar(__nccwpck_require__(7025));
 const tail_file_1 = __importDefault(__nccwpck_require__(725));
@@ -27020,8 +27995,6 @@ const log = __importStar(__nccwpck_require__(80642));
 const errors_1 = __nccwpck_require__(71369);
 const localWorkspace_1 = __nccwpck_require__(5142);
 const server_1 = __nccwpck_require__(63621);
-const empty_pb_1 = __nccwpck_require__(40291);
-const eventsrpc = __importStar(__nccwpck_require__(79836));
 const langrpc = __importStar(__nccwpck_require__(75628));
 /**
  * {@link Stack} is an isolated, independently configurable instance of a Pulumi
@@ -27098,33 +28071,6 @@ class Stack {
         const stack = new Stack(name, workspace, "createOrSelect");
         await stack.ready;
         return stack;
-    }
-    async setupEventLog(command, onEvent, pulumiVersion) {
-        const ver = semver.parse(pulumiVersion) ?? semver.parse("3.0.0");
-        if (semver.gt(ver, "3.205.0")) {
-            const eventsServer = new grpc.Server({
-                "grpc.max_receive_message_length": server_1.maxRPCMessageSize,
-            });
-            const eventsService = new EventsServer(onEvent);
-            eventsServer.addService(eventsrpc.EventsService, eventsService);
-            const port = await new Promise((resolve, reject) => {
-                eventsServer.bindAsync(`127.0.0.1:0`, grpc.ServerCredentials.createInsecure(), (err, p) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    else {
-                        resolve(p);
-                    }
-                });
-            });
-            const file = `tcp://127.0.0.1:${port}`;
-            return { logFile: file, logPromise: undefined, server: eventsServer };
-        }
-        else {
-            const file = createLogFile(command);
-            const logPromise = this.readLines(file, onEvent);
-            return { logFile: file, logPromise: logPromise };
-        }
     }
     async readLines(logPath, callback) {
         const eventLogTail = new tail_file_1.default(logPath, { startPos: 0, pollFileIntervalMs: 200 }).on("tail_error", (err) => {
@@ -27226,14 +28172,6 @@ Event: ${line}\n${e.toString()}`);
             if (opts.attachDebugger) {
                 args.push("--attach-debugger");
             }
-            if (opts.runProgram !== undefined) {
-                if (opts.runProgram) {
-                    args.push("--run-program=true");
-                }
-                else {
-                    args.push("--run-program=false");
-                }
-            }
             applyGlobalOpts(opts, args);
         }
         let onExit = (hasError) => {
@@ -27266,19 +28204,18 @@ Event: ${line}\n${e.toString()}`);
         args.push("--exec-kind", kind);
         let logPromise;
         let logFile;
-        let eventsServer;
         // Set up event log tailing
         if (opts?.onEvent) {
-            ({
-                logFile,
-                logPromise,
-                server: eventsServer,
-            } = await this.setupEventLog("up", opts.onEvent, this.workspace.pulumiVersion));
+            const onEvent = opts.onEvent;
+            logFile = createLogFile("up");
             args.push("--event-log", logFile);
+            logPromise = this.readLines(logFile, (event) => {
+                onEvent(event);
+            });
         }
         let upResult;
         try {
-            upResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
+            upResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.signal);
         }
         catch (e) {
             didError = true;
@@ -27286,7 +28223,7 @@ Event: ${line}\n${e.toString()}`);
         }
         finally {
             onExit(didError);
-            await cleanUp(logFile, await logPromise, eventsServer);
+            await cleanUp(logFile, await logPromise);
         }
         // TODO: do this in parallel after this is fixed https://github.com/pulumi/pulumi/issues/6050
         const outputs = await this.outputs();
@@ -27374,14 +28311,6 @@ Event: ${line}\n${e.toString()}`);
             if (opts.attachDebugger) {
                 args.push("--attach-debugger");
             }
-            if (opts.runProgram !== undefined) {
-                if (opts.runProgram) {
-                    args.push("--run-program=true");
-                }
-                else {
-                    args.push("--run-program=false");
-                }
-            }
             applyGlobalOpts(opts, args);
         }
         let onExit = (hasError) => {
@@ -27412,20 +28341,22 @@ Event: ${line}\n${e.toString()}`);
             args.push(`--client=127.0.0.1:${port}`);
         }
         args.push("--exec-kind", kind);
+        // Set up event log tailing
+        const logFile = createLogFile("preview");
+        args.push("--event-log", logFile);
         let summaryEvent;
-        const onEvent = (event) => {
+        const logPromise = this.readLines(logFile, (event) => {
             if (event.summaryEvent) {
                 summaryEvent = event.summaryEvent;
             }
             if (opts?.onEvent) {
-                opts.onEvent(event);
+                const onEvent = opts.onEvent;
+                onEvent(event);
             }
-        };
-        const { logFile, logPromise, server: eventsServer, } = await this.setupEventLog("preview", onEvent, this.workspace.pulumiVersion);
-        args.push("--event-log", logFile);
+        });
         let previewResult;
         try {
-            previewResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
+            previewResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.signal);
         }
         catch (e) {
             didError = true;
@@ -27433,7 +28364,7 @@ Event: ${line}\n${e.toString()}`);
         }
         finally {
             onExit(didError);
-            await cleanUp(logFile, await logPromise, eventsServer);
+            await cleanUp(logFile, await logPromise);
         }
         if (!summaryEvent) {
             log.warn("Failed to parse summary event, but preview succeeded. PreviewResult `changeSummary` will be empty.");
@@ -27445,16 +28376,6 @@ Event: ${line}\n${e.toString()}`);
         };
     }
     /**
-     * Check the installed version of the Pulumi CLI supports inline programs for refresh and destroy operations.
-     */
-    checkInlineSupport() {
-        const ver = semver.parse(this.workspace.pulumiVersion) ?? semver.parse("3.0.0");
-        // 3.181 added support for --client (https://github.com/pulumi/pulumi/releases/tag/v3.181.0)
-        if (semver.lt(ver, "3.181.0")) {
-            throw new Error(`destroy with inline programs requires Pulumi version >= 3.181.0`);
-        }
-    }
-    /**
      * Compares the current stack’s resource state with the state known to exist
      * in the actual cloud provider. Any such changes are adopted into the
      * current stack.
@@ -27463,13 +28384,8 @@ Event: ${line}\n${e.toString()}`);
      *  Options to customize the behavior of the refresh.
      */
     async refresh(opts) {
-        const args = ["refresh"];
-        if (opts?.previewOnly) {
-            args.push("--preview-only");
-        }
-        else {
-            args.push("--skip-preview", "--yes");
-        }
+        const args = ["refresh", "--yes"];
+        args.push(opts?.previewOnly ? "--preview-only" : "--skip-preview");
         args.push(...this.remoteArgs());
         if (opts) {
             if (opts.message) {
@@ -27515,57 +28431,23 @@ Event: ${line}\n${e.toString()}`);
         }
         let logPromise;
         let logFile;
-        let eventsServer;
         // Set up event log tailing
         if (opts?.onEvent) {
-            ({
-                logFile,
-                logPromise,
-                server: eventsServer,
-            } = await this.setupEventLog("refresh", opts.onEvent, this.workspace.pulumiVersion));
+            const onEvent = opts.onEvent;
+            logFile = createLogFile("refresh");
             args.push("--event-log", logFile);
-        }
-        let onExit = (hasError) => {
-            return;
-        };
-        let didError = false;
-        let kind = execKind.local;
-        if (this.workspace.program !== undefined) {
-            this.checkInlineSupport();
-            kind = execKind.inline;
-            const server = new grpc.Server({
-                "grpc.max_receive_message_length": server_1.maxRPCMessageSize,
+            logPromise = this.readLines(logFile, (event) => {
+                onEvent(event);
             });
-            const languageServer = new server_1.LanguageServer(this.workspace.program);
-            server.addService(langrpc.LanguageRuntimeService, languageServer);
-            const port = await new Promise((resolve, reject) => {
-                server.bindAsync(`127.0.0.1:0`, grpc.ServerCredentials.createInsecure(), (err, p) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    else {
-                        resolve(p);
-                    }
-                });
-            });
-            onExit = (hasError) => {
-                languageServer.onPulumiExit(hasError);
-                server.forceShutdown();
-            };
-            args.push(`--client=127.0.0.1:${port}`);
         }
+        const kind = this.workspace.program ? execKind.inline : execKind.local;
         args.push("--exec-kind", kind);
         let refResult;
         try {
-            refResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
-        }
-        catch (e) {
-            didError = true;
-            throw e;
+            refResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.signal);
         }
         finally {
-            onExit(didError);
-            await cleanUp(logFile, await logPromise, eventsServer);
+            await cleanUp(logFile, await logPromise);
         }
         // If it's a remote workspace, explicitly set showSecrets to false to prevent attempting to
         // load the project file.
@@ -27574,88 +28456,6 @@ Event: ${line}\n${e.toString()}`);
             stdout: refResult.stdout,
             stderr: refResult.stderr,
             summary: summary,
-        };
-    }
-    /**
-     * Performs a dry-run refresh of the stack, returning pending changes.
-     *
-     * @param opts
-     *  Options to customize the behavior of the refresh.
-     */
-    async previewRefresh(opts) {
-        const args = ["refresh", "--preview-only"];
-        args.push(...this.remoteArgs());
-        if (opts) {
-            if (opts.message) {
-                args.push("--message", opts.message);
-            }
-            if (opts.expectNoChanges) {
-                args.push("--expect-no-changes");
-            }
-            if (opts.clearPendingCreates) {
-                args.push("--clear-pending-creates");
-            }
-            if (opts.exclude) {
-                for (const eURN of opts.exclude) {
-                    args.push("--exclude", eURN);
-                }
-            }
-            if (opts.excludeDependents) {
-                args.push("--exclude-dependents");
-            }
-            if (opts.target) {
-                for (const tURN of opts.target) {
-                    args.push("--target", tURN);
-                }
-            }
-            if (opts.targetDependents) {
-                args.push("--target-dependents");
-            }
-            if (opts.parallel) {
-                args.push("--parallel", opts.parallel.toString());
-            }
-            if (opts.userAgent) {
-                args.push("--exec-agent", opts.userAgent);
-            }
-            if (opts.runProgram !== undefined) {
-                if (opts.runProgram) {
-                    args.push("--run-program=true");
-                }
-                else {
-                    args.push("--run-program=false");
-                }
-            }
-            applyGlobalOpts(opts, args);
-        }
-        args.push("--exec-kind", execKind.local);
-        let summaryEvent;
-        const onEvent = (event) => {
-            if (event.summaryEvent) {
-                summaryEvent = event.summaryEvent;
-            }
-            if (opts?.onEvent) {
-                opts.onEvent(event);
-            }
-        };
-        const { logFile, logPromise, server } = await this.setupEventLog("preview-refresh", onEvent, this.workspace.pulumiVersion);
-        args.push("--event-log", logFile);
-        let previewResult;
-        try {
-            previewResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
-        }
-        catch (e) {
-            throw e;
-        }
-        finally {
-            await cleanUp(logFile, await logPromise, server);
-        }
-        if (!summaryEvent) {
-            log.warn("Failed to parse summary event, but preview succeeded. PreviewResult `changeSummary` will be empty.");
-        }
-        return {
-            stdout: previewResult.stdout,
-            stderr: previewResult.stderr,
-            changeSummary: summaryEvent?.resourceChanges || {},
         };
     }
     /**
@@ -27722,57 +28522,23 @@ Event: ${line}\n${e.toString()}`);
         }
         let logPromise;
         let logFile;
-        let eventsServer;
         // Set up event log tailing
         if (opts?.onEvent) {
-            ({
-                logFile,
-                logPromise,
-                server: eventsServer,
-            } = await this.setupEventLog("destroy", opts.onEvent, this.workspace.pulumiVersion));
+            const onEvent = opts.onEvent;
+            logFile = createLogFile("destroy");
             args.push("--event-log", logFile);
-        }
-        let onExit = (hasError) => {
-            return;
-        };
-        let didError = false;
-        let kind = execKind.local;
-        if (this.workspace.program !== undefined) {
-            this.checkInlineSupport();
-            kind = execKind.inline;
-            const server = new grpc.Server({
-                "grpc.max_receive_message_length": server_1.maxRPCMessageSize,
+            logPromise = this.readLines(logFile, (event) => {
+                onEvent(event);
             });
-            const languageServer = new server_1.LanguageServer(this.workspace.program);
-            server.addService(langrpc.LanguageRuntimeService, languageServer);
-            const port = await new Promise((resolve, reject) => {
-                server.bindAsync(`127.0.0.1:0`, grpc.ServerCredentials.createInsecure(), (err, p) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    else {
-                        resolve(p);
-                    }
-                });
-            });
-            onExit = (hasError) => {
-                languageServer.onPulumiExit(hasError);
-                server.forceShutdown();
-            };
-            args.push(`--client=127.0.0.1:${port}`);
         }
+        const kind = this.workspace.program ? execKind.inline : execKind.local;
         args.push("--exec-kind", kind);
         let desResult;
         try {
-            desResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
-        }
-        catch (e) {
-            didError = true;
-            throw e;
+            desResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.signal);
         }
         finally {
-            onExit(didError);
-            await cleanUp(logFile, await logPromise, eventsServer);
+            await cleanUp(logFile, await logPromise);
         }
         // If it's a remote workspace, explicitly set showSecrets to false to prevent attempting to
         // load the project file.
@@ -27791,133 +28557,16 @@ Event: ${line}\n${e.toString()}`);
         };
     }
     /**
-     * Performs a dry-run destroy of the stack, returning pending changes.
-     *
-     * @param opts
-     *  Options to customize the behavior of the destroy.
-     */
-    async previewDestroy(opts) {
-        const args = ["destroy", "--preview-only"];
-        args.push(...this.remoteArgs());
-        if (opts) {
-            if (opts.message) {
-                args.push("--message", opts.message);
-            }
-            if (opts.exclude) {
-                for (const eURN of opts.exclude) {
-                    args.push("--exclude", eURN);
-                }
-            }
-            if (opts.target) {
-                for (const tURN of opts.target) {
-                    args.push("--target", tURN);
-                }
-            }
-            if (opts.excludeDependents) {
-                args.push("--exclude-dependents");
-            }
-            if (opts.targetDependents) {
-                args.push("--target-dependents");
-            }
-            if (opts.excludeProtected) {
-                args.push("--exclude-protected");
-            }
-            if (opts.continueOnError) {
-                args.push("--continue-on-error");
-            }
-            if (opts.parallel) {
-                args.push("--parallel", opts.parallel.toString());
-            }
-            if (opts.userAgent) {
-                args.push("--exec-agent", opts.userAgent);
-            }
-            if (opts.refresh) {
-                args.push("--refresh");
-            }
-            if (opts.runProgram !== undefined) {
-                if (opts.runProgram) {
-                    args.push("--run-program=true");
-                }
-                else {
-                    args.push("--run-program=false");
-                }
-            }
-            applyGlobalOpts(opts, args);
-        }
-        let onExit = (hasError) => {
-            return;
-        };
-        let didError = false;
-        let kind = execKind.local;
-        if (this.workspace.program !== undefined) {
-            this.checkInlineSupport();
-            kind = execKind.inline;
-            const server = new grpc.Server({
-                "grpc.max_receive_message_length": server_1.maxRPCMessageSize,
-            });
-            const languageServer = new server_1.LanguageServer(this.workspace.program);
-            server.addService(langrpc.LanguageRuntimeService, languageServer);
-            const port = await new Promise((resolve, reject) => {
-                server.bindAsync(`127.0.0.1:0`, grpc.ServerCredentials.createInsecure(), (err, p) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    else {
-                        resolve(p);
-                    }
-                });
-            });
-            onExit = (hasError) => {
-                languageServer.onPulumiExit(hasError);
-                server.forceShutdown();
-            };
-            args.push(`--client=127.0.0.1:${port}`);
-        }
-        args.push("--exec-kind", kind);
-        let summaryEvent;
-        const onEvent = (event) => {
-            if (event.summaryEvent) {
-                summaryEvent = event.summaryEvent;
-            }
-            if (opts?.onEvent) {
-                opts.onEvent(event);
-            }
-        };
-        const { logFile, logPromise, server: eventsServer, } = await this.setupEventLog("preview-destroy", onEvent, this.workspace.pulumiVersion);
-        args.push("--event-log", logFile);
-        let previewResult;
-        try {
-            previewResult = await this.runPulumiCmd(args, opts?.onOutput, opts?.onError, opts?.signal);
-        }
-        catch (e) {
-            didError = true;
-            throw e;
-        }
-        finally {
-            onExit(didError);
-            await cleanUp(logFile, await logPromise, eventsServer);
-        }
-        if (!summaryEvent) {
-            log.warn("Failed to parse summary event, but preview succeeded. PreviewResult `changeSummary` will be empty.");
-        }
-        return {
-            stdout: previewResult.stdout,
-            stderr: previewResult.stderr,
-            changeSummary: summaryEvent?.resourceChanges || {},
-        };
-    }
-    /**
      * Rename an existing stack
      */
     async rename(options) {
         const args = ["stack", "rename", options.stackName];
         args.push(...this.remoteArgs());
         applyGlobalOpts(options, args);
-        const renameResult = await this.runPulumiCmd(args, options?.onOutput, options?.onError, options?.signal);
+        const renameResult = await this.runPulumiCmd(args, options?.onOutput, options?.signal);
         if (this.isRemote && options?.showSecrets) {
             throw new Error("can't enable `showSecrets` for remote workspaces");
         }
-        this.name = options.stackName;
         const summary = await this.info(!this.isRemote && options?.showSecrets);
         return {
             stdout: renameResult.stdout,
@@ -28072,16 +28721,6 @@ Event: ${line}\n${e.toString()}`);
         return this.workspace.setAllConfig(this.name, config, path);
     }
     /**
-     * Sets all config values from a JSON string for the stack in the associated workspace.
-     * The JSON string should be in the format produced by "pulumi config --json".
-     *
-     * @param configJson
-     *  A JSON string containing the configuration values to set
-     */
-    async setAllConfigJson(configJson) {
-        return this.workspace.setAllConfigJson(this.name, configJson);
-    }
-    /**
      * Removes the specified config key from the stack in the associated workspace.
      *
      * @param key
@@ -28207,7 +28846,7 @@ Event: ${line}\n${e.toString()}`);
     async importStack(state) {
         return this.workspace.importStack(this.name, state);
     }
-    async runPulumiCmd(args, onOutput, onError, signal) {
+    async runPulumiCmd(args, onOutput, signal) {
         let envs = {
             PULUMI_DEBUG_COMMANDS: "true",
         };
@@ -28221,7 +28860,7 @@ Event: ${line}\n${e.toString()}`);
         envs = { ...envs, ...this.workspace.envVars };
         const additionalArgs = await this.workspace.serializeArgsForOp(this.name);
         args = [...args, "--stack", this.name, ...additionalArgs];
-        const result = await this.workspace.pulumiCommand.run(args, this.workspace.workDir, envs, onOutput, onError, signal);
+        const result = await this.workspace.pulumiCommand.run(args, this.workspace.workDir, envs, onOutput, signal);
         await this.workspace.postCommandCallback(this.name);
         return result;
     }
@@ -28260,9 +28899,6 @@ function applyGlobalOpts(opts, args) {
     if (opts.suppressProgress) {
         args.push("--suppress-progress");
     }
-    if (opts.configFile) {
-        args.push("--config-file", opts.configFile);
-    }
 }
 /**
  * Returns a stack name formatted with the greatest possible specificity:
@@ -28289,31 +28925,6 @@ function fullyQualifiedStackName(org, project, stack) {
     return `${org}/${project}/${stack}`;
 }
 exports.fullyQualifiedStackName = fullyQualifiedStackName;
-class EventsServer {
-    constructor(onEvent) {
-        this.onEvent = onEvent;
-        this.onEvent = onEvent;
-    }
-    streamEvents(call, callback) {
-        call.on("data", (request) => {
-            const eventStr = request.getEvent();
-            try {
-                const event = JSON.parse(eventStr);
-                this.onEvent(event);
-            }
-            catch (e) {
-                log.warn(`Failed to parse engine event: ${e.toString()}`);
-            }
-        });
-        call.on("end", () => {
-            callback(null, new empty_pb_1.Empty());
-        });
-        call.on("error", (err) => {
-            log.warn(`Error in event stream: ${err.toString()}`);
-            callback(err, null);
-        });
-    }
-}
 const execKind = {
     local: "auto.local",
     inline: "auto.inline",
@@ -28325,15 +28936,12 @@ const createLogFile = (command) => {
     fs.closeSync(fs.openSync(logFile, "w"));
     return logFile;
 };
-const cleanUp = async (logFile, rl, server) => {
+const cleanUp = async (logFile, rl) => {
     if (rl) {
         // stop tailing
         await rl.tail.quit();
         // close the readline interface
         rl.rl.close();
-    }
-    if (server) {
-        server.forceShutdown();
     }
     if (logFile) {
         // remove the logfile
@@ -28571,9 +29179,6 @@ function debug(msg, resource, streamId, ephemeral) {
         return log(engine, engproto.LogSeverity.DEBUG, msg, resource, streamId, ephemeral);
     }
     else {
-        if (settings_1.excessiveDebugOutput) {
-            console.log(`debug: [runtime] ${msg}`);
-        }
         return Promise.resolve();
     }
 }
@@ -28666,7 +29271,7 @@ function log(engine, sev, msg, resource, streamId, ephemeral) {
 
 "use strict";
 
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016-2018, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28710,13 +29315,6 @@ function getStack() {
     return settings.getStack();
 }
 exports.getStack = getStack;
-/**
- * Returns the root directory of the current Pulumi project.
- */
-function getRootDirectory() {
-    return settings.getRootDirectory();
-}
-exports.getRootDirectory = getRootDirectory;
 //# sourceMappingURL=metadata.js.map
 
 /***/ }),
@@ -29624,6 +30222,2702 @@ module.exports.MaxBufferError = MaxBufferError;
 
 /***/ }),
 
+/***/ 12109:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const ANY = Symbol('SemVer ANY')
+// hoisted class for cyclic dependency
+class Comparator {
+  static get ANY () {
+    return ANY
+  }
+
+  constructor (comp, options) {
+    options = parseOptions(options)
+
+    if (comp instanceof Comparator) {
+      if (comp.loose === !!options.loose) {
+        return comp
+      } else {
+        comp = comp.value
+      }
+    }
+
+    comp = comp.trim().split(/\s+/).join(' ')
+    debug('comparator', comp, options)
+    this.options = options
+    this.loose = !!options.loose
+    this.parse(comp)
+
+    if (this.semver === ANY) {
+      this.value = ''
+    } else {
+      this.value = this.operator + this.semver.version
+    }
+
+    debug('comp', this)
+  }
+
+  parse (comp) {
+    const r = this.options.loose ? re[t.COMPARATORLOOSE] : re[t.COMPARATOR]
+    const m = comp.match(r)
+
+    if (!m) {
+      throw new TypeError(`Invalid comparator: ${comp}`)
+    }
+
+    this.operator = m[1] !== undefined ? m[1] : ''
+    if (this.operator === '=') {
+      this.operator = ''
+    }
+
+    // if it literally is just '>' or '' then allow anything.
+    if (!m[2]) {
+      this.semver = ANY
+    } else {
+      this.semver = new SemVer(m[2], this.options.loose)
+    }
+  }
+
+  toString () {
+    return this.value
+  }
+
+  test (version) {
+    debug('Comparator.test', version, this.options.loose)
+
+    if (this.semver === ANY || version === ANY) {
+      return true
+    }
+
+    if (typeof version === 'string') {
+      try {
+        version = new SemVer(version, this.options)
+      } catch (er) {
+        return false
+      }
+    }
+
+    return cmp(version, this.operator, this.semver, this.options)
+  }
+
+  intersects (comp, options) {
+    if (!(comp instanceof Comparator)) {
+      throw new TypeError('a Comparator is required')
+    }
+
+    if (this.operator === '') {
+      if (this.value === '') {
+        return true
+      }
+      return new Range(comp.value, options).test(this.value)
+    } else if (comp.operator === '') {
+      if (comp.value === '') {
+        return true
+      }
+      return new Range(this.value, options).test(comp.semver)
+    }
+
+    options = parseOptions(options)
+
+    // Special cases where nothing can possibly be lower
+    if (options.includePrerelease &&
+      (this.value === '<0.0.0-0' || comp.value === '<0.0.0-0')) {
+      return false
+    }
+    if (!options.includePrerelease &&
+      (this.value.startsWith('<0.0.0') || comp.value.startsWith('<0.0.0'))) {
+      return false
+    }
+
+    // Same direction increasing (> or >=)
+    if (this.operator.startsWith('>') && comp.operator.startsWith('>')) {
+      return true
+    }
+    // Same direction decreasing (< or <=)
+    if (this.operator.startsWith('<') && comp.operator.startsWith('<')) {
+      return true
+    }
+    // same SemVer and both sides are inclusive (<= or >=)
+    if (
+      (this.semver.version === comp.semver.version) &&
+      this.operator.includes('=') && comp.operator.includes('=')) {
+      return true
+    }
+    // opposite directions less than
+    if (cmp(this.semver, '<', comp.semver, options) &&
+      this.operator.startsWith('>') && comp.operator.startsWith('<')) {
+      return true
+    }
+    // opposite directions greater than
+    if (cmp(this.semver, '>', comp.semver, options) &&
+      this.operator.startsWith('<') && comp.operator.startsWith('>')) {
+      return true
+    }
+    return false
+  }
+}
+
+module.exports = Comparator
+
+const parseOptions = __nccwpck_require__(8354)
+const { safeRe: re, t } = __nccwpck_require__(34403)
+const cmp = __nccwpck_require__(26619)
+const debug = __nccwpck_require__(45125)
+const SemVer = __nccwpck_require__(60374)
+const Range = __nccwpck_require__(48041)
+
+
+/***/ }),
+
+/***/ 48041:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SPACE_CHARACTERS = /\s+/g
+
+// hoisted class for cyclic dependency
+class Range {
+  constructor (range, options) {
+    options = parseOptions(options)
+
+    if (range instanceof Range) {
+      if (
+        range.loose === !!options.loose &&
+        range.includePrerelease === !!options.includePrerelease
+      ) {
+        return range
+      } else {
+        return new Range(range.raw, options)
+      }
+    }
+
+    if (range instanceof Comparator) {
+      // just put it in the set and return
+      this.raw = range.value
+      this.set = [[range]]
+      this.formatted = undefined
+      return this
+    }
+
+    this.options = options
+    this.loose = !!options.loose
+    this.includePrerelease = !!options.includePrerelease
+
+    // First reduce all whitespace as much as possible so we do not have to rely
+    // on potentially slow regexes like \s*. This is then stored and used for
+    // future error messages as well.
+    this.raw = range.trim().replace(SPACE_CHARACTERS, ' ')
+
+    // First, split on ||
+    this.set = this.raw
+      .split('||')
+      // map the range to a 2d array of comparators
+      .map(r => this.parseRange(r.trim()))
+      // throw out any comparator lists that are empty
+      // this generally means that it was not a valid range, which is allowed
+      // in loose mode, but will still throw if the WHOLE range is invalid.
+      .filter(c => c.length)
+
+    if (!this.set.length) {
+      throw new TypeError(`Invalid SemVer Range: ${this.raw}`)
+    }
+
+    // if we have any that are not the null set, throw out null sets.
+    if (this.set.length > 1) {
+      // keep the first one, in case they're all null sets
+      const first = this.set[0]
+      this.set = this.set.filter(c => !isNullSet(c[0]))
+      if (this.set.length === 0) {
+        this.set = [first]
+      } else if (this.set.length > 1) {
+        // if we have any that are *, then the range is just *
+        for (const c of this.set) {
+          if (c.length === 1 && isAny(c[0])) {
+            this.set = [c]
+            break
+          }
+        }
+      }
+    }
+
+    this.formatted = undefined
+  }
+
+  get range () {
+    if (this.formatted === undefined) {
+      this.formatted = ''
+      for (let i = 0; i < this.set.length; i++) {
+        if (i > 0) {
+          this.formatted += '||'
+        }
+        const comps = this.set[i]
+        for (let k = 0; k < comps.length; k++) {
+          if (k > 0) {
+            this.formatted += ' '
+          }
+          this.formatted += comps[k].toString().trim()
+        }
+      }
+    }
+    return this.formatted
+  }
+
+  format () {
+    return this.range
+  }
+
+  toString () {
+    return this.range
+  }
+
+  parseRange (range) {
+    // memoize range parsing for performance.
+    // this is a very hot path, and fully deterministic.
+    const memoOpts =
+      (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) |
+      (this.options.loose && FLAG_LOOSE)
+    const memoKey = memoOpts + ':' + range
+    const cached = cache.get(memoKey)
+    if (cached) {
+      return cached
+    }
+
+    const loose = this.options.loose
+    // `1.2.3 - 1.2.4` => `>=1.2.3 <=1.2.4`
+    const hr = loose ? re[t.HYPHENRANGELOOSE] : re[t.HYPHENRANGE]
+    range = range.replace(hr, hyphenReplace(this.options.includePrerelease))
+    debug('hyphen replace', range)
+
+    // `> 1.2.3 < 1.2.5` => `>1.2.3 <1.2.5`
+    range = range.replace(re[t.COMPARATORTRIM], comparatorTrimReplace)
+    debug('comparator trim', range)
+
+    // `~ 1.2.3` => `~1.2.3`
+    range = range.replace(re[t.TILDETRIM], tildeTrimReplace)
+    debug('tilde trim', range)
+
+    // `^ 1.2.3` => `^1.2.3`
+    range = range.replace(re[t.CARETTRIM], caretTrimReplace)
+    debug('caret trim', range)
+
+    // At this point, the range is completely trimmed and
+    // ready to be split into comparators.
+
+    let rangeList = range
+      .split(' ')
+      .map(comp => parseComparator(comp, this.options))
+      .join(' ')
+      .split(/\s+/)
+      // >=0.0.0 is equivalent to *
+      .map(comp => replaceGTE0(comp, this.options))
+
+    if (loose) {
+      // in loose mode, throw out any that are not valid comparators
+      rangeList = rangeList.filter(comp => {
+        debug('loose invalid filter', comp, this.options)
+        return !!comp.match(re[t.COMPARATORLOOSE])
+      })
+    }
+    debug('range list', rangeList)
+
+    // if any comparators are the null set, then replace with JUST null set
+    // if more than one comparator, remove any * comparators
+    // also, don't include the same comparator more than once
+    const rangeMap = new Map()
+    const comparators = rangeList.map(comp => new Comparator(comp, this.options))
+    for (const comp of comparators) {
+      if (isNullSet(comp)) {
+        return [comp]
+      }
+      rangeMap.set(comp.value, comp)
+    }
+    if (rangeMap.size > 1 && rangeMap.has('')) {
+      rangeMap.delete('')
+    }
+
+    const result = [...rangeMap.values()]
+    cache.set(memoKey, result)
+    return result
+  }
+
+  intersects (range, options) {
+    if (!(range instanceof Range)) {
+      throw new TypeError('a Range is required')
+    }
+
+    return this.set.some((thisComparators) => {
+      return (
+        isSatisfiable(thisComparators, options) &&
+        range.set.some((rangeComparators) => {
+          return (
+            isSatisfiable(rangeComparators, options) &&
+            thisComparators.every((thisComparator) => {
+              return rangeComparators.every((rangeComparator) => {
+                return thisComparator.intersects(rangeComparator, options)
+              })
+            })
+          )
+        })
+      )
+    })
+  }
+
+  // if ANY of the sets match ALL of its comparators, then pass
+  test (version) {
+    if (!version) {
+      return false
+    }
+
+    if (typeof version === 'string') {
+      try {
+        version = new SemVer(version, this.options)
+      } catch (er) {
+        return false
+      }
+    }
+
+    for (let i = 0; i < this.set.length; i++) {
+      if (testSet(this.set[i], version, this.options)) {
+        return true
+      }
+    }
+    return false
+  }
+}
+
+module.exports = Range
+
+const LRU = __nccwpck_require__(37074)
+const cache = new LRU()
+
+const parseOptions = __nccwpck_require__(8354)
+const Comparator = __nccwpck_require__(12109)
+const debug = __nccwpck_require__(45125)
+const SemVer = __nccwpck_require__(60374)
+const {
+  safeRe: re,
+  t,
+  comparatorTrimReplace,
+  tildeTrimReplace,
+  caretTrimReplace,
+} = __nccwpck_require__(34403)
+const { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = __nccwpck_require__(57665)
+
+const isNullSet = c => c.value === '<0.0.0-0'
+const isAny = c => c.value === ''
+
+// take a set of comparators and determine whether there
+// exists a version which can satisfy it
+const isSatisfiable = (comparators, options) => {
+  let result = true
+  const remainingComparators = comparators.slice()
+  let testComparator = remainingComparators.pop()
+
+  while (result && remainingComparators.length) {
+    result = remainingComparators.every((otherComparator) => {
+      return testComparator.intersects(otherComparator, options)
+    })
+
+    testComparator = remainingComparators.pop()
+  }
+
+  return result
+}
+
+// comprised of xranges, tildes, stars, and gtlt's at this point.
+// already replaced the hyphen ranges
+// turn into a set of JUST comparators.
+const parseComparator = (comp, options) => {
+  debug('comp', comp, options)
+  comp = replaceCarets(comp, options)
+  debug('caret', comp)
+  comp = replaceTildes(comp, options)
+  debug('tildes', comp)
+  comp = replaceXRanges(comp, options)
+  debug('xrange', comp)
+  comp = replaceStars(comp, options)
+  debug('stars', comp)
+  return comp
+}
+
+const isX = id => !id || id.toLowerCase() === 'x' || id === '*'
+
+// ~, ~> --> * (any, kinda silly)
+// ~2, ~2.x, ~2.x.x, ~>2, ~>2.x ~>2.x.x --> >=2.0.0 <3.0.0-0
+// ~2.0, ~2.0.x, ~>2.0, ~>2.0.x --> >=2.0.0 <2.1.0-0
+// ~1.2, ~1.2.x, ~>1.2, ~>1.2.x --> >=1.2.0 <1.3.0-0
+// ~1.2.3, ~>1.2.3 --> >=1.2.3 <1.3.0-0
+// ~1.2.0, ~>1.2.0 --> >=1.2.0 <1.3.0-0
+// ~0.0.1 --> >=0.0.1 <0.1.0-0
+const replaceTildes = (comp, options) => {
+  return comp
+    .trim()
+    .split(/\s+/)
+    .map((c) => replaceTilde(c, options))
+    .join(' ')
+}
+
+const replaceTilde = (comp, options) => {
+  const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE]
+  return comp.replace(r, (_, M, m, p, pr) => {
+    debug('tilde', comp, _, M, m, p, pr)
+    let ret
+
+    if (isX(M)) {
+      ret = ''
+    } else if (isX(m)) {
+      ret = `>=${M}.0.0 <${+M + 1}.0.0-0`
+    } else if (isX(p)) {
+      // ~1.2 == >=1.2.0 <1.3.0-0
+      ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`
+    } else if (pr) {
+      debug('replaceTilde pr', pr)
+      ret = `>=${M}.${m}.${p}-${pr
+      } <${M}.${+m + 1}.0-0`
+    } else {
+      // ~1.2.3 == >=1.2.3 <1.3.0-0
+      ret = `>=${M}.${m}.${p
+      } <${M}.${+m + 1}.0-0`
+    }
+
+    debug('tilde return', ret)
+    return ret
+  })
+}
+
+// ^ --> * (any, kinda silly)
+// ^2, ^2.x, ^2.x.x --> >=2.0.0 <3.0.0-0
+// ^2.0, ^2.0.x --> >=2.0.0 <3.0.0-0
+// ^1.2, ^1.2.x --> >=1.2.0 <2.0.0-0
+// ^1.2.3 --> >=1.2.3 <2.0.0-0
+// ^1.2.0 --> >=1.2.0 <2.0.0-0
+// ^0.0.1 --> >=0.0.1 <0.0.2-0
+// ^0.1.0 --> >=0.1.0 <0.2.0-0
+const replaceCarets = (comp, options) => {
+  return comp
+    .trim()
+    .split(/\s+/)
+    .map((c) => replaceCaret(c, options))
+    .join(' ')
+}
+
+const replaceCaret = (comp, options) => {
+  debug('caret', comp, options)
+  const r = options.loose ? re[t.CARETLOOSE] : re[t.CARET]
+  const z = options.includePrerelease ? '-0' : ''
+  return comp.replace(r, (_, M, m, p, pr) => {
+    debug('caret', comp, _, M, m, p, pr)
+    let ret
+
+    if (isX(M)) {
+      ret = ''
+    } else if (isX(m)) {
+      ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`
+    } else if (isX(p)) {
+      if (M === '0') {
+        ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`
+      } else {
+        ret = `>=${M}.${m}.0${z} <${+M + 1}.0.0-0`
+      }
+    } else if (pr) {
+      debug('replaceCaret pr', pr)
+      if (M === '0') {
+        if (m === '0') {
+          ret = `>=${M}.${m}.${p}-${pr
+          } <${M}.${m}.${+p + 1}-0`
+        } else {
+          ret = `>=${M}.${m}.${p}-${pr
+          } <${M}.${+m + 1}.0-0`
+        }
+      } else {
+        ret = `>=${M}.${m}.${p}-${pr
+        } <${+M + 1}.0.0-0`
+      }
+    } else {
+      debug('no pr')
+      if (M === '0') {
+        if (m === '0') {
+          ret = `>=${M}.${m}.${p
+          }${z} <${M}.${m}.${+p + 1}-0`
+        } else {
+          ret = `>=${M}.${m}.${p
+          }${z} <${M}.${+m + 1}.0-0`
+        }
+      } else {
+        ret = `>=${M}.${m}.${p
+        } <${+M + 1}.0.0-0`
+      }
+    }
+
+    debug('caret return', ret)
+    return ret
+  })
+}
+
+const replaceXRanges = (comp, options) => {
+  debug('replaceXRanges', comp, options)
+  return comp
+    .split(/\s+/)
+    .map((c) => replaceXRange(c, options))
+    .join(' ')
+}
+
+const replaceXRange = (comp, options) => {
+  comp = comp.trim()
+  const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE]
+  return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
+    debug('xRange', comp, ret, gtlt, M, m, p, pr)
+    const xM = isX(M)
+    const xm = xM || isX(m)
+    const xp = xm || isX(p)
+    const anyX = xp
+
+    if (gtlt === '=' && anyX) {
+      gtlt = ''
+    }
+
+    // if we're including prereleases in the match, then we need
+    // to fix this to -0, the lowest possible prerelease value
+    pr = options.includePrerelease ? '-0' : ''
+
+    if (xM) {
+      if (gtlt === '>' || gtlt === '<') {
+        // nothing is allowed
+        ret = '<0.0.0-0'
+      } else {
+        // nothing is forbidden
+        ret = '*'
+      }
+    } else if (gtlt && anyX) {
+      // we know patch is an x, because we have any x at all.
+      // replace X with 0
+      if (xm) {
+        m = 0
+      }
+      p = 0
+
+      if (gtlt === '>') {
+        // >1 => >=2.0.0
+        // >1.2 => >=1.3.0
+        gtlt = '>='
+        if (xm) {
+          M = +M + 1
+          m = 0
+          p = 0
+        } else {
+          m = +m + 1
+          p = 0
+        }
+      } else if (gtlt === '<=') {
+        // <=0.7.x is actually <0.8.0, since any 0.7.x should
+        // pass.  Similarly, <=7.x is actually <8.0.0, etc.
+        gtlt = '<'
+        if (xm) {
+          M = +M + 1
+        } else {
+          m = +m + 1
+        }
+      }
+
+      if (gtlt === '<') {
+        pr = '-0'
+      }
+
+      ret = `${gtlt + M}.${m}.${p}${pr}`
+    } else if (xm) {
+      ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`
+    } else if (xp) {
+      ret = `>=${M}.${m}.0${pr
+      } <${M}.${+m + 1}.0-0`
+    }
+
+    debug('xRange return', ret)
+
+    return ret
+  })
+}
+
+// Because * is AND-ed with everything else in the comparator,
+// and '' means "any version", just remove the *s entirely.
+const replaceStars = (comp, options) => {
+  debug('replaceStars', comp, options)
+  // Looseness is ignored here.  star is always as loose as it gets!
+  return comp
+    .trim()
+    .replace(re[t.STAR], '')
+}
+
+const replaceGTE0 = (comp, options) => {
+  debug('replaceGTE0', comp, options)
+  return comp
+    .trim()
+    .replace(re[options.includePrerelease ? t.GTE0PRE : t.GTE0], '')
+}
+
+// This function is passed to string.replace(re[t.HYPHENRANGE])
+// M, m, patch, prerelease, build
+// 1.2 - 3.4.5 => >=1.2.0 <=3.4.5
+// 1.2.3 - 3.4 => >=1.2.0 <3.5.0-0 Any 3.4.x will do
+// 1.2 - 3.4 => >=1.2.0 <3.5.0-0
+// TODO build?
+const hyphenReplace = incPr => ($0,
+  from, fM, fm, fp, fpr, fb,
+  to, tM, tm, tp, tpr) => {
+  if (isX(fM)) {
+    from = ''
+  } else if (isX(fm)) {
+    from = `>=${fM}.0.0${incPr ? '-0' : ''}`
+  } else if (isX(fp)) {
+    from = `>=${fM}.${fm}.0${incPr ? '-0' : ''}`
+  } else if (fpr) {
+    from = `>=${from}`
+  } else {
+    from = `>=${from}${incPr ? '-0' : ''}`
+  }
+
+  if (isX(tM)) {
+    to = ''
+  } else if (isX(tm)) {
+    to = `<${+tM + 1}.0.0-0`
+  } else if (isX(tp)) {
+    to = `<${tM}.${+tm + 1}.0-0`
+  } else if (tpr) {
+    to = `<=${tM}.${tm}.${tp}-${tpr}`
+  } else if (incPr) {
+    to = `<${tM}.${tm}.${+tp + 1}-0`
+  } else {
+    to = `<=${to}`
+  }
+
+  return `${from} ${to}`.trim()
+}
+
+const testSet = (set, version, options) => {
+  for (let i = 0; i < set.length; i++) {
+    if (!set[i].test(version)) {
+      return false
+    }
+  }
+
+  if (version.prerelease.length && !options.includePrerelease) {
+    // Find the set of versions that are allowed to have prereleases
+    // For example, ^1.2.3-pr.1 desugars to >=1.2.3-pr.1 <2.0.0
+    // That should allow `1.2.3-pr.2` to pass.
+    // However, `1.2.4-alpha.notready` should NOT be allowed,
+    // even though it's within the range set by the comparators.
+    for (let i = 0; i < set.length; i++) {
+      debug(set[i].semver)
+      if (set[i].semver === Comparator.ANY) {
+        continue
+      }
+
+      if (set[i].semver.prerelease.length > 0) {
+        const allowed = set[i].semver
+        if (allowed.major === version.major &&
+            allowed.minor === version.minor &&
+            allowed.patch === version.patch) {
+          return true
+        }
+      }
+    }
+
+    // Version has a -pre, but it's not one of the ones we like.
+    return false
+  }
+
+  return true
+}
+
+
+/***/ }),
+
+/***/ 60374:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const debug = __nccwpck_require__(45125)
+const { MAX_LENGTH, MAX_SAFE_INTEGER } = __nccwpck_require__(57665)
+const { safeRe: re, t } = __nccwpck_require__(34403)
+
+const parseOptions = __nccwpck_require__(8354)
+const { compareIdentifiers } = __nccwpck_require__(33687)
+class SemVer {
+  constructor (version, options) {
+    options = parseOptions(options)
+
+    if (version instanceof SemVer) {
+      if (version.loose === !!options.loose &&
+        version.includePrerelease === !!options.includePrerelease) {
+        return version
+      } else {
+        version = version.version
+      }
+    } else if (typeof version !== 'string') {
+      throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version}".`)
+    }
+
+    if (version.length > MAX_LENGTH) {
+      throw new TypeError(
+        `version is longer than ${MAX_LENGTH} characters`
+      )
+    }
+
+    debug('SemVer', version, options)
+    this.options = options
+    this.loose = !!options.loose
+    // this isn't actually relevant for versions, but keep it so that we
+    // don't run into trouble passing this.options around.
+    this.includePrerelease = !!options.includePrerelease
+
+    const m = version.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL])
+
+    if (!m) {
+      throw new TypeError(`Invalid Version: ${version}`)
+    }
+
+    this.raw = version
+
+    // these are actually numbers
+    this.major = +m[1]
+    this.minor = +m[2]
+    this.patch = +m[3]
+
+    if (this.major > MAX_SAFE_INTEGER || this.major < 0) {
+      throw new TypeError('Invalid major version')
+    }
+
+    if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) {
+      throw new TypeError('Invalid minor version')
+    }
+
+    if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) {
+      throw new TypeError('Invalid patch version')
+    }
+
+    // numberify any prerelease numeric ids
+    if (!m[4]) {
+      this.prerelease = []
+    } else {
+      this.prerelease = m[4].split('.').map((id) => {
+        if (/^[0-9]+$/.test(id)) {
+          const num = +id
+          if (num >= 0 && num < MAX_SAFE_INTEGER) {
+            return num
+          }
+        }
+        return id
+      })
+    }
+
+    this.build = m[5] ? m[5].split('.') : []
+    this.format()
+  }
+
+  format () {
+    this.version = `${this.major}.${this.minor}.${this.patch}`
+    if (this.prerelease.length) {
+      this.version += `-${this.prerelease.join('.')}`
+    }
+    return this.version
+  }
+
+  toString () {
+    return this.version
+  }
+
+  compare (other) {
+    debug('SemVer.compare', this.version, this.options, other)
+    if (!(other instanceof SemVer)) {
+      if (typeof other === 'string' && other === this.version) {
+        return 0
+      }
+      other = new SemVer(other, this.options)
+    }
+
+    if (other.version === this.version) {
+      return 0
+    }
+
+    return this.compareMain(other) || this.comparePre(other)
+  }
+
+  compareMain (other) {
+    if (!(other instanceof SemVer)) {
+      other = new SemVer(other, this.options)
+    }
+
+    return (
+      compareIdentifiers(this.major, other.major) ||
+      compareIdentifiers(this.minor, other.minor) ||
+      compareIdentifiers(this.patch, other.patch)
+    )
+  }
+
+  comparePre (other) {
+    if (!(other instanceof SemVer)) {
+      other = new SemVer(other, this.options)
+    }
+
+    // NOT having a prerelease is > having one
+    if (this.prerelease.length && !other.prerelease.length) {
+      return -1
+    } else if (!this.prerelease.length && other.prerelease.length) {
+      return 1
+    } else if (!this.prerelease.length && !other.prerelease.length) {
+      return 0
+    }
+
+    let i = 0
+    do {
+      const a = this.prerelease[i]
+      const b = other.prerelease[i]
+      debug('prerelease compare', i, a, b)
+      if (a === undefined && b === undefined) {
+        return 0
+      } else if (b === undefined) {
+        return 1
+      } else if (a === undefined) {
+        return -1
+      } else if (a === b) {
+        continue
+      } else {
+        return compareIdentifiers(a, b)
+      }
+    } while (++i)
+  }
+
+  compareBuild (other) {
+    if (!(other instanceof SemVer)) {
+      other = new SemVer(other, this.options)
+    }
+
+    let i = 0
+    do {
+      const a = this.build[i]
+      const b = other.build[i]
+      debug('build compare', i, a, b)
+      if (a === undefined && b === undefined) {
+        return 0
+      } else if (b === undefined) {
+        return 1
+      } else if (a === undefined) {
+        return -1
+      } else if (a === b) {
+        continue
+      } else {
+        return compareIdentifiers(a, b)
+      }
+    } while (++i)
+  }
+
+  // preminor will bump the version up to the next minor release, and immediately
+  // down to pre-release. premajor and prepatch work the same way.
+  inc (release, identifier, identifierBase) {
+    if (release.startsWith('pre')) {
+      if (!identifier && identifierBase === false) {
+        throw new Error('invalid increment argument: identifier is empty')
+      }
+      // Avoid an invalid semver results
+      if (identifier) {
+        const match = `-${identifier}`.match(this.options.loose ? re[t.PRERELEASELOOSE] : re[t.PRERELEASE])
+        if (!match || match[1] !== identifier) {
+          throw new Error(`invalid identifier: ${identifier}`)
+        }
+      }
+    }
+
+    switch (release) {
+      case 'premajor':
+        this.prerelease.length = 0
+        this.patch = 0
+        this.minor = 0
+        this.major++
+        this.inc('pre', identifier, identifierBase)
+        break
+      case 'preminor':
+        this.prerelease.length = 0
+        this.patch = 0
+        this.minor++
+        this.inc('pre', identifier, identifierBase)
+        break
+      case 'prepatch':
+        // If this is already a prerelease, it will bump to the next version
+        // drop any prereleases that might already exist, since they are not
+        // relevant at this point.
+        this.prerelease.length = 0
+        this.inc('patch', identifier, identifierBase)
+        this.inc('pre', identifier, identifierBase)
+        break
+      // If the input is a non-prerelease version, this acts the same as
+      // prepatch.
+      case 'prerelease':
+        if (this.prerelease.length === 0) {
+          this.inc('patch', identifier, identifierBase)
+        }
+        this.inc('pre', identifier, identifierBase)
+        break
+      case 'release':
+        if (this.prerelease.length === 0) {
+          throw new Error(`version ${this.raw} is not a prerelease`)
+        }
+        this.prerelease.length = 0
+        break
+
+      case 'major':
+        // If this is a pre-major version, bump up to the same major version.
+        // Otherwise increment major.
+        // 1.0.0-5 bumps to 1.0.0
+        // 1.1.0 bumps to 2.0.0
+        if (
+          this.minor !== 0 ||
+          this.patch !== 0 ||
+          this.prerelease.length === 0
+        ) {
+          this.major++
+        }
+        this.minor = 0
+        this.patch = 0
+        this.prerelease = []
+        break
+      case 'minor':
+        // If this is a pre-minor version, bump up to the same minor version.
+        // Otherwise increment minor.
+        // 1.2.0-5 bumps to 1.2.0
+        // 1.2.1 bumps to 1.3.0
+        if (this.patch !== 0 || this.prerelease.length === 0) {
+          this.minor++
+        }
+        this.patch = 0
+        this.prerelease = []
+        break
+      case 'patch':
+        // If this is not a pre-release version, it will increment the patch.
+        // If it is a pre-release it will bump up to the same patch version.
+        // 1.2.0-5 patches to 1.2.0
+        // 1.2.0 patches to 1.2.1
+        if (this.prerelease.length === 0) {
+          this.patch++
+        }
+        this.prerelease = []
+        break
+      // This probably shouldn't be used publicly.
+      // 1.0.0 'pre' would become 1.0.0-0 which is the wrong direction.
+      case 'pre': {
+        const base = Number(identifierBase) ? 1 : 0
+
+        if (this.prerelease.length === 0) {
+          this.prerelease = [base]
+        } else {
+          let i = this.prerelease.length
+          while (--i >= 0) {
+            if (typeof this.prerelease[i] === 'number') {
+              this.prerelease[i]++
+              i = -2
+            }
+          }
+          if (i === -1) {
+            // didn't increment anything
+            if (identifier === this.prerelease.join('.') && identifierBase === false) {
+              throw new Error('invalid increment argument: identifier already exists')
+            }
+            this.prerelease.push(base)
+          }
+        }
+        if (identifier) {
+          // 1.2.0-beta.1 bumps to 1.2.0-beta.2,
+          // 1.2.0-beta.fooblz or 1.2.0-beta bumps to 1.2.0-beta.0
+          let prerelease = [identifier, base]
+          if (identifierBase === false) {
+            prerelease = [identifier]
+          }
+          if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
+            if (isNaN(this.prerelease[1])) {
+              this.prerelease = prerelease
+            }
+          } else {
+            this.prerelease = prerelease
+          }
+        }
+        break
+      }
+      default:
+        throw new Error(`invalid increment argument: ${release}`)
+    }
+    this.raw = this.format()
+    if (this.build.length) {
+      this.raw += `+${this.build.join('.')}`
+    }
+    return this
+  }
+}
+
+module.exports = SemVer
+
+
+/***/ }),
+
+/***/ 5459:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const parse = __nccwpck_require__(73942)
+const clean = (version, options) => {
+  const s = parse(version.trim().replace(/^[=v]+/, ''), options)
+  return s ? s.version : null
+}
+module.exports = clean
+
+
+/***/ }),
+
+/***/ 26619:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const eq = __nccwpck_require__(77000)
+const neq = __nccwpck_require__(33438)
+const gt = __nccwpck_require__(38151)
+const gte = __nccwpck_require__(22890)
+const lt = __nccwpck_require__(17092)
+const lte = __nccwpck_require__(65270)
+
+const cmp = (a, op, b, loose) => {
+  switch (op) {
+    case '===':
+      if (typeof a === 'object') {
+        a = a.version
+      }
+      if (typeof b === 'object') {
+        b = b.version
+      }
+      return a === b
+
+    case '!==':
+      if (typeof a === 'object') {
+        a = a.version
+      }
+      if (typeof b === 'object') {
+        b = b.version
+      }
+      return a !== b
+
+    case '':
+    case '=':
+    case '==':
+      return eq(a, b, loose)
+
+    case '!=':
+      return neq(a, b, loose)
+
+    case '>':
+      return gt(a, b, loose)
+
+    case '>=':
+      return gte(a, b, loose)
+
+    case '<':
+      return lt(a, b, loose)
+
+    case '<=':
+      return lte(a, b, loose)
+
+    default:
+      throw new TypeError(`Invalid operator: ${op}`)
+  }
+}
+module.exports = cmp
+
+
+/***/ }),
+
+/***/ 7582:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const parse = __nccwpck_require__(73942)
+const { safeRe: re, t } = __nccwpck_require__(34403)
+
+const coerce = (version, options) => {
+  if (version instanceof SemVer) {
+    return version
+  }
+
+  if (typeof version === 'number') {
+    version = String(version)
+  }
+
+  if (typeof version !== 'string') {
+    return null
+  }
+
+  options = options || {}
+
+  let match = null
+  if (!options.rtl) {
+    match = version.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE])
+  } else {
+    // Find the right-most coercible string that does not share
+    // a terminus with a more left-ward coercible string.
+    // Eg, '1.2.3.4' wants to coerce '2.3.4', not '3.4' or '4'
+    // With includePrerelease option set, '1.2.3.4-rc' wants to coerce '2.3.4-rc', not '2.3.4'
+    //
+    // Walk through the string checking with a /g regexp
+    // Manually set the index so as to pick up overlapping matches.
+    // Stop when we get a match that ends at the string end, since no
+    // coercible string can be more right-ward without the same terminus.
+    const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL]
+    let next
+    while ((next = coerceRtlRegex.exec(version)) &&
+        (!match || match.index + match[0].length !== version.length)
+    ) {
+      if (!match ||
+            next.index + next[0].length !== match.index + match[0].length) {
+        match = next
+      }
+      coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length
+    }
+    // leave it in a clean state
+    coerceRtlRegex.lastIndex = -1
+  }
+
+  if (match === null) {
+    return null
+  }
+
+  const major = match[2]
+  const minor = match[3] || '0'
+  const patch = match[4] || '0'
+  const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : ''
+  const build = options.includePrerelease && match[6] ? `+${match[6]}` : ''
+
+  return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options)
+}
+module.exports = coerce
+
+
+/***/ }),
+
+/***/ 86597:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const compareBuild = (a, b, loose) => {
+  const versionA = new SemVer(a, loose)
+  const versionB = new SemVer(b, loose)
+  return versionA.compare(versionB) || versionA.compareBuild(versionB)
+}
+module.exports = compareBuild
+
+
+/***/ }),
+
+/***/ 58888:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const compareLoose = (a, b) => compare(a, b, true)
+module.exports = compareLoose
+
+
+/***/ }),
+
+/***/ 81223:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const compare = (a, b, loose) =>
+  new SemVer(a, loose).compare(new SemVer(b, loose))
+
+module.exports = compare
+
+
+/***/ }),
+
+/***/ 4122:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const parse = __nccwpck_require__(73942)
+
+const diff = (version1, version2) => {
+  const v1 = parse(version1, null, true)
+  const v2 = parse(version2, null, true)
+  const comparison = v1.compare(v2)
+
+  if (comparison === 0) {
+    return null
+  }
+
+  const v1Higher = comparison > 0
+  const highVersion = v1Higher ? v1 : v2
+  const lowVersion = v1Higher ? v2 : v1
+  const highHasPre = !!highVersion.prerelease.length
+  const lowHasPre = !!lowVersion.prerelease.length
+
+  if (lowHasPre && !highHasPre) {
+    // Going from prerelease -> no prerelease requires some special casing
+
+    // If the low version has only a major, then it will always be a major
+    // Some examples:
+    // 1.0.0-1 -> 1.0.0
+    // 1.0.0-1 -> 1.1.1
+    // 1.0.0-1 -> 2.0.0
+    if (!lowVersion.patch && !lowVersion.minor) {
+      return 'major'
+    }
+
+    // If the main part has no difference
+    if (lowVersion.compareMain(highVersion) === 0) {
+      if (lowVersion.minor && !lowVersion.patch) {
+        return 'minor'
+      }
+      return 'patch'
+    }
+  }
+
+  // add the `pre` prefix if we are going to a prerelease version
+  const prefix = highHasPre ? 'pre' : ''
+
+  if (v1.major !== v2.major) {
+    return prefix + 'major'
+  }
+
+  if (v1.minor !== v2.minor) {
+    return prefix + 'minor'
+  }
+
+  if (v1.patch !== v2.patch) {
+    return prefix + 'patch'
+  }
+
+  // high and low are preleases
+  return 'prerelease'
+}
+
+module.exports = diff
+
+
+/***/ }),
+
+/***/ 77000:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const eq = (a, b, loose) => compare(a, b, loose) === 0
+module.exports = eq
+
+
+/***/ }),
+
+/***/ 38151:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const gt = (a, b, loose) => compare(a, b, loose) > 0
+module.exports = gt
+
+
+/***/ }),
+
+/***/ 22890:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const gte = (a, b, loose) => compare(a, b, loose) >= 0
+module.exports = gte
+
+
+/***/ }),
+
+/***/ 45651:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+
+const inc = (version, release, options, identifier, identifierBase) => {
+  if (typeof (options) === 'string') {
+    identifierBase = identifier
+    identifier = options
+    options = undefined
+  }
+
+  try {
+    return new SemVer(
+      version instanceof SemVer ? version.version : version,
+      options
+    ).inc(release, identifier, identifierBase).version
+  } catch (er) {
+    return null
+  }
+}
+module.exports = inc
+
+
+/***/ }),
+
+/***/ 17092:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const lt = (a, b, loose) => compare(a, b, loose) < 0
+module.exports = lt
+
+
+/***/ }),
+
+/***/ 65270:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const lte = (a, b, loose) => compare(a, b, loose) <= 0
+module.exports = lte
+
+
+/***/ }),
+
+/***/ 83190:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const major = (a, loose) => new SemVer(a, loose).major
+module.exports = major
+
+
+/***/ }),
+
+/***/ 34280:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const minor = (a, loose) => new SemVer(a, loose).minor
+module.exports = minor
+
+
+/***/ }),
+
+/***/ 33438:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const neq = (a, b, loose) => compare(a, b, loose) !== 0
+module.exports = neq
+
+
+/***/ }),
+
+/***/ 73942:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const parse = (version, options, throwErrors = false) => {
+  if (version instanceof SemVer) {
+    return version
+  }
+  try {
+    return new SemVer(version, options)
+  } catch (er) {
+    if (!throwErrors) {
+      return null
+    }
+    throw er
+  }
+}
+
+module.exports = parse
+
+
+/***/ }),
+
+/***/ 88183:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const patch = (a, loose) => new SemVer(a, loose).patch
+module.exports = patch
+
+
+/***/ }),
+
+/***/ 5203:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const parse = __nccwpck_require__(73942)
+const prerelease = (version, options) => {
+  const parsed = parse(version, options)
+  return (parsed && parsed.prerelease.length) ? parsed.prerelease : null
+}
+module.exports = prerelease
+
+
+/***/ }),
+
+/***/ 3792:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compare = __nccwpck_require__(81223)
+const rcompare = (a, b, loose) => compare(b, a, loose)
+module.exports = rcompare
+
+
+/***/ }),
+
+/***/ 76000:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compareBuild = __nccwpck_require__(86597)
+const rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose))
+module.exports = rsort
+
+
+/***/ }),
+
+/***/ 37827:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const Range = __nccwpck_require__(48041)
+const satisfies = (version, range, options) => {
+  try {
+    range = new Range(range, options)
+  } catch (er) {
+    return false
+  }
+  return range.test(version)
+}
+module.exports = satisfies
+
+
+/***/ }),
+
+/***/ 18147:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const compareBuild = __nccwpck_require__(86597)
+const sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose))
+module.exports = sort
+
+
+/***/ }),
+
+/***/ 90155:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const parse = __nccwpck_require__(73942)
+const valid = (version, options) => {
+  const v = parse(version, options)
+  return v ? v.version : null
+}
+module.exports = valid
+
+
+/***/ }),
+
+/***/ 52952:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+// just pre-load all the stuff that index.js lazily exports
+const internalRe = __nccwpck_require__(34403)
+const constants = __nccwpck_require__(57665)
+const SemVer = __nccwpck_require__(60374)
+const identifiers = __nccwpck_require__(33687)
+const parse = __nccwpck_require__(73942)
+const valid = __nccwpck_require__(90155)
+const clean = __nccwpck_require__(5459)
+const inc = __nccwpck_require__(45651)
+const diff = __nccwpck_require__(4122)
+const major = __nccwpck_require__(83190)
+const minor = __nccwpck_require__(34280)
+const patch = __nccwpck_require__(88183)
+const prerelease = __nccwpck_require__(5203)
+const compare = __nccwpck_require__(81223)
+const rcompare = __nccwpck_require__(3792)
+const compareLoose = __nccwpck_require__(58888)
+const compareBuild = __nccwpck_require__(86597)
+const sort = __nccwpck_require__(18147)
+const rsort = __nccwpck_require__(76000)
+const gt = __nccwpck_require__(38151)
+const lt = __nccwpck_require__(17092)
+const eq = __nccwpck_require__(77000)
+const neq = __nccwpck_require__(33438)
+const gte = __nccwpck_require__(22890)
+const lte = __nccwpck_require__(65270)
+const cmp = __nccwpck_require__(26619)
+const coerce = __nccwpck_require__(7582)
+const Comparator = __nccwpck_require__(12109)
+const Range = __nccwpck_require__(48041)
+const satisfies = __nccwpck_require__(37827)
+const toComparators = __nccwpck_require__(71671)
+const maxSatisfying = __nccwpck_require__(54391)
+const minSatisfying = __nccwpck_require__(20619)
+const minVersion = __nccwpck_require__(47875)
+const validRange = __nccwpck_require__(86891)
+const outside = __nccwpck_require__(64165)
+const gtr = __nccwpck_require__(99811)
+const ltr = __nccwpck_require__(23774)
+const intersects = __nccwpck_require__(92375)
+const simplifyRange = __nccwpck_require__(74385)
+const subset = __nccwpck_require__(48628)
+module.exports = {
+  parse,
+  valid,
+  clean,
+  inc,
+  diff,
+  major,
+  minor,
+  patch,
+  prerelease,
+  compare,
+  rcompare,
+  compareLoose,
+  compareBuild,
+  sort,
+  rsort,
+  gt,
+  lt,
+  eq,
+  neq,
+  gte,
+  lte,
+  cmp,
+  coerce,
+  Comparator,
+  Range,
+  satisfies,
+  toComparators,
+  maxSatisfying,
+  minSatisfying,
+  minVersion,
+  validRange,
+  outside,
+  gtr,
+  ltr,
+  intersects,
+  simplifyRange,
+  subset,
+  SemVer,
+  re: internalRe.re,
+  src: internalRe.src,
+  tokens: internalRe.t,
+  SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
+  RELEASE_TYPES: constants.RELEASE_TYPES,
+  compareIdentifiers: identifiers.compareIdentifiers,
+  rcompareIdentifiers: identifiers.rcompareIdentifiers,
+}
+
+
+/***/ }),
+
+/***/ 57665:
+/***/ ((module) => {
+
+"use strict";
+
+
+// Note: this is the semver.org version of the spec that it implements
+// Not necessarily the package version of this code.
+const SEMVER_SPEC_VERSION = '2.0.0'
+
+const MAX_LENGTH = 256
+const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER ||
+/* istanbul ignore next */ 9007199254740991
+
+// Max safe segment length for coercion.
+const MAX_SAFE_COMPONENT_LENGTH = 16
+
+// Max safe length for a build identifier. The max length minus 6 characters for
+// the shortest version with a build 0.0.0+BUILD.
+const MAX_SAFE_BUILD_LENGTH = MAX_LENGTH - 6
+
+const RELEASE_TYPES = [
+  'major',
+  'premajor',
+  'minor',
+  'preminor',
+  'patch',
+  'prepatch',
+  'prerelease',
+]
+
+module.exports = {
+  MAX_LENGTH,
+  MAX_SAFE_COMPONENT_LENGTH,
+  MAX_SAFE_BUILD_LENGTH,
+  MAX_SAFE_INTEGER,
+  RELEASE_TYPES,
+  SEMVER_SPEC_VERSION,
+  FLAG_INCLUDE_PRERELEASE: 0b001,
+  FLAG_LOOSE: 0b010,
+}
+
+
+/***/ }),
+
+/***/ 45125:
+/***/ ((module) => {
+
+"use strict";
+
+
+const debug = (
+  typeof process === 'object' &&
+  process.env &&
+  process.env.NODE_DEBUG &&
+  /\bsemver\b/i.test(process.env.NODE_DEBUG)
+) ? (...args) => console.error('SEMVER', ...args)
+  : () => {}
+
+module.exports = debug
+
+
+/***/ }),
+
+/***/ 33687:
+/***/ ((module) => {
+
+"use strict";
+
+
+const numeric = /^[0-9]+$/
+const compareIdentifiers = (a, b) => {
+  const anum = numeric.test(a)
+  const bnum = numeric.test(b)
+
+  if (anum && bnum) {
+    a = +a
+    b = +b
+  }
+
+  return a === b ? 0
+    : (anum && !bnum) ? -1
+    : (bnum && !anum) ? 1
+    : a < b ? -1
+    : 1
+}
+
+const rcompareIdentifiers = (a, b) => compareIdentifiers(b, a)
+
+module.exports = {
+  compareIdentifiers,
+  rcompareIdentifiers,
+}
+
+
+/***/ }),
+
+/***/ 37074:
+/***/ ((module) => {
+
+"use strict";
+
+
+class LRUCache {
+  constructor () {
+    this.max = 1000
+    this.map = new Map()
+  }
+
+  get (key) {
+    const value = this.map.get(key)
+    if (value === undefined) {
+      return undefined
+    } else {
+      // Remove the key from the map and add it to the end
+      this.map.delete(key)
+      this.map.set(key, value)
+      return value
+    }
+  }
+
+  delete (key) {
+    return this.map.delete(key)
+  }
+
+  set (key, value) {
+    const deleted = this.delete(key)
+
+    if (!deleted && value !== undefined) {
+      // If cache is full, delete the least recently used item
+      if (this.map.size >= this.max) {
+        const firstKey = this.map.keys().next().value
+        this.delete(firstKey)
+      }
+
+      this.map.set(key, value)
+    }
+
+    return this
+  }
+}
+
+module.exports = LRUCache
+
+
+/***/ }),
+
+/***/ 8354:
+/***/ ((module) => {
+
+"use strict";
+
+
+// parse out just the options we care about
+const looseOption = Object.freeze({ loose: true })
+const emptyOpts = Object.freeze({ })
+const parseOptions = options => {
+  if (!options) {
+    return emptyOpts
+  }
+
+  if (typeof options !== 'object') {
+    return looseOption
+  }
+
+  return options
+}
+module.exports = parseOptions
+
+
+/***/ }),
+
+/***/ 34403:
+/***/ ((module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const {
+  MAX_SAFE_COMPONENT_LENGTH,
+  MAX_SAFE_BUILD_LENGTH,
+  MAX_LENGTH,
+} = __nccwpck_require__(57665)
+const debug = __nccwpck_require__(45125)
+exports = module.exports = {}
+
+// The actual regexps go on exports.re
+const re = exports.re = []
+const safeRe = exports.safeRe = []
+const src = exports.src = []
+const safeSrc = exports.safeSrc = []
+const t = exports.t = {}
+let R = 0
+
+const LETTERDASHNUMBER = '[a-zA-Z0-9-]'
+
+// Replace some greedy regex tokens to prevent regex dos issues. These regex are
+// used internally via the safeRe object since all inputs in this library get
+// normalized first to trim and collapse all extra whitespace. The original
+// regexes are exported for userland consumption and lower level usage. A
+// future breaking change could export the safer regex only with a note that
+// all input should have extra whitespace removed.
+const safeRegexReplacements = [
+  ['\\s', 1],
+  ['\\d', MAX_LENGTH],
+  [LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH],
+]
+
+const makeSafeRegex = (value) => {
+  for (const [token, max] of safeRegexReplacements) {
+    value = value
+      .split(`${token}*`).join(`${token}{0,${max}}`)
+      .split(`${token}+`).join(`${token}{1,${max}}`)
+  }
+  return value
+}
+
+const createToken = (name, value, isGlobal) => {
+  const safe = makeSafeRegex(value)
+  const index = R++
+  debug(name, index, value)
+  t[name] = index
+  src[index] = value
+  safeSrc[index] = safe
+  re[index] = new RegExp(value, isGlobal ? 'g' : undefined)
+  safeRe[index] = new RegExp(safe, isGlobal ? 'g' : undefined)
+}
+
+// The following Regular Expressions can be used for tokenizing,
+// validating, and parsing SemVer version strings.
+
+// ## Numeric Identifier
+// A single `0`, or a non-zero digit followed by zero or more digits.
+
+createToken('NUMERICIDENTIFIER', '0|[1-9]\\d*')
+createToken('NUMERICIDENTIFIERLOOSE', '\\d+')
+
+// ## Non-numeric Identifier
+// Zero or more digits, followed by a letter or hyphen, and then zero or
+// more letters, digits, or hyphens.
+
+createToken('NONNUMERICIDENTIFIER', `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`)
+
+// ## Main Version
+// Three dot-separated numeric identifiers.
+
+createToken('MAINVERSION', `(${src[t.NUMERICIDENTIFIER]})\\.` +
+                   `(${src[t.NUMERICIDENTIFIER]})\\.` +
+                   `(${src[t.NUMERICIDENTIFIER]})`)
+
+createToken('MAINVERSIONLOOSE', `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.` +
+                        `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.` +
+                        `(${src[t.NUMERICIDENTIFIERLOOSE]})`)
+
+// ## Pre-release Version Identifier
+// A numeric identifier, or a non-numeric identifier.
+// Non-numberic identifiers include numberic identifiers but can be longer.
+// Therefore non-numberic identifiers must go first.
+
+createToken('PRERELEASEIDENTIFIER', `(?:${src[t.NONNUMERICIDENTIFIER]
+}|${src[t.NUMERICIDENTIFIER]})`)
+
+createToken('PRERELEASEIDENTIFIERLOOSE', `(?:${src[t.NONNUMERICIDENTIFIER]
+}|${src[t.NUMERICIDENTIFIERLOOSE]})`)
+
+// ## Pre-release Version
+// Hyphen, followed by one or more dot-separated pre-release version
+// identifiers.
+
+createToken('PRERELEASE', `(?:-(${src[t.PRERELEASEIDENTIFIER]
+}(?:\\.${src[t.PRERELEASEIDENTIFIER]})*))`)
+
+createToken('PRERELEASELOOSE', `(?:-?(${src[t.PRERELEASEIDENTIFIERLOOSE]
+}(?:\\.${src[t.PRERELEASEIDENTIFIERLOOSE]})*))`)
+
+// ## Build Metadata Identifier
+// Any combination of digits, letters, or hyphens.
+
+createToken('BUILDIDENTIFIER', `${LETTERDASHNUMBER}+`)
+
+// ## Build Metadata
+// Plus sign, followed by one or more period-separated build metadata
+// identifiers.
+
+createToken('BUILD', `(?:\\+(${src[t.BUILDIDENTIFIER]
+}(?:\\.${src[t.BUILDIDENTIFIER]})*))`)
+
+// ## Full Version String
+// A main version, followed optionally by a pre-release version and
+// build metadata.
+
+// Note that the only major, minor, patch, and pre-release sections of
+// the version string are capturing groups.  The build metadata is not a
+// capturing group, because it should not ever be used in version
+// comparison.
+
+createToken('FULLPLAIN', `v?${src[t.MAINVERSION]
+}${src[t.PRERELEASE]}?${
+  src[t.BUILD]}?`)
+
+createToken('FULL', `^${src[t.FULLPLAIN]}$`)
+
+// like full, but allows v1.2.3 and =1.2.3, which people do sometimes.
+// also, 1.0.0alpha1 (prerelease without the hyphen) which is pretty
+// common in the npm registry.
+createToken('LOOSEPLAIN', `[v=\\s]*${src[t.MAINVERSIONLOOSE]
+}${src[t.PRERELEASELOOSE]}?${
+  src[t.BUILD]}?`)
+
+createToken('LOOSE', `^${src[t.LOOSEPLAIN]}$`)
+
+createToken('GTLT', '((?:<|>)?=?)')
+
+// Something like "2.*" or "1.2.x".
+// Note that "x.x" is a valid xRange identifer, meaning "any version"
+// Only the first item is strictly required.
+createToken('XRANGEIDENTIFIERLOOSE', `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`)
+createToken('XRANGEIDENTIFIER', `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`)
+
+createToken('XRANGEPLAIN', `[v=\\s]*(${src[t.XRANGEIDENTIFIER]})` +
+                   `(?:\\.(${src[t.XRANGEIDENTIFIER]})` +
+                   `(?:\\.(${src[t.XRANGEIDENTIFIER]})` +
+                   `(?:${src[t.PRERELEASE]})?${
+                     src[t.BUILD]}?` +
+                   `)?)?`)
+
+createToken('XRANGEPLAINLOOSE', `[v=\\s]*(${src[t.XRANGEIDENTIFIERLOOSE]})` +
+                        `(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})` +
+                        `(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})` +
+                        `(?:${src[t.PRERELEASELOOSE]})?${
+                          src[t.BUILD]}?` +
+                        `)?)?`)
+
+createToken('XRANGE', `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAIN]}$`)
+createToken('XRANGELOOSE', `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAINLOOSE]}$`)
+
+// Coercion.
+// Extract anything that could conceivably be a part of a valid semver
+createToken('COERCEPLAIN', `${'(^|[^\\d])' +
+              '(\\d{1,'}${MAX_SAFE_COMPONENT_LENGTH}})` +
+              `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?` +
+              `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`)
+createToken('COERCE', `${src[t.COERCEPLAIN]}(?:$|[^\\d])`)
+createToken('COERCEFULL', src[t.COERCEPLAIN] +
+              `(?:${src[t.PRERELEASE]})?` +
+              `(?:${src[t.BUILD]})?` +
+              `(?:$|[^\\d])`)
+createToken('COERCERTL', src[t.COERCE], true)
+createToken('COERCERTLFULL', src[t.COERCEFULL], true)
+
+// Tilde ranges.
+// Meaning is "reasonably at or greater than"
+createToken('LONETILDE', '(?:~>?)')
+
+createToken('TILDETRIM', `(\\s*)${src[t.LONETILDE]}\\s+`, true)
+exports.tildeTrimReplace = '$1~'
+
+createToken('TILDE', `^${src[t.LONETILDE]}${src[t.XRANGEPLAIN]}$`)
+createToken('TILDELOOSE', `^${src[t.LONETILDE]}${src[t.XRANGEPLAINLOOSE]}$`)
+
+// Caret ranges.
+// Meaning is "at least and backwards compatible with"
+createToken('LONECARET', '(?:\\^)')
+
+createToken('CARETTRIM', `(\\s*)${src[t.LONECARET]}\\s+`, true)
+exports.caretTrimReplace = '$1^'
+
+createToken('CARET', `^${src[t.LONECARET]}${src[t.XRANGEPLAIN]}$`)
+createToken('CARETLOOSE', `^${src[t.LONECARET]}${src[t.XRANGEPLAINLOOSE]}$`)
+
+// A simple gt/lt/eq thing, or just "" to indicate "any version"
+createToken('COMPARATORLOOSE', `^${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]})$|^$`)
+createToken('COMPARATOR', `^${src[t.GTLT]}\\s*(${src[t.FULLPLAIN]})$|^$`)
+
+// An expression to strip any whitespace between the gtlt and the thing
+// it modifies, so that `> 1.2.3` ==> `>1.2.3`
+createToken('COMPARATORTRIM', `(\\s*)${src[t.GTLT]
+}\\s*(${src[t.LOOSEPLAIN]}|${src[t.XRANGEPLAIN]})`, true)
+exports.comparatorTrimReplace = '$1$2$3'
+
+// Something like `1.2.3 - 1.2.4`
+// Note that these all use the loose form, because they'll be
+// checked against either the strict or loose comparator form
+// later.
+createToken('HYPHENRANGE', `^\\s*(${src[t.XRANGEPLAIN]})` +
+                   `\\s+-\\s+` +
+                   `(${src[t.XRANGEPLAIN]})` +
+                   `\\s*$`)
+
+createToken('HYPHENRANGELOOSE', `^\\s*(${src[t.XRANGEPLAINLOOSE]})` +
+                        `\\s+-\\s+` +
+                        `(${src[t.XRANGEPLAINLOOSE]})` +
+                        `\\s*$`)
+
+// Star ranges basically just allow anything at all.
+createToken('STAR', '(<|>)?=?\\s*\\*')
+// >=0.0.0 is like a star
+createToken('GTE0', '^\\s*>=\\s*0\\.0\\.0\\s*$')
+createToken('GTE0PRE', '^\\s*>=\\s*0\\.0\\.0-0\\s*$')
+
+
+/***/ }),
+
+/***/ 99811:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+// Determine if version is greater than all the versions possible in the range.
+const outside = __nccwpck_require__(64165)
+const gtr = (version, range, options) => outside(version, range, '>', options)
+module.exports = gtr
+
+
+/***/ }),
+
+/***/ 92375:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const Range = __nccwpck_require__(48041)
+const intersects = (r1, r2, options) => {
+  r1 = new Range(r1, options)
+  r2 = new Range(r2, options)
+  return r1.intersects(r2, options)
+}
+module.exports = intersects
+
+
+/***/ }),
+
+/***/ 23774:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const outside = __nccwpck_require__(64165)
+// Determine if version is less than all the versions possible in the range
+const ltr = (version, range, options) => outside(version, range, '<', options)
+module.exports = ltr
+
+
+/***/ }),
+
+/***/ 54391:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const Range = __nccwpck_require__(48041)
+
+const maxSatisfying = (versions, range, options) => {
+  let max = null
+  let maxSV = null
+  let rangeObj = null
+  try {
+    rangeObj = new Range(range, options)
+  } catch (er) {
+    return null
+  }
+  versions.forEach((v) => {
+    if (rangeObj.test(v)) {
+      // satisfies(v, range, options)
+      if (!max || maxSV.compare(v) === -1) {
+        // compare(max, v, true)
+        max = v
+        maxSV = new SemVer(max, options)
+      }
+    }
+  })
+  return max
+}
+module.exports = maxSatisfying
+
+
+/***/ }),
+
+/***/ 20619:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const Range = __nccwpck_require__(48041)
+const minSatisfying = (versions, range, options) => {
+  let min = null
+  let minSV = null
+  let rangeObj = null
+  try {
+    rangeObj = new Range(range, options)
+  } catch (er) {
+    return null
+  }
+  versions.forEach((v) => {
+    if (rangeObj.test(v)) {
+      // satisfies(v, range, options)
+      if (!min || minSV.compare(v) === 1) {
+        // compare(min, v, true)
+        min = v
+        minSV = new SemVer(min, options)
+      }
+    }
+  })
+  return min
+}
+module.exports = minSatisfying
+
+
+/***/ }),
+
+/***/ 47875:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const Range = __nccwpck_require__(48041)
+const gt = __nccwpck_require__(38151)
+
+const minVersion = (range, loose) => {
+  range = new Range(range, loose)
+
+  let minver = new SemVer('0.0.0')
+  if (range.test(minver)) {
+    return minver
+  }
+
+  minver = new SemVer('0.0.0-0')
+  if (range.test(minver)) {
+    return minver
+  }
+
+  minver = null
+  for (let i = 0; i < range.set.length; ++i) {
+    const comparators = range.set[i]
+
+    let setMin = null
+    comparators.forEach((comparator) => {
+      // Clone to avoid manipulating the comparator's semver object.
+      const compver = new SemVer(comparator.semver.version)
+      switch (comparator.operator) {
+        case '>':
+          if (compver.prerelease.length === 0) {
+            compver.patch++
+          } else {
+            compver.prerelease.push(0)
+          }
+          compver.raw = compver.format()
+          /* fallthrough */
+        case '':
+        case '>=':
+          if (!setMin || gt(compver, setMin)) {
+            setMin = compver
+          }
+          break
+        case '<':
+        case '<=':
+          /* Ignore maximum versions */
+          break
+        /* istanbul ignore next */
+        default:
+          throw new Error(`Unexpected operation: ${comparator.operator}`)
+      }
+    })
+    if (setMin && (!minver || gt(minver, setMin))) {
+      minver = setMin
+    }
+  }
+
+  if (minver && range.test(minver)) {
+    return minver
+  }
+
+  return null
+}
+module.exports = minVersion
+
+
+/***/ }),
+
+/***/ 64165:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const SemVer = __nccwpck_require__(60374)
+const Comparator = __nccwpck_require__(12109)
+const { ANY } = Comparator
+const Range = __nccwpck_require__(48041)
+const satisfies = __nccwpck_require__(37827)
+const gt = __nccwpck_require__(38151)
+const lt = __nccwpck_require__(17092)
+const lte = __nccwpck_require__(65270)
+const gte = __nccwpck_require__(22890)
+
+const outside = (version, range, hilo, options) => {
+  version = new SemVer(version, options)
+  range = new Range(range, options)
+
+  let gtfn, ltefn, ltfn, comp, ecomp
+  switch (hilo) {
+    case '>':
+      gtfn = gt
+      ltefn = lte
+      ltfn = lt
+      comp = '>'
+      ecomp = '>='
+      break
+    case '<':
+      gtfn = lt
+      ltefn = gte
+      ltfn = gt
+      comp = '<'
+      ecomp = '<='
+      break
+    default:
+      throw new TypeError('Must provide a hilo val of "<" or ">"')
+  }
+
+  // If it satisfies the range it is not outside
+  if (satisfies(version, range, options)) {
+    return false
+  }
+
+  // From now on, variable terms are as if we're in "gtr" mode.
+  // but note that everything is flipped for the "ltr" function.
+
+  for (let i = 0; i < range.set.length; ++i) {
+    const comparators = range.set[i]
+
+    let high = null
+    let low = null
+
+    comparators.forEach((comparator) => {
+      if (comparator.semver === ANY) {
+        comparator = new Comparator('>=0.0.0')
+      }
+      high = high || comparator
+      low = low || comparator
+      if (gtfn(comparator.semver, high.semver, options)) {
+        high = comparator
+      } else if (ltfn(comparator.semver, low.semver, options)) {
+        low = comparator
+      }
+    })
+
+    // If the edge version comparator has a operator then our version
+    // isn't outside it
+    if (high.operator === comp || high.operator === ecomp) {
+      return false
+    }
+
+    // If the lowest version comparator has an operator and our version
+    // is less than it then it isn't higher than the range
+    if ((!low.operator || low.operator === comp) &&
+        ltefn(version, low.semver)) {
+      return false
+    } else if (low.operator === ecomp && ltfn(version, low.semver)) {
+      return false
+    }
+  }
+  return true
+}
+
+module.exports = outside
+
+
+/***/ }),
+
+/***/ 74385:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+// given a set of versions and a range, create a "simplified" range
+// that includes the same versions that the original range does
+// If the original range is shorter than the simplified one, return that.
+const satisfies = __nccwpck_require__(37827)
+const compare = __nccwpck_require__(81223)
+module.exports = (versions, range, options) => {
+  const set = []
+  let first = null
+  let prev = null
+  const v = versions.sort((a, b) => compare(a, b, options))
+  for (const version of v) {
+    const included = satisfies(version, range, options)
+    if (included) {
+      prev = version
+      if (!first) {
+        first = version
+      }
+    } else {
+      if (prev) {
+        set.push([first, prev])
+      }
+      prev = null
+      first = null
+    }
+  }
+  if (first) {
+    set.push([first, null])
+  }
+
+  const ranges = []
+  for (const [min, max] of set) {
+    if (min === max) {
+      ranges.push(min)
+    } else if (!max && min === v[0]) {
+      ranges.push('*')
+    } else if (!max) {
+      ranges.push(`>=${min}`)
+    } else if (min === v[0]) {
+      ranges.push(`<=${max}`)
+    } else {
+      ranges.push(`${min} - ${max}`)
+    }
+  }
+  const simplified = ranges.join(' || ')
+  const original = typeof range.raw === 'string' ? range.raw : String(range)
+  return simplified.length < original.length ? simplified : range
+}
+
+
+/***/ }),
+
+/***/ 48628:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const Range = __nccwpck_require__(48041)
+const Comparator = __nccwpck_require__(12109)
+const { ANY } = Comparator
+const satisfies = __nccwpck_require__(37827)
+const compare = __nccwpck_require__(81223)
+
+// Complex range `r1 || r2 || ...` is a subset of `R1 || R2 || ...` iff:
+// - Every simple range `r1, r2, ...` is a null set, OR
+// - Every simple range `r1, r2, ...` which is not a null set is a subset of
+//   some `R1, R2, ...`
+//
+// Simple range `c1 c2 ...` is a subset of simple range `C1 C2 ...` iff:
+// - If c is only the ANY comparator
+//   - If C is only the ANY comparator, return true
+//   - Else if in prerelease mode, return false
+//   - else replace c with `[>=0.0.0]`
+// - If C is only the ANY comparator
+//   - if in prerelease mode, return true
+//   - else replace C with `[>=0.0.0]`
+// - Let EQ be the set of = comparators in c
+// - If EQ is more than one, return true (null set)
+// - Let GT be the highest > or >= comparator in c
+// - Let LT be the lowest < or <= comparator in c
+// - If GT and LT, and GT.semver > LT.semver, return true (null set)
+// - If any C is a = range, and GT or LT are set, return false
+// - If EQ
+//   - If GT, and EQ does not satisfy GT, return true (null set)
+//   - If LT, and EQ does not satisfy LT, return true (null set)
+//   - If EQ satisfies every C, return true
+//   - Else return false
+// - If GT
+//   - If GT.semver is lower than any > or >= comp in C, return false
+//   - If GT is >=, and GT.semver does not satisfy every C, return false
+//   - If GT.semver has a prerelease, and not in prerelease mode
+//     - If no C has a prerelease and the GT.semver tuple, return false
+// - If LT
+//   - If LT.semver is greater than any < or <= comp in C, return false
+//   - If LT is <=, and LT.semver does not satisfy every C, return false
+//   - If GT.semver has a prerelease, and not in prerelease mode
+//     - If no C has a prerelease and the LT.semver tuple, return false
+// - Else return true
+
+const subset = (sub, dom, options = {}) => {
+  if (sub === dom) {
+    return true
+  }
+
+  sub = new Range(sub, options)
+  dom = new Range(dom, options)
+  let sawNonNull = false
+
+  OUTER: for (const simpleSub of sub.set) {
+    for (const simpleDom of dom.set) {
+      const isSub = simpleSubset(simpleSub, simpleDom, options)
+      sawNonNull = sawNonNull || isSub !== null
+      if (isSub) {
+        continue OUTER
+      }
+    }
+    // the null set is a subset of everything, but null simple ranges in
+    // a complex range should be ignored.  so if we saw a non-null range,
+    // then we know this isn't a subset, but if EVERY simple range was null,
+    // then it is a subset.
+    if (sawNonNull) {
+      return false
+    }
+  }
+  return true
+}
+
+const minimumVersionWithPreRelease = [new Comparator('>=0.0.0-0')]
+const minimumVersion = [new Comparator('>=0.0.0')]
+
+const simpleSubset = (sub, dom, options) => {
+  if (sub === dom) {
+    return true
+  }
+
+  if (sub.length === 1 && sub[0].semver === ANY) {
+    if (dom.length === 1 && dom[0].semver === ANY) {
+      return true
+    } else if (options.includePrerelease) {
+      sub = minimumVersionWithPreRelease
+    } else {
+      sub = minimumVersion
+    }
+  }
+
+  if (dom.length === 1 && dom[0].semver === ANY) {
+    if (options.includePrerelease) {
+      return true
+    } else {
+      dom = minimumVersion
+    }
+  }
+
+  const eqSet = new Set()
+  let gt, lt
+  for (const c of sub) {
+    if (c.operator === '>' || c.operator === '>=') {
+      gt = higherGT(gt, c, options)
+    } else if (c.operator === '<' || c.operator === '<=') {
+      lt = lowerLT(lt, c, options)
+    } else {
+      eqSet.add(c.semver)
+    }
+  }
+
+  if (eqSet.size > 1) {
+    return null
+  }
+
+  let gtltComp
+  if (gt && lt) {
+    gtltComp = compare(gt.semver, lt.semver, options)
+    if (gtltComp > 0) {
+      return null
+    } else if (gtltComp === 0 && (gt.operator !== '>=' || lt.operator !== '<=')) {
+      return null
+    }
+  }
+
+  // will iterate one or zero times
+  for (const eq of eqSet) {
+    if (gt && !satisfies(eq, String(gt), options)) {
+      return null
+    }
+
+    if (lt && !satisfies(eq, String(lt), options)) {
+      return null
+    }
+
+    for (const c of dom) {
+      if (!satisfies(eq, String(c), options)) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  let higher, lower
+  let hasDomLT, hasDomGT
+  // if the subset has a prerelease, we need a comparator in the superset
+  // with the same tuple and a prerelease, or it's not a subset
+  let needDomLTPre = lt &&
+    !options.includePrerelease &&
+    lt.semver.prerelease.length ? lt.semver : false
+  let needDomGTPre = gt &&
+    !options.includePrerelease &&
+    gt.semver.prerelease.length ? gt.semver : false
+  // exception: <1.2.3-0 is the same as <1.2.3
+  if (needDomLTPre && needDomLTPre.prerelease.length === 1 &&
+      lt.operator === '<' && needDomLTPre.prerelease[0] === 0) {
+    needDomLTPre = false
+  }
+
+  for (const c of dom) {
+    hasDomGT = hasDomGT || c.operator === '>' || c.operator === '>='
+    hasDomLT = hasDomLT || c.operator === '<' || c.operator === '<='
+    if (gt) {
+      if (needDomGTPre) {
+        if (c.semver.prerelease && c.semver.prerelease.length &&
+            c.semver.major === needDomGTPre.major &&
+            c.semver.minor === needDomGTPre.minor &&
+            c.semver.patch === needDomGTPre.patch) {
+          needDomGTPre = false
+        }
+      }
+      if (c.operator === '>' || c.operator === '>=') {
+        higher = higherGT(gt, c, options)
+        if (higher === c && higher !== gt) {
+          return false
+        }
+      } else if (gt.operator === '>=' && !satisfies(gt.semver, String(c), options)) {
+        return false
+      }
+    }
+    if (lt) {
+      if (needDomLTPre) {
+        if (c.semver.prerelease && c.semver.prerelease.length &&
+            c.semver.major === needDomLTPre.major &&
+            c.semver.minor === needDomLTPre.minor &&
+            c.semver.patch === needDomLTPre.patch) {
+          needDomLTPre = false
+        }
+      }
+      if (c.operator === '<' || c.operator === '<=') {
+        lower = lowerLT(lt, c, options)
+        if (lower === c && lower !== lt) {
+          return false
+        }
+      } else if (lt.operator === '<=' && !satisfies(lt.semver, String(c), options)) {
+        return false
+      }
+    }
+    if (!c.operator && (lt || gt) && gtltComp !== 0) {
+      return false
+    }
+  }
+
+  // if there was a < or >, and nothing in the dom, then must be false
+  // UNLESS it was limited by another range in the other direction.
+  // Eg, >1.0.0 <1.0.1 is still a subset of <2.0.0
+  if (gt && hasDomLT && !lt && gtltComp !== 0) {
+    return false
+  }
+
+  if (lt && hasDomGT && !gt && gtltComp !== 0) {
+    return false
+  }
+
+  // we needed a prerelease range in a specific tuple, but didn't get one
+  // then this isn't a subset.  eg >=1.2.3-pre is not a subset of >=1.0.0,
+  // because it includes prereleases in the 1.2.3 tuple
+  if (needDomGTPre || needDomLTPre) {
+    return false
+  }
+
+  return true
+}
+
+// >=1.2.3 is lower than >1.2.3
+const higherGT = (a, b, options) => {
+  if (!a) {
+    return b
+  }
+  const comp = compare(a.semver, b.semver, options)
+  return comp > 0 ? a
+    : comp < 0 ? b
+    : b.operator === '>' && a.operator === '>=' ? b
+    : a
+}
+
+// <=1.2.3 is higher than <1.2.3
+const lowerLT = (a, b, options) => {
+  if (!a) {
+    return b
+  }
+  const comp = compare(a.semver, b.semver, options)
+  return comp < 0 ? a
+    : comp > 0 ? b
+    : b.operator === '<' && a.operator === '<=' ? b
+    : a
+}
+
+module.exports = subset
+
+
+/***/ }),
+
+/***/ 71671:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const Range = __nccwpck_require__(48041)
+
+// Mostly just for testing and legacy API reasons
+const toComparators = (range, options) =>
+  new Range(range, options).set
+    .map(comp => comp.map(c => c.value).join(' ').trim().split(' '))
+
+module.exports = toComparators
+
+
+/***/ }),
+
+/***/ 86891:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const Range = __nccwpck_require__(48041)
+const validRange = (range, options) => {
+  try {
+    // Return '*' instead of '' so that truthiness works.
+    // This will throw if it's invalid anyway
+    return new Range(range, options).range || '*'
+  } catch (er) {
+    return null
+  }
+}
+module.exports = validRange
+
+
+/***/ }),
+
 /***/ 43037:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30333,13 +33627,7 @@ exports.jsonParse = jsonParse;
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 goog.exportSymbol('proto.pulumirpc.Alias', null, global);
 goog.exportSymbol('proto.pulumirpc.Alias.AliasCase', null, global);
@@ -30445,8 +33733,8 @@ proto.pulumirpc.Alias.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.Alias.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: (f = jspb.Message.getField(msg, 1)) == null ? undefined : f,
-spec: (f = msg.getSpec()) && proto.pulumirpc.Alias.Spec.toObject(includeInstance, f)
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    spec: (f = msg.getSpec()) && proto.pulumirpc.Alias.Spec.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -30597,12 +33885,12 @@ proto.pulumirpc.Alias.Spec.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.Alias.Spec.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-type: jspb.Message.getFieldWithDefault(msg, 2, ""),
-stack: jspb.Message.getFieldWithDefault(msg, 3, ""),
-project: jspb.Message.getFieldWithDefault(msg, 4, ""),
-parenturn: (f = jspb.Message.getField(msg, 5)) == null ? undefined : f,
-noparent: (f = jspb.Message.getBooleanField(msg, 6)) == null ? undefined : f
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    stack: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    project: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    parenturn: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    noparent: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
   };
 
   if (includeInstance) {
@@ -31023,7 +34311,7 @@ invoke: {
   },
 };
 
-exports.CallbacksClient = grpc.makeGenericClientConstructor(CallbacksService, 'Callbacks');
+exports.CallbacksClient = grpc.makeGenericClientConstructor(CallbacksService);
 
 
 /***/ }),
@@ -31046,13 +34334,7 @@ exports.CallbacksClient = grpc.makeGenericClientConstructor(CallbacksService, 'C
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 goog.exportSymbol('proto.pulumirpc.Callback', null, global);
 goog.exportSymbol('proto.pulumirpc.CallbackInvokeRequest', null, global);
@@ -31152,8 +34434,8 @@ proto.pulumirpc.Callback.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.Callback.toObject = function(includeInstance, msg) {
   var f, obj = {
-target: jspb.Message.getFieldWithDefault(msg, 1, ""),
-token: jspb.Message.getFieldWithDefault(msg, 2, "")
+    target: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    token: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -31312,8 +34594,8 @@ proto.pulumirpc.CallbackInvokeRequest.prototype.toObject = function(opt_includeI
  */
 proto.pulumirpc.CallbackInvokeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-token: jspb.Message.getFieldWithDefault(msg, 1, ""),
-request: msg.getRequest_asB64()
+    token: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    request: msg.getRequest_asB64()
   };
 
   if (includeInstance) {
@@ -31496,7 +34778,7 @@ proto.pulumirpc.CallbackInvokeResponse.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.CallbackInvokeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-response: msg.getResponse_asB64()
+    response: msg.getResponse_asB64()
   };
 
   if (includeInstance) {
@@ -31641,13 +34923,7 @@ goog.object.extend(exports, proto.pulumirpc);
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 goog.exportSymbol('proto.pulumirpc.codegen.Diagnostic', null, global);
 goog.exportSymbol('proto.pulumirpc.codegen.DiagnosticSeverity', null, global);
@@ -31748,9 +35024,9 @@ proto.pulumirpc.codegen.Pos.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.codegen.Pos.toObject = function(includeInstance, msg) {
   var f, obj = {
-line: jspb.Message.getFieldWithDefault(msg, 1, 0),
-column: jspb.Message.getFieldWithDefault(msg, 2, 0),
-pb_byte: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    line: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    column: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    pb_byte: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -31938,9 +35214,9 @@ proto.pulumirpc.codegen.Range.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.codegen.Range.toObject = function(includeInstance, msg) {
   var f, obj = {
-filename: jspb.Message.getFieldWithDefault(msg, 1, ""),
-start: (f = msg.getStart()) && proto.pulumirpc.codegen.Pos.toObject(includeInstance, f),
-end: (f = msg.getEnd()) && proto.pulumirpc.codegen.Pos.toObject(includeInstance, f)
+    filename: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    start: (f = msg.getStart()) && proto.pulumirpc.codegen.Pos.toObject(includeInstance, f),
+    end: (f = msg.getEnd()) && proto.pulumirpc.codegen.Pos.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -32170,11 +35446,11 @@ proto.pulumirpc.codegen.Diagnostic.prototype.toObject = function(opt_includeInst
  */
 proto.pulumirpc.codegen.Diagnostic.toObject = function(includeInstance, msg) {
   var f, obj = {
-severity: jspb.Message.getFieldWithDefault(msg, 1, 0),
-summary: jspb.Message.getFieldWithDefault(msg, 2, ""),
-detail: jspb.Message.getFieldWithDefault(msg, 3, ""),
-subject: (f = msg.getSubject()) && proto.pulumirpc.codegen.Range.toObject(includeInstance, f),
-context: (f = msg.getContext()) && proto.pulumirpc.codegen.Range.toObject(includeInstance, f)
+    severity: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    summary: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    detail: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    subject: (f = msg.getSubject()) && proto.pulumirpc.codegen.Range.toObject(includeInstance, f),
+    context: (f = msg.getContext()) && proto.pulumirpc.codegen.Range.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -32605,7 +35881,7 @@ startDebugging: {
   },
 };
 
-exports.EngineClient = grpc.makeGenericClientConstructor(EngineService, 'Engine');
+exports.EngineClient = grpc.makeGenericClientConstructor(EngineService);
 
 
 /***/ }),
@@ -32628,13 +35904,7 @@ exports.EngineClient = grpc.makeGenericClientConstructor(EngineService, 'Engine'
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 var google_protobuf_empty_pb = __nccwpck_require__(40291);
 goog.object.extend(proto, google_protobuf_empty_pb);
@@ -32805,11 +36075,11 @@ proto.pulumirpc.LogRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.LogRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-severity: jspb.Message.getFieldWithDefault(msg, 1, 0),
-message: jspb.Message.getFieldWithDefault(msg, 2, ""),
-urn: jspb.Message.getFieldWithDefault(msg, 3, ""),
-streamid: jspb.Message.getFieldWithDefault(msg, 4, 0),
-ephemeral: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
+    severity: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    message: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    streamid: jspb.Message.getFieldWithDefault(msg, 4, 0),
+    ephemeral: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
   };
 
   if (includeInstance) {
@@ -33156,7 +36426,7 @@ proto.pulumirpc.GetRootResourceResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.GetRootResourceResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, "")
+    urn: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -33286,7 +36556,7 @@ proto.pulumirpc.SetRootResourceRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.SetRootResourceRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, "")
+    urn: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -33517,8 +36787,8 @@ proto.pulumirpc.StartDebuggingRequest.prototype.toObject = function(opt_includeI
  */
 proto.pulumirpc.StartDebuggingRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-config: (f = msg.getConfig()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-message: jspb.Message.getFieldWithDefault(msg, 2, "")
+    config: (f = msg.getConfig()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    message: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -33675,267 +36945,6 @@ proto.pulumirpc.LogSeverity = {
   WARNING: 2,
   ERROR: 3
 };
-
-goog.object.extend(exports, proto.pulumirpc);
-
-
-/***/ }),
-
-/***/ 79836:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-// GENERATED CODE -- DO NOT EDIT!
-
-// Original file comments:
-// Copyright 2025, Pulumi Corporation.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-
-var grpc = __nccwpck_require__(7025);
-var pulumi_events_pb = __nccwpck_require__(88857);
-var google_protobuf_empty_pb = __nccwpck_require__(40291);
-
-function serialize_google_protobuf_Empty(arg) {
-  if (!(arg instanceof google_protobuf_empty_pb.Empty)) {
-    throw new Error('Expected argument of type google.protobuf.Empty');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_google_protobuf_Empty(buffer_arg) {
-  return google_protobuf_empty_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pulumirpc_EventRequest(arg) {
-  if (!(arg instanceof pulumi_events_pb.EventRequest)) {
-    throw new Error('Expected argument of type pulumirpc.EventRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pulumirpc_EventRequest(buffer_arg) {
-  return pulumi_events_pb.EventRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-
-// Events is a service for receiving engine events over gRPC.
-// This service allows the Pulumi CLI to send engine events to clients
-// (such as the Automation API) over a gRPC stream instead of writing them to
-// a file on the filesystem and reading them from there.
-var EventsService = exports.EventsService = {
-  // StreamEvents allows the client to stream multiple engine events to the server.
-// The client sends multiple EventRequest messages over the stream, and the server
-// processes them as they arrive. When the client is done sending events, it closes
-// the stream.
-streamEvents: {
-    path: '/pulumirpc.Events/StreamEvents',
-    requestStream: true,
-    responseStream: false,
-    requestType: pulumi_events_pb.EventRequest,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pulumirpc_EventRequest,
-    requestDeserialize: deserialize_pulumirpc_EventRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
-};
-
-exports.EventsClient = grpc.makeGenericClientConstructor(EventsService, 'Events');
-
-
-/***/ }),
-
-/***/ 88857:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-// source: pulumi/events.proto
-/**
- * @fileoverview
- * @enhanceable
- * @suppress {missingRequire} reports error on implicit type usages.
- * @suppress {messageConventions} JS Compiler reports an error if a variable or
- *     field starts with 'MSG_' and isn't a translatable message.
- * @public
- */
-// GENERATED CODE -- DO NOT EDIT!
-/* eslint-disable */
-// @ts-nocheck
-
-var jspb = __nccwpck_require__(69917);
-var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
-
-var google_protobuf_empty_pb = __nccwpck_require__(40291);
-goog.object.extend(proto, google_protobuf_empty_pb);
-goog.exportSymbol('proto.pulumirpc.EventRequest', null, global);
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.EventRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.EventRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.EventRequest.displayName = 'proto.pulumirpc.EventRequest';
-}
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.EventRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.EventRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.EventRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.EventRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-event: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.EventRequest}
- */
-proto.pulumirpc.EventRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.EventRequest;
-  return proto.pulumirpc.EventRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.EventRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.EventRequest}
- */
-proto.pulumirpc.EventRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setEvent(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.EventRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.EventRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.EventRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.EventRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getEvent();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string event = 1;
- * @return {string}
- */
-proto.pulumirpc.EventRequest.prototype.getEvent = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.EventRequest} returns this
- */
-proto.pulumirpc.EventRequest.prototype.setEvent = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
 
 goog.object.extend(exports, proto.pulumirpc);
 
@@ -34178,28 +37187,6 @@ function serialize_pulumirpc_LanguageHandshakeResponse(arg) {
 
 function deserialize_pulumirpc_LanguageHandshakeResponse(buffer_arg) {
   return pulumi_language_pb.LanguageHandshakeResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pulumirpc_LinkRequest(arg) {
-  if (!(arg instanceof pulumi_language_pb.LinkRequest)) {
-    throw new Error('Expected argument of type pulumirpc.LinkRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pulumirpc_LinkRequest(buffer_arg) {
-  return pulumi_language_pb.LinkRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pulumirpc_LinkResponse(arg) {
-  if (!(arg instanceof pulumi_language_pb.LinkResponse)) {
-    throw new Error('Expected argument of type pulumirpc.LinkResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pulumirpc_LinkResponse(buffer_arg) {
-  return pulumi_language_pb.LinkResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pulumirpc_PackRequest(arg) {
@@ -34516,37 +37503,9 @@ pack: {
     responseSerialize: serialize_pulumirpc_PackResponse,
     responseDeserialize: deserialize_pulumirpc_PackResponse,
   },
-  // `Link` links local dependencies into a project (program or plugin). The dependencies can be binary artifacts such
-// as wheel or tar.gz files, or source directories. `Link` will update the language specific project files, such as
-// `package.json`, `pyproject.toml`, `go.mod`, etc, to include the dependency. `Link` returns instructions for the
-// user on how to use the linked package in the project.
-link: {
-    path: '/pulumirpc.LanguageRuntime/Link',
-    requestStream: false,
-    responseStream: false,
-    requestType: pulumi_language_pb.LinkRequest,
-    responseType: pulumi_language_pb.LinkResponse,
-    requestSerialize: serialize_pulumirpc_LinkRequest,
-    requestDeserialize: deserialize_pulumirpc_LinkRequest,
-    responseSerialize: serialize_pulumirpc_LinkResponse,
-    responseDeserialize: deserialize_pulumirpc_LinkResponse,
-  },
-  // `Cancel` signals the language runtime to gracefully shut down and abort any ongoing operations.
-// Operations aborted in this way will return an error.
-cancel: {
-    path: '/pulumirpc.LanguageRuntime/Cancel',
-    requestStream: false,
-    responseStream: false,
-    requestType: google_protobuf_empty_pb.Empty,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_google_protobuf_Empty,
-    requestDeserialize: deserialize_google_protobuf_Empty,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
 };
 
-exports.LanguageRuntimeClient = grpc.makeGenericClientConstructor(LanguageRuntimeService, 'LanguageRuntime');
+exports.LanguageRuntimeClient = grpc.makeGenericClientConstructor(LanguageRuntimeService);
 
 
 /***/ }),
@@ -34569,13 +37528,7 @@ exports.LanguageRuntimeClient = grpc.makeGenericClientConstructor(LanguageRuntim
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 var pulumi_codegen_hcl_pb = __nccwpck_require__(82179);
 goog.object.extend(proto, pulumi_codegen_hcl_pb);
@@ -34604,9 +37557,6 @@ goog.exportSymbol('proto.pulumirpc.InstallDependenciesRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.InstallDependenciesResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.LanguageHandshakeRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.LanguageHandshakeResponse', null, global);
-goog.exportSymbol('proto.pulumirpc.LinkRequest', null, global);
-goog.exportSymbol('proto.pulumirpc.LinkRequest.LinkDependency', null, global);
-goog.exportSymbol('proto.pulumirpc.LinkResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.PackRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.PackResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.ProgramInfo', null, global);
@@ -35250,69 +38200,6 @@ if (goog.DEBUG && !COMPILED) {
    */
   proto.pulumirpc.LanguageHandshakeResponse.displayName = 'proto.pulumirpc.LanguageHandshakeResponse';
 }
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.LinkRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.LinkRequest.repeatedFields_, null);
-};
-goog.inherits(proto.pulumirpc.LinkRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.LinkRequest.displayName = 'proto.pulumirpc.LinkRequest';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.LinkRequest.LinkDependency = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.LinkRequest.LinkDependency, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.LinkRequest.LinkDependency.displayName = 'proto.pulumirpc.LinkRequest.LinkDependency';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.LinkResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.LinkResponse, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.LinkResponse.displayName = 'proto.pulumirpc.LinkResponse';
-}
 
 
 
@@ -35345,10 +38232,10 @@ proto.pulumirpc.ProgramInfo.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.ProgramInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-rootDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
-programDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
-entryPoint: jspb.Message.getFieldWithDefault(msg, 3, ""),
-options: (f = msg.getOptions()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
+    rootDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    programDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    entryPoint: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    options: (f = msg.getOptions()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -35586,7 +38473,7 @@ proto.pulumirpc.AboutRequest.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.AboutRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -35737,9 +38624,9 @@ proto.pulumirpc.AboutResponse.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.AboutResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-executable: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, ""),
-metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
+    executable: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -35895,8 +38782,7 @@ proto.pulumirpc.AboutResponse.prototype.getMetadataMap = function(opt_noLazyCrea
  */
 proto.pulumirpc.AboutResponse.prototype.clearMetadataMap = function() {
   this.getMetadataMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -35931,11 +38817,11 @@ proto.pulumirpc.GetProgramDependenciesRequest.prototype.toObject = function(opt_
  */
 proto.pulumirpc.GetProgramDependenciesRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-project: jspb.Message.getFieldWithDefault(msg, 1, ""),
-pwd: jspb.Message.getFieldWithDefault(msg, 2, ""),
-program: jspb.Message.getFieldWithDefault(msg, 3, ""),
-transitivedependencies: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
+    project: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    pwd: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    program: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    transitivedependencies: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -36202,8 +39088,8 @@ proto.pulumirpc.DependencyInfo.prototype.toObject = function(opt_includeInstance
  */
 proto.pulumirpc.DependencyInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, "")
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -36369,7 +39255,7 @@ proto.pulumirpc.GetProgramDependenciesResponse.prototype.toObject = function(opt
  */
 proto.pulumirpc.GetProgramDependenciesResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-dependenciesList: jspb.Message.toObjectList(msg.getDependenciesList(),
+    dependenciesList: jspb.Message.toObjectList(msg.getDependenciesList(),
     proto.pulumirpc.DependencyInfo.toObject, includeInstance)
   };
 
@@ -36522,10 +39408,10 @@ proto.pulumirpc.GetRequiredPluginsRequest.prototype.toObject = function(opt_incl
  */
 proto.pulumirpc.GetRequiredPluginsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-project: jspb.Message.getFieldWithDefault(msg, 1, ""),
-pwd: jspb.Message.getFieldWithDefault(msg, 2, ""),
-program: jspb.Message.getFieldWithDefault(msg, 3, ""),
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
+    project: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    pwd: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    program: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -36770,7 +39656,7 @@ proto.pulumirpc.GetRequiredPluginsResponse.prototype.toObject = function(opt_inc
  */
 proto.pulumirpc.GetRequiredPluginsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-pluginsList: jspb.Message.toObjectList(msg.getPluginsList(),
+    pluginsList: jspb.Message.toObjectList(msg.getPluginsList(),
     pulumi_plugin_pb.PluginDependency.toObject, includeInstance)
   };
 
@@ -36923,7 +39809,7 @@ proto.pulumirpc.GetRequiredPackagesRequest.prototype.toObject = function(opt_inc
  */
 proto.pulumirpc.GetRequiredPackagesRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -37081,7 +39967,7 @@ proto.pulumirpc.GetRequiredPackagesResponse.prototype.toObject = function(opt_in
  */
 proto.pulumirpc.GetRequiredPackagesResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-packagesList: jspb.Message.toObjectList(msg.getPackagesList(),
+    packagesList: jspb.Message.toObjectList(msg.getPackagesList(),
     pulumi_plugin_pb.PackageDependency.toObject, includeInstance)
   };
 
@@ -37241,22 +40127,22 @@ proto.pulumirpc.RunRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.RunRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-project: jspb.Message.getFieldWithDefault(msg, 1, ""),
-stack: jspb.Message.getFieldWithDefault(msg, 2, ""),
-pwd: jspb.Message.getFieldWithDefault(msg, 3, ""),
-program: jspb.Message.getFieldWithDefault(msg, 4, ""),
-argsList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
-dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
-parallel: jspb.Message.getFieldWithDefault(msg, 8, 0),
-monitorAddress: jspb.Message.getFieldWithDefault(msg, 9, ""),
-querymode: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
-configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 11)) == null ? undefined : f,
-organization: jspb.Message.getFieldWithDefault(msg, 12, ""),
-configpropertymap: (f = msg.getConfigpropertymap()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
-loaderTarget: jspb.Message.getFieldWithDefault(msg, 15, ""),
-attachDebugger: jspb.Message.getBooleanFieldWithDefault(msg, 16, false)
+    project: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    stack: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    pwd: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    program: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    argsList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
+    configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
+    dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
+    parallel: jspb.Message.getFieldWithDefault(msg, 8, 0),
+    monitorAddress: jspb.Message.getFieldWithDefault(msg, 9, ""),
+    querymode: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
+    configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 11)) == null ? undefined : f,
+    organization: jspb.Message.getFieldWithDefault(msg, 12, ""),
+    configpropertymap: (f = msg.getConfigpropertymap()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
+    loaderTarget: jspb.Message.getFieldWithDefault(msg, 15, ""),
+    attachDebugger: jspb.Message.getBooleanFieldWithDefault(msg, 16, false)
   };
 
   if (includeInstance) {
@@ -37632,8 +40518,7 @@ proto.pulumirpc.RunRequest.prototype.getConfigMap = function(opt_noLazyCreate) {
  */
 proto.pulumirpc.RunRequest.prototype.clearConfigMap = function() {
   this.getConfigMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -37905,8 +40790,8 @@ proto.pulumirpc.RunResponse.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.RunResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-error: jspb.Message.getFieldWithDefault(msg, 1, ""),
-bail: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    error: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    bail: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
   };
 
   if (includeInstance) {
@@ -38065,11 +40950,10 @@ proto.pulumirpc.InstallDependenciesRequest.prototype.toObject = function(opt_inc
  */
 proto.pulumirpc.InstallDependenciesRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-directory: jspb.Message.getFieldWithDefault(msg, 1, ""),
-isTerminal: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
-useLanguageVersionTools: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-isPlugin: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
+    directory: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    isTerminal: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
+    useLanguageVersionTools: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -38122,10 +41006,6 @@ proto.pulumirpc.InstallDependenciesRequest.deserializeBinaryFromReader = functio
     case 4:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setUseLanguageVersionTools(value);
-      break;
-    case 5:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setIsPlugin(value);
       break;
     default:
       reader.skipField();
@@ -38182,13 +41062,6 @@ proto.pulumirpc.InstallDependenciesRequest.serializeBinaryToWriter = function(me
   if (f) {
     writer.writeBool(
       4,
-      f
-    );
-  }
-  f = message.getIsPlugin();
-  if (f) {
-    writer.writeBool(
-      5,
       f
     );
   }
@@ -38286,24 +41159,6 @@ proto.pulumirpc.InstallDependenciesRequest.prototype.setUseLanguageVersionTools 
 };
 
 
-/**
- * optional bool is_plugin = 5;
- * @return {boolean}
- */
-proto.pulumirpc.InstallDependenciesRequest.prototype.getIsPlugin = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.InstallDependenciesRequest} returns this
- */
-proto.pulumirpc.InstallDependenciesRequest.prototype.setIsPlugin = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 5, value);
-};
-
-
 
 
 
@@ -38336,8 +41191,8 @@ proto.pulumirpc.InstallDependenciesResponse.prototype.toObject = function(opt_in
  */
 proto.pulumirpc.InstallDependenciesResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-stdout: msg.getStdout_asB64(),
-stderr: msg.getStderr_asB64()
+    stdout: msg.getStdout_asB64(),
+    stderr: msg.getStderr_asB64()
   };
 
   if (includeInstance) {
@@ -38544,7 +41399,7 @@ proto.pulumirpc.RuntimeOptionsRequest.prototype.toObject = function(opt_includeI
  */
 proto.pulumirpc.RuntimeOptionsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -38702,12 +41557,12 @@ proto.pulumirpc.RuntimeOptionPrompt.prototype.toObject = function(opt_includeIns
  */
 proto.pulumirpc.RuntimeOptionPrompt.toObject = function(includeInstance, msg) {
   var f, obj = {
-key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-description: jspb.Message.getFieldWithDefault(msg, 2, ""),
-prompttype: jspb.Message.getFieldWithDefault(msg, 3, 0),
-choicesList: jspb.Message.toObjectList(msg.getChoicesList(),
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    description: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    prompttype: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    choicesList: jspb.Message.toObjectList(msg.getChoicesList(),
     proto.pulumirpc.RuntimeOptionPrompt.RuntimeOptionValue.toObject, includeInstance),
-pb_default: (f = msg.getDefault()) && proto.pulumirpc.RuntimeOptionPrompt.RuntimeOptionValue.toObject(includeInstance, f)
+    pb_default: (f = msg.getDefault()) && proto.pulumirpc.RuntimeOptionPrompt.RuntimeOptionValue.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -38875,10 +41730,10 @@ proto.pulumirpc.RuntimeOptionPrompt.RuntimeOptionValue.prototype.toObject = func
  */
 proto.pulumirpc.RuntimeOptionPrompt.RuntimeOptionValue.toObject = function(includeInstance, msg) {
   var f, obj = {
-prompttype: jspb.Message.getFieldWithDefault(msg, 1, 0),
-stringvalue: jspb.Message.getFieldWithDefault(msg, 2, ""),
-int32value: jspb.Message.getFieldWithDefault(msg, 3, 0),
-displayname: jspb.Message.getFieldWithDefault(msg, 4, "")
+    prompttype: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    stringvalue: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    int32value: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    displayname: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -39231,7 +42086,7 @@ proto.pulumirpc.RuntimeOptionsResponse.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.RuntimeOptionsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-promptsList: jspb.Message.toObjectList(msg.getPromptsList(),
+    promptsList: jspb.Message.toObjectList(msg.getPromptsList(),
     proto.pulumirpc.RuntimeOptionPrompt.toObject, includeInstance)
   };
 
@@ -39391,14 +42246,12 @@ proto.pulumirpc.RunPluginRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.RunPluginRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-pwd: jspb.Message.getFieldWithDefault(msg, 1, ""),
-program: jspb.Message.getFieldWithDefault(msg, 2, ""),
-argsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-envList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
-kind: jspb.Message.getFieldWithDefault(msg, 6, ""),
-name: jspb.Message.getFieldWithDefault(msg, 7, ""),
-attachDebugger: jspb.Message.getBooleanFieldWithDefault(msg, 8, false)
+    pwd: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    program: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    argsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
+    envList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
+    info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
+    kind: jspb.Message.getFieldWithDefault(msg, 6, "")
   };
 
   if (includeInstance) {
@@ -39459,14 +42312,6 @@ proto.pulumirpc.RunPluginRequest.deserializeBinaryFromReader = function(msg, rea
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setKind(value);
-      break;
-    case 7:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    case 8:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setAttachDebugger(value);
       break;
     default:
       reader.skipField();
@@ -39537,20 +42382,6 @@ proto.pulumirpc.RunPluginRequest.serializeBinaryToWriter = function(message, wri
   if (f.length > 0) {
     writer.writeString(
       6,
-      f
-    );
-  }
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      7,
-      f
-    );
-  }
-  f = message.getAttachDebugger();
-  if (f) {
-    writer.writeBool(
-      8,
       f
     );
   }
@@ -39722,42 +42553,6 @@ proto.pulumirpc.RunPluginRequest.prototype.setKind = function(value) {
 };
 
 
-/**
- * optional string name = 7;
- * @return {string}
- */
-proto.pulumirpc.RunPluginRequest.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.RunPluginRequest} returns this
- */
-proto.pulumirpc.RunPluginRequest.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 7, value);
-};
-
-
-/**
- * optional bool attach_debugger = 8;
- * @return {boolean}
- */
-proto.pulumirpc.RunPluginRequest.prototype.getAttachDebugger = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 8, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.RunPluginRequest} returns this
- */
-proto.pulumirpc.RunPluginRequest.prototype.setAttachDebugger = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 8, value);
-};
-
-
 
 /**
  * Oneof group definitions for this message. Each group defines the field
@@ -39817,9 +42612,9 @@ proto.pulumirpc.RunPluginResponse.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.RunPluginResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-stdout: msg.getStdout_asB64(),
-stderr: msg.getStderr_asB64(),
-exitcode: (f = jspb.Message.getField(msg, 3)) == null ? undefined : f
+    stdout: msg.getStdout_asB64(),
+    stderr: msg.getStderr_asB64(),
+    exitcode: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -40109,9 +42904,9 @@ proto.pulumirpc.GenerateProgramRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.GenerateProgramRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-sourceMap: (f = msg.getSourceMap()) ? f.toObject(includeInstance, undefined) : [],
-loaderTarget: jspb.Message.getFieldWithDefault(msg, 2, ""),
-strict: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
+    sourceMap: (f = msg.getSourceMap()) ? f.toObject(includeInstance, undefined) : [],
+    loaderTarget: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    strict: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
   if (includeInstance) {
@@ -40231,8 +43026,7 @@ proto.pulumirpc.GenerateProgramRequest.prototype.getSourceMap = function(opt_noL
  */
 proto.pulumirpc.GenerateProgramRequest.prototype.clearSourceMap = function() {
   this.getSourceMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -40310,9 +43104,9 @@ proto.pulumirpc.GenerateProgramResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.GenerateProgramResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
+    diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
     pulumi_codegen_hcl_pb.Diagnostic.toObject, includeInstance),
-sourceMap: (f = msg.getSourceMap()) ? f.toObject(includeInstance, undefined) : []
+    sourceMap: (f = msg.getSourceMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -40461,8 +43255,7 @@ proto.pulumirpc.GenerateProgramResponse.prototype.getSourceMap = function(opt_no
  */
 proto.pulumirpc.GenerateProgramResponse.prototype.clearSourceMap = function() {
   this.getSourceMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -40497,12 +43290,12 @@ proto.pulumirpc.GenerateProjectRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.GenerateProjectRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-sourceDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
-targetDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
-project: jspb.Message.getFieldWithDefault(msg, 3, ""),
-strict: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-loaderTarget: jspb.Message.getFieldWithDefault(msg, 5, ""),
-localDependenciesMap: (f = msg.getLocalDependenciesMap()) ? f.toObject(includeInstance, undefined) : []
+    sourceDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    targetDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    project: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    strict: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    loaderTarget: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    localDependenciesMap: (f = msg.getLocalDependenciesMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -40745,8 +43538,7 @@ proto.pulumirpc.GenerateProjectRequest.prototype.getLocalDependenciesMap = funct
  */
 proto.pulumirpc.GenerateProjectRequest.prototype.clearLocalDependenciesMap = function() {
   this.getLocalDependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -40788,7 +43580,7 @@ proto.pulumirpc.GenerateProjectResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.GenerateProjectResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
+    diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
     pulumi_codegen_hcl_pb.Diagnostic.toObject, includeInstance)
   };
 
@@ -40941,12 +43733,12 @@ proto.pulumirpc.GeneratePackageRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.GeneratePackageRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-directory: jspb.Message.getFieldWithDefault(msg, 1, ""),
-schema: jspb.Message.getFieldWithDefault(msg, 2, ""),
-extraFilesMap: (f = msg.getExtraFilesMap()) ? f.toObject(includeInstance, undefined) : [],
-loaderTarget: jspb.Message.getFieldWithDefault(msg, 4, ""),
-localDependenciesMap: (f = msg.getLocalDependenciesMap()) ? f.toObject(includeInstance, undefined) : [],
-local: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
+    directory: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    schema: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    extraFilesMap: (f = msg.getExtraFilesMap()) ? f.toObject(includeInstance, undefined) : [],
+    loaderTarget: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    localDependenciesMap: (f = msg.getLocalDependenciesMap()) ? f.toObject(includeInstance, undefined) : [],
+    local: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
   };
 
   if (includeInstance) {
@@ -41134,8 +43926,7 @@ proto.pulumirpc.GeneratePackageRequest.prototype.getExtraFilesMap = function(opt
  */
 proto.pulumirpc.GeneratePackageRequest.prototype.clearExtraFilesMap = function() {
   this.getExtraFilesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -41175,8 +43966,7 @@ proto.pulumirpc.GeneratePackageRequest.prototype.getLocalDependenciesMap = funct
  */
 proto.pulumirpc.GeneratePackageRequest.prototype.clearLocalDependenciesMap = function() {
   this.getLocalDependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -41236,7 +44026,7 @@ proto.pulumirpc.GeneratePackageResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.GeneratePackageResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
+    diagnosticsList: jspb.Message.toObjectList(msg.getDiagnosticsList(),
     pulumi_codegen_hcl_pb.Diagnostic.toObject, includeInstance)
   };
 
@@ -41389,8 +44179,8 @@ proto.pulumirpc.PackRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.PackRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-packageDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
-destinationDirectory: jspb.Message.getFieldWithDefault(msg, 2, "")
+    packageDirectory: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    destinationDirectory: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -41549,7 +44339,7 @@ proto.pulumirpc.PackResponse.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.PackResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-artifactPath: jspb.Message.getFieldWithDefault(msg, 1, "")
+    artifactPath: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -41679,9 +44469,9 @@ proto.pulumirpc.LanguageHandshakeRequest.prototype.toObject = function(opt_inclu
  */
 proto.pulumirpc.LanguageHandshakeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-engineAddress: jspb.Message.getFieldWithDefault(msg, 1, ""),
-rootDirectory: (f = jspb.Message.getField(msg, 2)) == null ? undefined : f,
-programDirectory: (f = jspb.Message.getField(msg, 3)) == null ? undefined : f
+    engineAddress: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    rootDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    programDirectory: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
   if (includeInstance) {
@@ -41974,558 +44764,6 @@ proto.pulumirpc.LanguageHandshakeResponse.serializeBinaryToWriter = function(mes
 };
 
 
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.LinkRequest.repeatedFields_ = [3];
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.LinkRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.LinkRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.LinkRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-info: (f = msg.getInfo()) && proto.pulumirpc.ProgramInfo.toObject(includeInstance, f),
-loaderTarget: jspb.Message.getFieldWithDefault(msg, 2, ""),
-packagesList: jspb.Message.toObjectList(msg.getPackagesList(),
-    proto.pulumirpc.LinkRequest.LinkDependency.toObject, includeInstance)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.LinkRequest}
- */
-proto.pulumirpc.LinkRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.LinkRequest;
-  return proto.pulumirpc.LinkRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.LinkRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.LinkRequest}
- */
-proto.pulumirpc.LinkRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = new proto.pulumirpc.ProgramInfo;
-      reader.readMessage(value,proto.pulumirpc.ProgramInfo.deserializeBinaryFromReader);
-      msg.setInfo(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setLoaderTarget(value);
-      break;
-    case 3:
-      var value = new proto.pulumirpc.LinkRequest.LinkDependency;
-      reader.readMessage(value,proto.pulumirpc.LinkRequest.LinkDependency.deserializeBinaryFromReader);
-      msg.addPackages(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.LinkRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.LinkRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.LinkRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getInfo();
-  if (f != null) {
-    writer.writeMessage(
-      1,
-      f,
-      proto.pulumirpc.ProgramInfo.serializeBinaryToWriter
-    );
-  }
-  f = message.getLoaderTarget();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getPackagesList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      3,
-      f,
-      proto.pulumirpc.LinkRequest.LinkDependency.serializeBinaryToWriter
-    );
-  }
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.LinkRequest.LinkDependency.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.LinkRequest.LinkDependency} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkRequest.LinkDependency.toObject = function(includeInstance, msg) {
-  var f, obj = {
-pb_package: (f = msg.getPackage()) && pulumi_plugin_pb.PackageDependency.toObject(includeInstance, f),
-path: jspb.Message.getFieldWithDefault(msg, 2, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.LinkRequest.LinkDependency;
-  return proto.pulumirpc.LinkRequest.LinkDependency.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.LinkRequest.LinkDependency} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = new pulumi_plugin_pb.PackageDependency;
-      reader.readMessage(value,pulumi_plugin_pb.PackageDependency.deserializeBinaryFromReader);
-      msg.setPackage(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setPath(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.LinkRequest.LinkDependency.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.LinkRequest.LinkDependency} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkRequest.LinkDependency.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getPackage();
-  if (f != null) {
-    writer.writeMessage(
-      1,
-      f,
-      pulumi_plugin_pb.PackageDependency.serializeBinaryToWriter
-    );
-  }
-  f = message.getPath();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-};
-
-
-/**
- * optional PackageDependency package = 1;
- * @return {?proto.pulumirpc.PackageDependency}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.getPackage = function() {
-  return /** @type{?proto.pulumirpc.PackageDependency} */ (
-    jspb.Message.getWrapperField(this, pulumi_plugin_pb.PackageDependency, 1));
-};
-
-
-/**
- * @param {?proto.pulumirpc.PackageDependency|undefined} value
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency} returns this
-*/
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.setPackage = function(value) {
-  return jspb.Message.setWrapperField(this, 1, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency} returns this
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.clearPackage = function() {
-  return this.setPackage(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.hasPackage = function() {
-  return jspb.Message.getField(this, 1) != null;
-};
-
-
-/**
- * optional string path = 2;
- * @return {string}
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.getPath = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency} returns this
- */
-proto.pulumirpc.LinkRequest.LinkDependency.prototype.setPath = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional ProgramInfo info = 1;
- * @return {?proto.pulumirpc.ProgramInfo}
- */
-proto.pulumirpc.LinkRequest.prototype.getInfo = function() {
-  return /** @type{?proto.pulumirpc.ProgramInfo} */ (
-    jspb.Message.getWrapperField(this, proto.pulumirpc.ProgramInfo, 1));
-};
-
-
-/**
- * @param {?proto.pulumirpc.ProgramInfo|undefined} value
- * @return {!proto.pulumirpc.LinkRequest} returns this
-*/
-proto.pulumirpc.LinkRequest.prototype.setInfo = function(value) {
-  return jspb.Message.setWrapperField(this, 1, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.LinkRequest} returns this
- */
-proto.pulumirpc.LinkRequest.prototype.clearInfo = function() {
-  return this.setInfo(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.LinkRequest.prototype.hasInfo = function() {
-  return jspb.Message.getField(this, 1) != null;
-};
-
-
-/**
- * optional string loader_target = 2;
- * @return {string}
- */
-proto.pulumirpc.LinkRequest.prototype.getLoaderTarget = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.LinkRequest} returns this
- */
-proto.pulumirpc.LinkRequest.prototype.setLoaderTarget = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * repeated LinkDependency packages = 3;
- * @return {!Array<!proto.pulumirpc.LinkRequest.LinkDependency>}
- */
-proto.pulumirpc.LinkRequest.prototype.getPackagesList = function() {
-  return /** @type{!Array<!proto.pulumirpc.LinkRequest.LinkDependency>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pulumirpc.LinkRequest.LinkDependency, 3));
-};
-
-
-/**
- * @param {!Array<!proto.pulumirpc.LinkRequest.LinkDependency>} value
- * @return {!proto.pulumirpc.LinkRequest} returns this
-*/
-proto.pulumirpc.LinkRequest.prototype.setPackagesList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 3, value);
-};
-
-
-/**
- * @param {!proto.pulumirpc.LinkRequest.LinkDependency=} opt_value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.LinkRequest.LinkDependency}
- */
-proto.pulumirpc.LinkRequest.prototype.addPackages = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 3, opt_value, proto.pulumirpc.LinkRequest.LinkDependency, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.LinkRequest} returns this
- */
-proto.pulumirpc.LinkRequest.prototype.clearPackagesList = function() {
-  return this.setPackagesList([]);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.LinkResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.LinkResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.LinkResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-importInstructions: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.LinkResponse}
- */
-proto.pulumirpc.LinkResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.LinkResponse;
-  return proto.pulumirpc.LinkResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.LinkResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.LinkResponse}
- */
-proto.pulumirpc.LinkResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setImportInstructions(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.LinkResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.LinkResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.LinkResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.LinkResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getImportInstructions();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string import_instructions = 1;
- * @return {string}
- */
-proto.pulumirpc.LinkResponse.prototype.getImportInstructions = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.LinkResponse} returns this
- */
-proto.pulumirpc.LinkResponse.prototype.setImportInstructions = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
 goog.object.extend(exports, proto.pulumirpc);
 
 
@@ -42549,13 +44787,7 @@ goog.object.extend(exports, proto.pulumirpc);
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 goog.exportSymbol('proto.pulumirpc.PackageDependency', null, global);
 goog.exportSymbol('proto.pulumirpc.PackageParameterization', null, global);
@@ -42699,7 +44931,7 @@ proto.pulumirpc.PluginInfo.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.PluginInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-version: jspb.Message.getFieldWithDefault(msg, 1, "")
+    version: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -42829,11 +45061,11 @@ proto.pulumirpc.PluginDependency.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.PluginDependency.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-kind: jspb.Message.getFieldWithDefault(msg, 2, ""),
-version: jspb.Message.getFieldWithDefault(msg, 3, ""),
-server: jspb.Message.getFieldWithDefault(msg, 4, ""),
-checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : []
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    kind: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    server: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -43047,8 +45279,7 @@ proto.pulumirpc.PluginDependency.prototype.getChecksumsMap = function(opt_noLazy
  */
 proto.pulumirpc.PluginDependency.prototype.clearChecksumsMap = function() {
   this.getChecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -43083,7 +45314,7 @@ proto.pulumirpc.PluginAttach.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.PluginAttach.toObject = function(includeInstance, msg) {
   var f, obj = {
-address: jspb.Message.getFieldWithDefault(msg, 1, "")
+    address: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -43213,9 +45444,9 @@ proto.pulumirpc.PackageParameterization.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.PackageParameterization.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, ""),
-value: msg.getValue_asB64()
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    value: msg.getValue_asB64()
   };
 
   if (includeInstance) {
@@ -43427,12 +45658,12 @@ proto.pulumirpc.PackageDependency.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.PackageDependency.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-kind: jspb.Message.getFieldWithDefault(msg, 2, ""),
-version: jspb.Message.getFieldWithDefault(msg, 3, ""),
-server: jspb.Message.getFieldWithDefault(msg, 4, ""),
-checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-parameterization: (f = msg.getParameterization()) && proto.pulumirpc.PackageParameterization.toObject(includeInstance, f)
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    kind: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    server: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    parameterization: (f = msg.getParameterization()) && proto.pulumirpc.PackageParameterization.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -43659,8 +45890,7 @@ proto.pulumirpc.PackageDependency.prototype.getChecksumsMap = function(opt_noLaz
  */
 proto.pulumirpc.PackageDependency.prototype.clearChecksumsMap = function() {
   this.getChecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -43723,13 +45953,7 @@ goog.object.extend(exports, proto.pulumirpc);
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 var pulumi_plugin_pb = __nccwpck_require__(38008);
 goog.object.extend(proto, pulumi_plugin_pb);
@@ -43753,7 +45977,6 @@ goog.exportSymbol('proto.pulumirpc.ConfigureResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.ConstructRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.ConstructRequest.CustomTimeouts', null, global);
 goog.exportSymbol('proto.pulumirpc.ConstructRequest.PropertyDependencies', null, global);
-goog.exportSymbol('proto.pulumirpc.ConstructRequest.ResourceHooksBinding', null, global);
 goog.exportSymbol('proto.pulumirpc.ConstructResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.ConstructResponse.PropertyDependencies', null, global);
 goog.exportSymbol('proto.pulumirpc.CreateRequest', null, global);
@@ -43784,7 +46007,6 @@ goog.exportSymbol('proto.pulumirpc.ReadRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.ReadResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.UpdateRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.UpdateResponse', null, global);
-goog.exportSymbol('proto.pulumirpc.View', null, global);
 /**
  * Generated by JsPbCodeGenerator.
  * @param {Array=} opt_data Optional initial data array, typically from a
@@ -44363,7 +46585,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.pulumirpc.ReadRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.ReadRequest.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.pulumirpc.ReadRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -44447,7 +46669,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.pulumirpc.DeleteRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.DeleteRequest.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.pulumirpc.DeleteRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -44519,27 +46741,6 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pulumirpc.ConstructRequest.CustomTimeouts.displayName = 'proto.pulumirpc.ConstructRequest.CustomTimeouts';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.ConstructRequest.ResourceHooksBinding.repeatedFields_, null);
-};
-goog.inherits(proto.pulumirpc.ConstructRequest.ResourceHooksBinding, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.ConstructRequest.ResourceHooksBinding.displayName = 'proto.pulumirpc.ConstructRequest.ResourceHooksBinding';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -44688,27 +46889,6 @@ if (goog.DEBUG && !COMPILED) {
    */
   proto.pulumirpc.GetMappingsResponse.displayName = 'proto.pulumirpc.GetMappingsResponse';
 }
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.View = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.View, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.View.displayName = 'proto.pulumirpc.View';
-}
 
 
 
@@ -44741,13 +46921,10 @@ proto.pulumirpc.ProviderHandshakeRequest.prototype.toObject = function(opt_inclu
  */
 proto.pulumirpc.ProviderHandshakeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-engineAddress: jspb.Message.getFieldWithDefault(msg, 1, ""),
-rootDirectory: (f = jspb.Message.getField(msg, 2)) == null ? undefined : f,
-programDirectory: (f = jspb.Message.getField(msg, 3)) == null ? undefined : f,
-configureWithUrn: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-supportsViews: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
-supportsRefreshBeforeUpdate: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
-invokeWithPreview: jspb.Message.getBooleanFieldWithDefault(msg, 7, false)
+    engineAddress: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    rootDirectory: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    programDirectory: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    configureWithUrn: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -44799,18 +46976,6 @@ proto.pulumirpc.ProviderHandshakeRequest.deserializeBinaryFromReader = function(
     case 4:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setConfigureWithUrn(value);
-      break;
-    case 5:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setSupportsViews(value);
-      break;
-    case 6:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setSupportsRefreshBeforeUpdate(value);
-      break;
-    case 7:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setInvokeWithPreview(value);
       break;
     default:
       reader.skipField();
@@ -44866,27 +47031,6 @@ proto.pulumirpc.ProviderHandshakeRequest.serializeBinaryToWriter = function(mess
   if (f) {
     writer.writeBool(
       4,
-      f
-    );
-  }
-  f = message.getSupportsViews();
-  if (f) {
-    writer.writeBool(
-      5,
-      f
-    );
-  }
-  f = message.getSupportsRefreshBeforeUpdate();
-  if (f) {
-    writer.writeBool(
-      6,
-      f
-    );
-  }
-  f = message.getInvokeWithPreview();
-  if (f) {
-    writer.writeBool(
-      7,
       f
     );
   }
@@ -45001,60 +47145,6 @@ proto.pulumirpc.ProviderHandshakeRequest.prototype.setConfigureWithUrn = functio
 };
 
 
-/**
- * optional bool supports_views = 5;
- * @return {boolean}
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.getSupportsViews = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.ProviderHandshakeRequest} returns this
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.setSupportsViews = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 5, value);
-};
-
-
-/**
- * optional bool supports_refresh_before_update = 6;
- * @return {boolean}
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.getSupportsRefreshBeforeUpdate = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 6, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.ProviderHandshakeRequest} returns this
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.setSupportsRefreshBeforeUpdate = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 6, value);
-};
-
-
-/**
- * optional bool invoke_with_preview = 7;
- * @return {boolean}
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.getInvokeWithPreview = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 7, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.ProviderHandshakeRequest} returns this
- */
-proto.pulumirpc.ProviderHandshakeRequest.prototype.setInvokeWithPreview = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 7, value);
-};
-
-
 
 
 
@@ -45087,10 +47177,10 @@ proto.pulumirpc.ProviderHandshakeResponse.prototype.toObject = function(opt_incl
  */
 proto.pulumirpc.ProviderHandshakeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-acceptSecrets: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-acceptResources: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-acceptOutputs: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-supportsAutonamingConfiguration: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
+    acceptSecrets: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    acceptResources: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    acceptOutputs: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    supportsAutonamingConfiguration: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -45333,8 +47423,8 @@ proto.pulumirpc.ParameterizeRequest.prototype.toObject = function(opt_includeIns
  */
 proto.pulumirpc.ParameterizeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-args: (f = msg.getArgs()) && proto.pulumirpc.ParameterizeRequest.ParametersArgs.toObject(includeInstance, f),
-value: (f = msg.getValue()) && proto.pulumirpc.ParameterizeRequest.ParametersValue.toObject(includeInstance, f)
+    args: (f = msg.getArgs()) && proto.pulumirpc.ParameterizeRequest.ParametersArgs.toObject(includeInstance, f),
+    value: (f = msg.getValue()) && proto.pulumirpc.ParameterizeRequest.ParametersValue.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -45468,7 +47558,7 @@ proto.pulumirpc.ParameterizeRequest.ParametersArgs.prototype.toObject = function
  */
 proto.pulumirpc.ParameterizeRequest.ParametersArgs.toObject = function(includeInstance, msg) {
   var f, obj = {
-argsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    argsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -45617,9 +47707,9 @@ proto.pulumirpc.ParameterizeRequest.ParametersValue.prototype.toObject = functio
  */
 proto.pulumirpc.ParameterizeRequest.ParametersValue.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, ""),
-value: msg.getValue_asB64()
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    value: msg.getValue_asB64()
   };
 
   if (includeInstance) {
@@ -45905,8 +47995,8 @@ proto.pulumirpc.ParameterizeResponse.prototype.toObject = function(opt_includeIn
  */
 proto.pulumirpc.ParameterizeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, "")
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -46065,9 +48155,9 @@ proto.pulumirpc.GetSchemaRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.GetSchemaRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-version: jspb.Message.getFieldWithDefault(msg, 1, 0),
-subpackageName: jspb.Message.getFieldWithDefault(msg, 2, ""),
-subpackageVersion: jspb.Message.getFieldWithDefault(msg, 3, "")
+    version: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    subpackageName: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    subpackageVersion: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
   if (includeInstance) {
@@ -46255,7 +48345,7 @@ proto.pulumirpc.GetSchemaResponse.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.GetSchemaResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-schema: jspb.Message.getFieldWithDefault(msg, 1, "")
+    schema: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -46385,16 +48475,16 @@ proto.pulumirpc.ConfigureRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.ConfigureRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-variablesMap: (f = msg.getVariablesMap()) ? f.toObject(includeInstance, undefined) : [],
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-sendsOldInputs: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
-sendsOldInputsToDelete: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
-id: (f = jspb.Message.getField(msg, 7)) == null ? undefined : f,
-urn: (f = jspb.Message.getField(msg, 8)) == null ? undefined : f,
-name: (f = jspb.Message.getField(msg, 9)) == null ? undefined : f,
-type: (f = jspb.Message.getField(msg, 10)) == null ? undefined : f
+    variablesMap: (f = msg.getVariablesMap()) ? f.toObject(includeInstance, undefined) : [],
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    sendsOldInputs: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
+    sendsOldInputsToDelete: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
+    id: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 8, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 9, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 10, "")
   };
 
   if (includeInstance) {
@@ -46593,8 +48683,7 @@ proto.pulumirpc.ConfigureRequest.prototype.getVariablesMap = function(opt_noLazy
  */
 proto.pulumirpc.ConfigureRequest.prototype.clearVariablesMap = function() {
   this.getVariablesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -46882,11 +48971,11 @@ proto.pulumirpc.ConfigureResponse.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.ConfigureResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-supportspreview: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-acceptoutputs: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-supportsAutonamingConfiguration: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
+    acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    supportspreview: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    acceptoutputs: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    supportsAutonamingConfiguration: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
   };
 
   if (includeInstance) {
@@ -47139,7 +49228,7 @@ proto.pulumirpc.ConfigureErrorMissingKeys.prototype.toObject = function(opt_incl
  */
 proto.pulumirpc.ConfigureErrorMissingKeys.toObject = function(includeInstance, msg) {
   var f, obj = {
-missingkeysList: jspb.Message.toObjectList(msg.getMissingkeysList(),
+    missingkeysList: jspb.Message.toObjectList(msg.getMissingkeysList(),
     proto.pulumirpc.ConfigureErrorMissingKeys.MissingKey.toObject, includeInstance)
   };
 
@@ -47254,8 +49343,8 @@ proto.pulumirpc.ConfigureErrorMissingKeys.MissingKey.prototype.toObject = functi
  */
 proto.pulumirpc.ConfigureErrorMissingKeys.MissingKey.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-description: jspb.Message.getFieldWithDefault(msg, 2, "")
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    description: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -47452,9 +49541,8 @@ proto.pulumirpc.InvokeRequest.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.InvokeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-preview: jspb.Message.getBooleanFieldWithDefault(msg, 7, false)
+    tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -47500,10 +49588,6 @@ proto.pulumirpc.InvokeRequest.deserializeBinaryFromReader = function(msg, reader
       reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
       msg.setArgs(value);
       break;
-    case 7:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setPreview(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -47546,13 +49630,6 @@ proto.pulumirpc.InvokeRequest.serializeBinaryToWriter = function(message, writer
       2,
       f,
       google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getPreview();
-  if (f) {
-    writer.writeBool(
-      7,
-      f
     );
   }
 };
@@ -47613,24 +49690,6 @@ proto.pulumirpc.InvokeRequest.prototype.hasArgs = function() {
 };
 
 
-/**
- * optional bool preview = 7;
- * @return {boolean}
- */
-proto.pulumirpc.InvokeRequest.prototype.getPreview = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 7, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.InvokeRequest} returns this
- */
-proto.pulumirpc.InvokeRequest.prototype.setPreview = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 7, value);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
@@ -47670,8 +49729,8 @@ proto.pulumirpc.InvokeResponse.prototype.toObject = function(opt_includeInstance
  */
 proto.pulumirpc.InvokeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-pb_return: (f = msg.getReturn()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
+    pb_return: (f = msg.getReturn()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
     proto.pulumirpc.CheckFailure.toObject, includeInstance)
   };
 
@@ -47881,19 +49940,18 @@ proto.pulumirpc.CallRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.CallRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-argdependenciesMap: (f = msg.getArgdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.CallRequest.ArgumentDependencies.toObject) : [],
-project: jspb.Message.getFieldWithDefault(msg, 6, ""),
-stack: jspb.Message.getFieldWithDefault(msg, 7, ""),
-configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
-configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 9)) == null ? undefined : f,
-dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
-parallel: jspb.Message.getFieldWithDefault(msg, 11, 0),
-monitorendpoint: jspb.Message.getFieldWithDefault(msg, 12, ""),
-organization: jspb.Message.getFieldWithDefault(msg, 14, ""),
-acceptsOutputValues: jspb.Message.getBooleanFieldWithDefault(msg, 17, false),
-stackTraceHandle: jspb.Message.getFieldWithDefault(msg, 18, "")
+    tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    argdependenciesMap: (f = msg.getArgdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.CallRequest.ArgumentDependencies.toObject) : [],
+    project: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    stack: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
+    configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 9)) == null ? undefined : f,
+    dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
+    parallel: jspb.Message.getFieldWithDefault(msg, 11, 0),
+    monitorendpoint: jspb.Message.getFieldWithDefault(msg, 12, ""),
+    organization: jspb.Message.getFieldWithDefault(msg, 14, ""),
+    acceptsOutputValues: jspb.Message.getBooleanFieldWithDefault(msg, 17, false)
   };
 
   if (includeInstance) {
@@ -47982,10 +50040,6 @@ proto.pulumirpc.CallRequest.deserializeBinaryFromReader = function(msg, reader) 
     case 17:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setAcceptsOutputValues(value);
-      break;
-    case 18:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setStackTraceHandle(value);
       break;
     default:
       reader.skipField();
@@ -48095,13 +50149,6 @@ proto.pulumirpc.CallRequest.serializeBinaryToWriter = function(message, writer) 
       f
     );
   }
-  f = message.getStackTraceHandle();
-  if (f.length > 0) {
-    writer.writeString(
-      18,
-      f
-    );
-  }
 };
 
 
@@ -48144,7 +50191,7 @@ proto.pulumirpc.CallRequest.ArgumentDependencies.prototype.toObject = function(o
  */
 proto.pulumirpc.CallRequest.ArgumentDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -48335,8 +50382,7 @@ proto.pulumirpc.CallRequest.prototype.getArgdependenciesMap = function(opt_noLaz
  */
 proto.pulumirpc.CallRequest.prototype.clearArgdependenciesMap = function() {
   this.getArgdependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -48394,8 +50440,7 @@ proto.pulumirpc.CallRequest.prototype.getConfigMap = function(opt_noLazyCreate) 
  */
 proto.pulumirpc.CallRequest.prototype.clearConfigMap = function() {
   this.getConfigMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -48525,24 +50570,6 @@ proto.pulumirpc.CallRequest.prototype.setAcceptsOutputValues = function(value) {
 };
 
 
-/**
- * optional string stack_trace_handle = 18;
- * @return {string}
- */
-proto.pulumirpc.CallRequest.prototype.getStackTraceHandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 18, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.CallRequest} returns this
- */
-proto.pulumirpc.CallRequest.prototype.setStackTraceHandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 18, value);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
@@ -48582,10 +50609,10 @@ proto.pulumirpc.CallResponse.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.CallResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-pb_return: (f = msg.getReturn()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
+    pb_return: (f = msg.getReturn()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
     proto.pulumirpc.CheckFailure.toObject, includeInstance),
-returndependenciesMap: (f = msg.getReturndependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.CallResponse.ReturnDependencies.toObject) : []
+    returndependenciesMap: (f = msg.getReturndependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.CallResponse.ReturnDependencies.toObject) : []
   };
 
   if (includeInstance) {
@@ -48729,7 +50756,7 @@ proto.pulumirpc.CallResponse.ReturnDependencies.prototype.toObject = function(op
  */
 proto.pulumirpc.CallResponse.ReturnDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -48940,8 +50967,7 @@ proto.pulumirpc.CallResponse.prototype.getReturndependenciesMap = function(opt_n
  */
 proto.pulumirpc.CallResponse.prototype.clearReturndependenciesMap = function() {
   this.getReturndependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -48976,13 +51002,13 @@ proto.pulumirpc.CheckRequest.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.CheckRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-randomseed: msg.getRandomseed_asB64(),
-name: jspb.Message.getFieldWithDefault(msg, 6, ""),
-type: jspb.Message.getFieldWithDefault(msg, 7, ""),
-autonaming: (f = msg.getAutonaming()) && proto.pulumirpc.CheckRequest.AutonamingOptions.toObject(includeInstance, f)
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    randomseed: msg.getRandomseed_asB64(),
+    name: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    autonaming: (f = msg.getAutonaming()) && proto.pulumirpc.CheckRequest.AutonamingOptions.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -49166,8 +51192,8 @@ proto.pulumirpc.CheckRequest.AutonamingOptions.prototype.toObject = function(opt
  */
 proto.pulumirpc.CheckRequest.AutonamingOptions.toObject = function(includeInstance, msg) {
   var f, obj = {
-proposedName: jspb.Message.getFieldWithDefault(msg, 1, ""),
-mode: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    proposedName: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    mode: jspb.Message.getFieldWithDefault(msg, 2, 0)
   };
 
   if (includeInstance) {
@@ -49549,8 +51575,8 @@ proto.pulumirpc.CheckResponse.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.CheckResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
+    inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    failuresList: jspb.Message.toObjectList(msg.getFailuresList(),
     proto.pulumirpc.CheckFailure.toObject, includeInstance)
   };
 
@@ -49753,8 +51779,8 @@ proto.pulumirpc.CheckFailure.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.CheckFailure.toObject = function(includeInstance, msg) {
   var f, obj = {
-property: jspb.Message.getFieldWithDefault(msg, 1, ""),
-reason: jspb.Message.getFieldWithDefault(msg, 2, "")
+    property: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    reason: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -49920,14 +51946,14 @@ proto.pulumirpc.DiffRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.DiffRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
-olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-name: jspb.Message.getFieldWithDefault(msg, 7, ""),
-type: jspb.Message.getFieldWithDefault(msg, 8, "")
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
+    oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 8, "")
   };
 
   if (includeInstance) {
@@ -50342,8 +52368,8 @@ proto.pulumirpc.PropertyDiff.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.PropertyDiff.toObject = function(includeInstance, msg) {
   var f, obj = {
-kind: jspb.Message.getFieldWithDefault(msg, 1, 0),
-inputdiff: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    kind: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    inputdiff: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
   };
 
   if (includeInstance) {
@@ -50521,13 +52547,13 @@ proto.pulumirpc.DiffResponse.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.DiffResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-replacesList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
-stablesList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
-deletebeforereplace: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-changes: jspb.Message.getFieldWithDefault(msg, 4, 0),
-diffsList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-detaileddiffMap: (f = msg.getDetaileddiffMap()) ? f.toObject(includeInstance, proto.pulumirpc.PropertyDiff.toObject) : [],
-hasdetaileddiff: jspb.Message.getBooleanFieldWithDefault(msg, 7, false)
+    replacesList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
+    stablesList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
+    deletebeforereplace: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    changes: jspb.Message.getFieldWithDefault(msg, 4, 0),
+    diffsList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
+    detaileddiffMap: (f = msg.getDetaileddiffMap()) ? f.toObject(includeInstance, proto.pulumirpc.PropertyDiff.toObject) : [],
+    hasdetaileddiff: jspb.Message.getBooleanFieldWithDefault(msg, 7, false)
   };
 
   if (includeInstance) {
@@ -50847,8 +52873,7 @@ proto.pulumirpc.DiffResponse.prototype.getDetaileddiffMap = function(opt_noLazyC
  */
 proto.pulumirpc.DiffResponse.prototype.clearDetaileddiffMap = function() {
   this.getDetaileddiffMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -50901,14 +52926,12 @@ proto.pulumirpc.CreateRequest.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.CreateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-preview: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-name: jspb.Message.getFieldWithDefault(msg, 5, ""),
-type: jspb.Message.getFieldWithDefault(msg, 6, ""),
-resourceStatusAddress: jspb.Message.getFieldWithDefault(msg, 7, ""),
-resourceStatusToken: jspb.Message.getFieldWithDefault(msg, 8, "")
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
+    preview: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    name: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 6, "")
   };
 
   if (includeInstance) {
@@ -50969,14 +52992,6 @@ proto.pulumirpc.CreateRequest.deserializeBinaryFromReader = function(msg, reader
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setType(value);
-      break;
-    case 7:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusAddress(value);
-      break;
-    case 8:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusToken(value);
       break;
     default:
       reader.skipField();
@@ -51047,20 +53062,6 @@ proto.pulumirpc.CreateRequest.serializeBinaryToWriter = function(message, writer
   if (f.length > 0) {
     writer.writeString(
       6,
-      f
-    );
-  }
-  f = message.getResourceStatusAddress();
-  if (f.length > 0) {
-    writer.writeString(
-      7,
-      f
-    );
-  }
-  f = message.getResourceStatusToken();
-  if (f.length > 0) {
-    writer.writeString(
-      8,
       f
     );
   }
@@ -51194,42 +53195,6 @@ proto.pulumirpc.CreateRequest.prototype.setType = function(value) {
 };
 
 
-/**
- * optional string resource_status_address = 7;
- * @return {string}
- */
-proto.pulumirpc.CreateRequest.prototype.getResourceStatusAddress = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.CreateRequest} returns this
- */
-proto.pulumirpc.CreateRequest.prototype.setResourceStatusAddress = function(value) {
-  return jspb.Message.setProto3StringField(this, 7, value);
-};
-
-
-/**
- * optional string resource_status_token = 8;
- * @return {string}
- */
-proto.pulumirpc.CreateRequest.prototype.getResourceStatusToken = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.CreateRequest} returns this
- */
-proto.pulumirpc.CreateRequest.prototype.setResourceStatusToken = function(value) {
-  return jspb.Message.setProto3StringField(this, 8, value);
-};
-
-
 
 
 
@@ -51262,9 +53227,8 @@ proto.pulumirpc.CreateResponse.prototype.toObject = function(opt_includeInstance
  */
 proto.pulumirpc.CreateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-refreshBeforeUpdate: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -51310,10 +53274,6 @@ proto.pulumirpc.CreateResponse.deserializeBinaryFromReader = function(msg, reade
       reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
       msg.setProperties(value);
       break;
-    case 3:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setRefreshBeforeUpdate(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -51356,13 +53316,6 @@ proto.pulumirpc.CreateResponse.serializeBinaryToWriter = function(message, write
       2,
       f,
       google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getRefreshBeforeUpdate();
-  if (f) {
-    writer.writeBool(
-      3,
-      f
     );
   }
 };
@@ -51423,31 +53376,6 @@ proto.pulumirpc.CreateResponse.prototype.hasProperties = function() {
 };
 
 
-/**
- * optional bool refresh_before_update = 3;
- * @return {boolean}
- */
-proto.pulumirpc.CreateResponse.prototype.getRefreshBeforeUpdate = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.CreateResponse} returns this
- */
-proto.pulumirpc.CreateResponse.prototype.setRefreshBeforeUpdate = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 3, value);
-};
-
-
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.ReadRequest.repeatedFields_ = [9];
 
 
 
@@ -51480,16 +53408,12 @@ proto.pulumirpc.ReadRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pulumirpc.ReadRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-name: jspb.Message.getFieldWithDefault(msg, 5, ""),
-type: jspb.Message.getFieldWithDefault(msg, 6, ""),
-resourceStatusAddress: jspb.Message.getFieldWithDefault(msg, 7, ""),
-resourceStatusToken: jspb.Message.getFieldWithDefault(msg, 8, ""),
-oldViewsList: jspb.Message.toObjectList(msg.getOldViewsList(),
-    proto.pulumirpc.View.toObject, includeInstance)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 6, "")
   };
 
   if (includeInstance) {
@@ -51551,19 +53475,6 @@ proto.pulumirpc.ReadRequest.deserializeBinaryFromReader = function(msg, reader) 
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setType(value);
-      break;
-    case 7:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusAddress(value);
-      break;
-    case 8:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusToken(value);
-      break;
-    case 9:
-      var value = new proto.pulumirpc.View;
-      reader.readMessage(value,proto.pulumirpc.View.deserializeBinaryFromReader);
-      msg.addOldViews(value);
       break;
     default:
       reader.skipField();
@@ -51636,28 +53547,6 @@ proto.pulumirpc.ReadRequest.serializeBinaryToWriter = function(message, writer) 
     writer.writeString(
       6,
       f
-    );
-  }
-  f = message.getResourceStatusAddress();
-  if (f.length > 0) {
-    writer.writeString(
-      7,
-      f
-    );
-  }
-  f = message.getResourceStatusToken();
-  if (f.length > 0) {
-    writer.writeString(
-      8,
-      f
-    );
-  }
-  f = message.getOldViewsList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      9,
-      f,
-      proto.pulumirpc.View.serializeBinaryToWriter
     );
   }
 };
@@ -51809,80 +53698,6 @@ proto.pulumirpc.ReadRequest.prototype.setType = function(value) {
 };
 
 
-/**
- * optional string resource_status_address = 7;
- * @return {string}
- */
-proto.pulumirpc.ReadRequest.prototype.getResourceStatusAddress = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ReadRequest} returns this
- */
-proto.pulumirpc.ReadRequest.prototype.setResourceStatusAddress = function(value) {
-  return jspb.Message.setProto3StringField(this, 7, value);
-};
-
-
-/**
- * optional string resource_status_token = 8;
- * @return {string}
- */
-proto.pulumirpc.ReadRequest.prototype.getResourceStatusToken = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ReadRequest} returns this
- */
-proto.pulumirpc.ReadRequest.prototype.setResourceStatusToken = function(value) {
-  return jspb.Message.setProto3StringField(this, 8, value);
-};
-
-
-/**
- * repeated View old_views = 9;
- * @return {!Array<!proto.pulumirpc.View>}
- */
-proto.pulumirpc.ReadRequest.prototype.getOldViewsList = function() {
-  return /** @type{!Array<!proto.pulumirpc.View>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pulumirpc.View, 9));
-};
-
-
-/**
- * @param {!Array<!proto.pulumirpc.View>} value
- * @return {!proto.pulumirpc.ReadRequest} returns this
-*/
-proto.pulumirpc.ReadRequest.prototype.setOldViewsList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 9, value);
-};
-
-
-/**
- * @param {!proto.pulumirpc.View=} opt_value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.View}
- */
-proto.pulumirpc.ReadRequest.prototype.addOldViews = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 9, opt_value, proto.pulumirpc.View, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ReadRequest} returns this
- */
-proto.pulumirpc.ReadRequest.prototype.clearOldViewsList = function() {
-  return this.setOldViewsList([]);
-};
-
-
 
 
 
@@ -51915,10 +53730,9 @@ proto.pulumirpc.ReadResponse.prototype.toObject = function(opt_includeInstance) 
  */
 proto.pulumirpc.ReadResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-refreshBeforeUpdate: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -51968,10 +53782,6 @@ proto.pulumirpc.ReadResponse.deserializeBinaryFromReader = function(msg, reader)
       var value = new google_protobuf_struct_pb.Struct;
       reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
       msg.setInputs(value);
-      break;
-    case 4:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setRefreshBeforeUpdate(value);
       break;
     default:
       reader.skipField();
@@ -52023,13 +53833,6 @@ proto.pulumirpc.ReadResponse.serializeBinaryToWriter = function(message, writer)
       3,
       f,
       google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getRefreshBeforeUpdate();
-  if (f) {
-    writer.writeBool(
-      4,
-      f
     );
   }
 };
@@ -52127,31 +53930,13 @@ proto.pulumirpc.ReadResponse.prototype.hasInputs = function() {
 };
 
 
-/**
- * optional bool refresh_before_update = 4;
- * @return {boolean}
- */
-proto.pulumirpc.ReadResponse.prototype.getRefreshBeforeUpdate = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 4, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.ReadResponse} returns this
- */
-proto.pulumirpc.ReadResponse.prototype.setRefreshBeforeUpdate = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 4, value);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
  * @private {!Array<number>}
  * @const
  */
-proto.pulumirpc.UpdateRequest.repeatedFields_ = [6,13];
+proto.pulumirpc.UpdateRequest.repeatedFields_ = [6];
 
 
 
@@ -52184,20 +53969,16 @@ proto.pulumirpc.UpdateRequest.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.UpdateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
-olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
-ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f,
-preview: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
-oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-name: jspb.Message.getFieldWithDefault(msg, 9, ""),
-type: jspb.Message.getFieldWithDefault(msg, 10, ""),
-resourceStatusAddress: jspb.Message.getFieldWithDefault(msg, 11, ""),
-resourceStatusToken: jspb.Message.getFieldWithDefault(msg, 12, ""),
-oldViewsList: jspb.Message.toObjectList(msg.getOldViewsList(),
-    proto.pulumirpc.View.toObject, includeInstance)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    olds: (f = msg.getOlds()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    news: (f = msg.getNews()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
+    ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f,
+    preview: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
+    oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 9, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 10, "")
   };
 
   if (includeInstance) {
@@ -52276,19 +54057,6 @@ proto.pulumirpc.UpdateRequest.deserializeBinaryFromReader = function(msg, reader
     case 10:
       var value = /** @type {string} */ (reader.readString());
       msg.setType(value);
-      break;
-    case 11:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusAddress(value);
-      break;
-    case 12:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusToken(value);
-      break;
-    case 13:
-      var value = new proto.pulumirpc.View;
-      reader.readMessage(value,proto.pulumirpc.View.deserializeBinaryFromReader);
-      msg.addOldViews(value);
       break;
     default:
       reader.skipField();
@@ -52390,28 +54158,6 @@ proto.pulumirpc.UpdateRequest.serializeBinaryToWriter = function(message, writer
     writer.writeString(
       10,
       f
-    );
-  }
-  f = message.getResourceStatusAddress();
-  if (f.length > 0) {
-    writer.writeString(
-      11,
-      f
-    );
-  }
-  f = message.getResourceStatusToken();
-  if (f.length > 0) {
-    writer.writeString(
-      12,
-      f
-    );
-  }
-  f = message.getOldViewsList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      13,
-      f,
-      proto.pulumirpc.View.serializeBinaryToWriter
     );
   }
 };
@@ -52673,80 +54419,6 @@ proto.pulumirpc.UpdateRequest.prototype.setType = function(value) {
 };
 
 
-/**
- * optional string resource_status_address = 11;
- * @return {string}
- */
-proto.pulumirpc.UpdateRequest.prototype.getResourceStatusAddress = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 11, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.UpdateRequest} returns this
- */
-proto.pulumirpc.UpdateRequest.prototype.setResourceStatusAddress = function(value) {
-  return jspb.Message.setProto3StringField(this, 11, value);
-};
-
-
-/**
- * optional string resource_status_token = 12;
- * @return {string}
- */
-proto.pulumirpc.UpdateRequest.prototype.getResourceStatusToken = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 12, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.UpdateRequest} returns this
- */
-proto.pulumirpc.UpdateRequest.prototype.setResourceStatusToken = function(value) {
-  return jspb.Message.setProto3StringField(this, 12, value);
-};
-
-
-/**
- * repeated View old_views = 13;
- * @return {!Array<!proto.pulumirpc.View>}
- */
-proto.pulumirpc.UpdateRequest.prototype.getOldViewsList = function() {
-  return /** @type{!Array<!proto.pulumirpc.View>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pulumirpc.View, 13));
-};
-
-
-/**
- * @param {!Array<!proto.pulumirpc.View>} value
- * @return {!proto.pulumirpc.UpdateRequest} returns this
-*/
-proto.pulumirpc.UpdateRequest.prototype.setOldViewsList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 13, value);
-};
-
-
-/**
- * @param {!proto.pulumirpc.View=} opt_value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.View}
- */
-proto.pulumirpc.UpdateRequest.prototype.addOldViews = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 13, opt_value, proto.pulumirpc.View, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.UpdateRequest} returns this
- */
-proto.pulumirpc.UpdateRequest.prototype.clearOldViewsList = function() {
-  return this.setOldViewsList([]);
-};
-
-
 
 
 
@@ -52779,8 +54451,7 @@ proto.pulumirpc.UpdateResponse.prototype.toObject = function(opt_includeInstance
  */
 proto.pulumirpc.UpdateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-refreshBeforeUpdate: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -52822,10 +54493,6 @@ proto.pulumirpc.UpdateResponse.deserializeBinaryFromReader = function(msg, reade
       reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
       msg.setProperties(value);
       break;
-    case 2:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setRefreshBeforeUpdate(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -52861,13 +54528,6 @@ proto.pulumirpc.UpdateResponse.serializeBinaryToWriter = function(message, write
       1,
       f,
       google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getRefreshBeforeUpdate();
-  if (f) {
-    writer.writeBool(
-      2,
-      f
     );
   }
 };
@@ -52910,31 +54570,6 @@ proto.pulumirpc.UpdateResponse.prototype.hasProperties = function() {
 };
 
 
-/**
- * optional bool refresh_before_update = 2;
- * @return {boolean}
- */
-proto.pulumirpc.UpdateResponse.prototype.getRefreshBeforeUpdate = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.UpdateResponse} returns this
- */
-proto.pulumirpc.UpdateResponse.prototype.setRefreshBeforeUpdate = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 2, value);
-};
-
-
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.DeleteRequest.repeatedFields_ = [10];
 
 
 
@@ -52967,17 +54602,13 @@ proto.pulumirpc.DeleteRequest.prototype.toObject = function(opt_includeInstance)
  */
 proto.pulumirpc.DeleteRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
-oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-name: jspb.Message.getFieldWithDefault(msg, 6, ""),
-type: jspb.Message.getFieldWithDefault(msg, 7, ""),
-resourceStatusAddress: jspb.Message.getFieldWithDefault(msg, 8, ""),
-resourceStatusToken: jspb.Message.getFieldWithDefault(msg, 9, ""),
-oldViewsList: jspb.Message.toObjectList(msg.getOldViewsList(),
-    proto.pulumirpc.View.toObject, includeInstance)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    urn: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    timeout: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
+    oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 7, "")
   };
 
   if (includeInstance) {
@@ -53043,19 +54674,6 @@ proto.pulumirpc.DeleteRequest.deserializeBinaryFromReader = function(msg, reader
     case 7:
       var value = /** @type {string} */ (reader.readString());
       msg.setType(value);
-      break;
-    case 8:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusAddress(value);
-      break;
-    case 9:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setResourceStatusToken(value);
-      break;
-    case 10:
-      var value = new proto.pulumirpc.View;
-      reader.readMessage(value,proto.pulumirpc.View.deserializeBinaryFromReader);
-      msg.addOldViews(value);
       break;
     default:
       reader.skipField();
@@ -53135,28 +54753,6 @@ proto.pulumirpc.DeleteRequest.serializeBinaryToWriter = function(message, writer
     writer.writeString(
       7,
       f
-    );
-  }
-  f = message.getResourceStatusAddress();
-  if (f.length > 0) {
-    writer.writeString(
-      8,
-      f
-    );
-  }
-  f = message.getResourceStatusToken();
-  if (f.length > 0) {
-    writer.writeString(
-      9,
-      f
-    );
-  }
-  f = message.getOldViewsList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      10,
-      f,
-      proto.pulumirpc.View.serializeBinaryToWriter
     );
   }
 };
@@ -53326,80 +54922,6 @@ proto.pulumirpc.DeleteRequest.prototype.setType = function(value) {
 };
 
 
-/**
- * optional string resource_status_address = 8;
- * @return {string}
- */
-proto.pulumirpc.DeleteRequest.prototype.getResourceStatusAddress = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.DeleteRequest} returns this
- */
-proto.pulumirpc.DeleteRequest.prototype.setResourceStatusAddress = function(value) {
-  return jspb.Message.setProto3StringField(this, 8, value);
-};
-
-
-/**
- * optional string resource_status_token = 9;
- * @return {string}
- */
-proto.pulumirpc.DeleteRequest.prototype.getResourceStatusToken = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 9, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.DeleteRequest} returns this
- */
-proto.pulumirpc.DeleteRequest.prototype.setResourceStatusToken = function(value) {
-  return jspb.Message.setProto3StringField(this, 9, value);
-};
-
-
-/**
- * repeated View old_views = 10;
- * @return {!Array<!proto.pulumirpc.View>}
- */
-proto.pulumirpc.DeleteRequest.prototype.getOldViewsList = function() {
-  return /** @type{!Array<!proto.pulumirpc.View>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pulumirpc.View, 10));
-};
-
-
-/**
- * @param {!Array<!proto.pulumirpc.View>} value
- * @return {!proto.pulumirpc.DeleteRequest} returns this
-*/
-proto.pulumirpc.DeleteRequest.prototype.setOldViewsList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 10, value);
-};
-
-
-/**
- * @param {!proto.pulumirpc.View=} opt_value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.View}
- */
-proto.pulumirpc.DeleteRequest.prototype.addOldViews = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 10, opt_value, proto.pulumirpc.View, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.DeleteRequest} returns this
- */
-proto.pulumirpc.DeleteRequest.prototype.clearOldViewsList = function() {
-  return this.setOldViewsList([]);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
@@ -53439,33 +54961,31 @@ proto.pulumirpc.ConstructRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.ConstructRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-project: jspb.Message.getFieldWithDefault(msg, 1, ""),
-stack: jspb.Message.getFieldWithDefault(msg, 2, ""),
-configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
-dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-parallel: jspb.Message.getFieldWithDefault(msg, 5, 0),
-monitorendpoint: jspb.Message.getFieldWithDefault(msg, 6, ""),
-type: jspb.Message.getFieldWithDefault(msg, 7, ""),
-name: jspb.Message.getFieldWithDefault(msg, 8, ""),
-parent: jspb.Message.getFieldWithDefault(msg, 9, ""),
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-inputdependenciesMap: (f = msg.getInputdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ConstructRequest.PropertyDependencies.toObject) : [],
-providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
-dependenciesList: (f = jspb.Message.getRepeatedField(msg, 15)) == null ? undefined : f,
-configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 16)) == null ? undefined : f,
-organization: jspb.Message.getFieldWithDefault(msg, 17, ""),
-protect: (f = jspb.Message.getBooleanField(msg, 12)) == null ? undefined : f,
-aliasesList: (f = jspb.Message.getRepeatedField(msg, 14)) == null ? undefined : f,
-additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 18)) == null ? undefined : f,
-customtimeouts: (f = msg.getCustomtimeouts()) && proto.pulumirpc.ConstructRequest.CustomTimeouts.toObject(includeInstance, f),
-deletedwith: jspb.Message.getFieldWithDefault(msg, 20, ""),
-deletebeforereplace: (f = jspb.Message.getBooleanField(msg, 21)) == null ? undefined : f,
-ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 22)) == null ? undefined : f,
-replaceonchangesList: (f = jspb.Message.getRepeatedField(msg, 23)) == null ? undefined : f,
-retainondelete: (f = jspb.Message.getBooleanField(msg, 24)) == null ? undefined : f,
-acceptsOutputValues: jspb.Message.getBooleanFieldWithDefault(msg, 25, false),
-resourceHooks: (f = msg.getResourceHooks()) && proto.pulumirpc.ConstructRequest.ResourceHooksBinding.toObject(includeInstance, f),
-stackTraceHandle: jspb.Message.getFieldWithDefault(msg, 27, "")
+    project: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    stack: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    configMap: (f = msg.getConfigMap()) ? f.toObject(includeInstance, undefined) : [],
+    dryrun: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    parallel: jspb.Message.getFieldWithDefault(msg, 5, 0),
+    monitorendpoint: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 8, ""),
+    parent: jspb.Message.getFieldWithDefault(msg, 9, ""),
+    inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    inputdependenciesMap: (f = msg.getInputdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ConstructRequest.PropertyDependencies.toObject) : [],
+    providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
+    dependenciesList: (f = jspb.Message.getRepeatedField(msg, 15)) == null ? undefined : f,
+    configsecretkeysList: (f = jspb.Message.getRepeatedField(msg, 16)) == null ? undefined : f,
+    organization: jspb.Message.getFieldWithDefault(msg, 17, ""),
+    protect: jspb.Message.getBooleanFieldWithDefault(msg, 12, false),
+    aliasesList: (f = jspb.Message.getRepeatedField(msg, 14)) == null ? undefined : f,
+    additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 18)) == null ? undefined : f,
+    customtimeouts: (f = msg.getCustomtimeouts()) && proto.pulumirpc.ConstructRequest.CustomTimeouts.toObject(includeInstance, f),
+    deletedwith: jspb.Message.getFieldWithDefault(msg, 20, ""),
+    deletebeforereplace: jspb.Message.getBooleanFieldWithDefault(msg, 21, false),
+    ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 22)) == null ? undefined : f,
+    replaceonchangesList: (f = jspb.Message.getRepeatedField(msg, 23)) == null ? undefined : f,
+    retainondelete: jspb.Message.getBooleanFieldWithDefault(msg, 24, false),
+    acceptsOutputValues: jspb.Message.getBooleanFieldWithDefault(msg, 25, false)
   };
 
   if (includeInstance) {
@@ -53609,15 +55129,6 @@ proto.pulumirpc.ConstructRequest.deserializeBinaryFromReader = function(msg, rea
     case 25:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setAcceptsOutputValues(value);
-      break;
-    case 26:
-      var value = new proto.pulumirpc.ConstructRequest.ResourceHooksBinding;
-      reader.readMessage(value,proto.pulumirpc.ConstructRequest.ResourceHooksBinding.deserializeBinaryFromReader);
-      msg.setResourceHooks(value);
-      break;
-    case 27:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setStackTraceHandle(value);
       break;
     default:
       reader.skipField();
@@ -53816,21 +55327,6 @@ proto.pulumirpc.ConstructRequest.serializeBinaryToWriter = function(message, wri
       f
     );
   }
-  f = message.getResourceHooks();
-  if (f != null) {
-    writer.writeMessage(
-      26,
-      f,
-      proto.pulumirpc.ConstructRequest.ResourceHooksBinding.serializeBinaryToWriter
-    );
-  }
-  f = message.getStackTraceHandle();
-  if (f.length > 0) {
-    writer.writeString(
-      27,
-      f
-    );
-  }
 };
 
 
@@ -53873,7 +55369,7 @@ proto.pulumirpc.ConstructRequest.PropertyDependencies.prototype.toObject = funct
  */
 proto.pulumirpc.ConstructRequest.PropertyDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -54022,9 +55518,9 @@ proto.pulumirpc.ConstructRequest.CustomTimeouts.prototype.toObject = function(op
  */
 proto.pulumirpc.ConstructRequest.CustomTimeouts.toObject = function(includeInstance, msg) {
   var f, obj = {
-create: jspb.Message.getFieldWithDefault(msg, 1, ""),
-update: jspb.Message.getFieldWithDefault(msg, 2, ""),
-pb_delete: jspb.Message.getFieldWithDefault(msg, 3, "")
+    create: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    update: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    pb_delete: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
   if (includeInstance) {
@@ -54180,407 +55676,6 @@ proto.pulumirpc.ConstructRequest.CustomTimeouts.prototype.setDelete = function(v
 };
 
 
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.repeatedFields_ = [1,2,3,4,5,6];
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.ConstructRequest.ResourceHooksBinding.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.toObject = function(includeInstance, msg) {
-  var f, obj = {
-beforeCreateList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
-afterCreateList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
-beforeUpdateList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-afterUpdateList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
-beforeDeleteList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-afterDeleteList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.ConstructRequest.ResourceHooksBinding;
-  return proto.pulumirpc.ConstructRequest.ResourceHooksBinding.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeCreate(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterCreate(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeUpdate(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterUpdate(value);
-      break;
-    case 5:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeDelete(value);
-      break;
-    case 6:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterDelete(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.ConstructRequest.ResourceHooksBinding.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getBeforeCreateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      1,
-      f
-    );
-  }
-  f = message.getAfterCreateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      2,
-      f
-    );
-  }
-  f = message.getBeforeUpdateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      3,
-      f
-    );
-  }
-  f = message.getAfterUpdateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      4,
-      f
-    );
-  }
-  f = message.getBeforeDeleteList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      5,
-      f
-    );
-  }
-  f = message.getAfterDeleteList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      6,
-      f
-    );
-  }
-};
-
-
-/**
- * repeated string before_create = 1;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getBeforeCreateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setBeforeCreateList = function(value) {
-  return jspb.Message.setField(this, 1, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addBeforeCreate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearBeforeCreateList = function() {
-  return this.setBeforeCreateList([]);
-};
-
-
-/**
- * repeated string after_create = 2;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getAfterCreateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setAfterCreateList = function(value) {
-  return jspb.Message.setField(this, 2, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addAfterCreate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearAfterCreateList = function() {
-  return this.setAfterCreateList([]);
-};
-
-
-/**
- * repeated string before_update = 3;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getBeforeUpdateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setBeforeUpdateList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addBeforeUpdate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearBeforeUpdateList = function() {
-  return this.setBeforeUpdateList([]);
-};
-
-
-/**
- * repeated string after_update = 4;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getAfterUpdateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 4));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setAfterUpdateList = function(value) {
-  return jspb.Message.setField(this, 4, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addAfterUpdate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearAfterUpdateList = function() {
-  return this.setAfterUpdateList([]);
-};
-
-
-/**
- * repeated string before_delete = 5;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getBeforeDeleteList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 5));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setBeforeDeleteList = function(value) {
-  return jspb.Message.setField(this, 5, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addBeforeDelete = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 5, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearBeforeDeleteList = function() {
-  return this.setBeforeDeleteList([]);
-};
-
-
-/**
- * repeated string after_delete = 6;
- * @return {!Array<string>}
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.getAfterDeleteList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 6));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.setAfterDeleteList = function(value) {
-  return jspb.Message.setField(this, 6, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.addAfterDelete = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 6, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.ConstructRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.ConstructRequest.ResourceHooksBinding.prototype.clearAfterDeleteList = function() {
-  return this.setAfterDeleteList([]);
-};
-
-
 /**
  * optional string project = 1;
  * @return {string}
@@ -54636,8 +55731,7 @@ proto.pulumirpc.ConstructRequest.prototype.getConfigMap = function(opt_noLazyCre
  */
 proto.pulumirpc.ConstructRequest.prototype.clearConfigMap = function() {
   this.getConfigMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -54804,8 +55898,7 @@ proto.pulumirpc.ConstructRequest.prototype.getInputdependenciesMap = function(op
  */
 proto.pulumirpc.ConstructRequest.prototype.clearInputdependenciesMap = function() {
   this.getInputdependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -54827,8 +55920,7 @@ proto.pulumirpc.ConstructRequest.prototype.getProvidersMap = function(opt_noLazy
  */
 proto.pulumirpc.ConstructRequest.prototype.clearProvidersMap = function() {
   this.getProvidersMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -55252,61 +56344,6 @@ proto.pulumirpc.ConstructRequest.prototype.setAcceptsOutputValues = function(val
 };
 
 
-/**
- * optional ResourceHooksBinding resource_hooks = 26;
- * @return {?proto.pulumirpc.ConstructRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.ConstructRequest.prototype.getResourceHooks = function() {
-  return /** @type{?proto.pulumirpc.ConstructRequest.ResourceHooksBinding} */ (
-    jspb.Message.getWrapperField(this, proto.pulumirpc.ConstructRequest.ResourceHooksBinding, 26));
-};
-
-
-/**
- * @param {?proto.pulumirpc.ConstructRequest.ResourceHooksBinding|undefined} value
- * @return {!proto.pulumirpc.ConstructRequest} returns this
-*/
-proto.pulumirpc.ConstructRequest.prototype.setResourceHooks = function(value) {
-  return jspb.Message.setWrapperField(this, 26, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ConstructRequest} returns this
- */
-proto.pulumirpc.ConstructRequest.prototype.clearResourceHooks = function() {
-  return this.setResourceHooks(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ConstructRequest.prototype.hasResourceHooks = function() {
-  return jspb.Message.getField(this, 26) != null;
-};
-
-
-/**
- * optional string stack_trace_handle = 27;
- * @return {string}
- */
-proto.pulumirpc.ConstructRequest.prototype.getStackTraceHandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 27, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ConstructRequest} returns this
- */
-proto.pulumirpc.ConstructRequest.prototype.setStackTraceHandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 27, value);
-};
-
-
 
 
 
@@ -55339,9 +56376,9 @@ proto.pulumirpc.ConstructResponse.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.ConstructResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-state: (f = msg.getState()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-statedependenciesMap: (f = msg.getStatedependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ConstructResponse.PropertyDependencies.toObject) : []
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    state: (f = msg.getState()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    statedependenciesMap: (f = msg.getStatedependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ConstructResponse.PropertyDependencies.toObject) : []
   };
 
   if (includeInstance) {
@@ -55483,7 +56520,7 @@ proto.pulumirpc.ConstructResponse.PropertyDependencies.prototype.toObject = func
  */
 proto.pulumirpc.ConstructResponse.PropertyDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -55674,8 +56711,7 @@ proto.pulumirpc.ConstructResponse.prototype.getStatedependenciesMap = function(o
  */
 proto.pulumirpc.ConstructResponse.prototype.clearStatedependenciesMap = function() {
   this.getStatedependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -55717,11 +56753,10 @@ proto.pulumirpc.ErrorResourceInitFailed.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.ErrorResourceInitFailed.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-reasonsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-refreshBeforeUpdate: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    reasonsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
+    inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -55775,10 +56810,6 @@ proto.pulumirpc.ErrorResourceInitFailed.deserializeBinaryFromReader = function(m
       var value = new google_protobuf_struct_pb.Struct;
       reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
       msg.setInputs(value);
-      break;
-    case 5:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setRefreshBeforeUpdate(value);
       break;
     default:
       reader.skipField();
@@ -55837,13 +56868,6 @@ proto.pulumirpc.ErrorResourceInitFailed.serializeBinaryToWriter = function(messa
       4,
       f,
       google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getRefreshBeforeUpdate();
-  if (f) {
-    writer.writeBool(
-      5,
-      f
     );
   }
 };
@@ -55978,24 +57002,6 @@ proto.pulumirpc.ErrorResourceInitFailed.prototype.hasInputs = function() {
 };
 
 
-/**
- * optional bool refresh_before_update = 5;
- * @return {boolean}
- */
-proto.pulumirpc.ErrorResourceInitFailed.prototype.getRefreshBeforeUpdate = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.ErrorResourceInitFailed} returns this
- */
-proto.pulumirpc.ErrorResourceInitFailed.prototype.setRefreshBeforeUpdate = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 5, value);
-};
-
-
 
 
 
@@ -56028,8 +57034,8 @@ proto.pulumirpc.GetMappingRequest.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.GetMappingRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-provider: jspb.Message.getFieldWithDefault(msg, 2, "")
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    provider: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -56188,8 +57194,8 @@ proto.pulumirpc.GetMappingResponse.prototype.toObject = function(opt_includeInst
  */
 proto.pulumirpc.GetMappingResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-provider: jspb.Message.getFieldWithDefault(msg, 1, ""),
-data: msg.getData_asB64()
+    provider: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    data: msg.getData_asB64()
   };
 
   if (includeInstance) {
@@ -56372,7 +57378,7 @@ proto.pulumirpc.GetMappingsRequest.prototype.toObject = function(opt_includeInst
  */
 proto.pulumirpc.GetMappingsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-key: jspb.Message.getFieldWithDefault(msg, 1, "")
+    key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -56509,7 +57515,7 @@ proto.pulumirpc.GetMappingsResponse.prototype.toObject = function(opt_includeIns
  */
 proto.pulumirpc.GetMappingsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-providersList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    providersList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -56623,328 +57629,6 @@ proto.pulumirpc.GetMappingsResponse.prototype.addProviders = function(value, opt
  */
 proto.pulumirpc.GetMappingsResponse.prototype.clearProvidersList = function() {
   return this.setProvidersList([]);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.View.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.View.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.View} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.View.toObject = function(includeInstance, msg) {
-  var f, obj = {
-type: jspb.Message.getFieldWithDefault(msg, 1, ""),
-name: jspb.Message.getFieldWithDefault(msg, 2, ""),
-parentType: jspb.Message.getFieldWithDefault(msg, 3, ""),
-parentName: jspb.Message.getFieldWithDefault(msg, 4, ""),
-inputs: (f = msg.getInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-outputs: (f = msg.getOutputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.View}
- */
-proto.pulumirpc.View.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.View;
-  return proto.pulumirpc.View.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.View} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.View}
- */
-proto.pulumirpc.View.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setType(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentType(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentName(value);
-      break;
-    case 5:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setInputs(value);
-      break;
-    case 6:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setOutputs(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.View.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.View.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.View} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.View.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getType();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getParentType();
-  if (f.length > 0) {
-    writer.writeString(
-      3,
-      f
-    );
-  }
-  f = message.getParentName();
-  if (f.length > 0) {
-    writer.writeString(
-      4,
-      f
-    );
-  }
-  f = message.getInputs();
-  if (f != null) {
-    writer.writeMessage(
-      5,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getOutputs();
-  if (f != null) {
-    writer.writeMessage(
-      6,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * optional string type = 1;
- * @return {string}
- */
-proto.pulumirpc.View.prototype.getType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.setType = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional string name = 2;
- * @return {string}
- */
-proto.pulumirpc.View.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional string parent_type = 3;
- * @return {string}
- */
-proto.pulumirpc.View.prototype.getParentType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.setParentType = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
-};
-
-
-/**
- * optional string parent_name = 4;
- * @return {string}
- */
-proto.pulumirpc.View.prototype.getParentName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.setParentName = function(value) {
-  return jspb.Message.setProto3StringField(this, 4, value);
-};
-
-
-/**
- * optional google.protobuf.Struct inputs = 5;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.View.prototype.getInputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 5));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.View} returns this
-*/
-proto.pulumirpc.View.prototype.setInputs = function(value) {
-  return jspb.Message.setWrapperField(this, 5, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.clearInputs = function() {
-  return this.setInputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.View.prototype.hasInputs = function() {
-  return jspb.Message.getField(this, 5) != null;
-};
-
-
-/**
- * optional google.protobuf.Struct outputs = 6;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.View.prototype.getOutputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 6));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.View} returns this
-*/
-proto.pulumirpc.View.prototype.setOutputs = function(value) {
-  return jspb.Message.setWrapperField(this, 6, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.View} returns this
- */
-proto.pulumirpc.View.prototype.clearOutputs = function() {
-  return this.setOutputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.View.prototype.hasOutputs = function() {
-  return jspb.Message.getField(this, 6) != null;
 };
 
 
@@ -57070,17 +57754,6 @@ function serialize_pulumirpc_RegisterPackageResponse(arg) {
 
 function deserialize_pulumirpc_RegisterPackageResponse(buffer_arg) {
   return pulumi_resource_pb.RegisterPackageResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pulumirpc_RegisterResourceHookRequest(arg) {
-  if (!(arg instanceof pulumi_resource_pb.RegisterResourceHookRequest)) {
-    throw new Error('Expected argument of type pulumirpc.RegisterResourceHookRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pulumirpc_RegisterResourceHookRequest(buffer_arg) {
-  return pulumi_resource_pb.RegisterResourceHookRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pulumirpc_RegisterResourceOutputsRequest(arg) {
@@ -57253,19 +57926,6 @@ registerStackInvokeTransform: {
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
-  // Register a resource hook that can be called by the engine during certain
-// steps of a resource's lifecycle.
-registerResourceHook: {
-    path: '/pulumirpc.ResourceMonitor/RegisterResourceHook',
-    requestStream: false,
-    responseStream: false,
-    requestType: pulumi_resource_pb.RegisterResourceHookRequest,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_pulumirpc_RegisterResourceHookRequest,
-    requestDeserialize: deserialize_pulumirpc_RegisterResourceHookRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
   // Registers a package and allocates a packageRef. The same package can be registered multiple times in Pulumi.
 // Multiple requests are idempotent and guaranteed to return the same result.
 registerPackage: {
@@ -57279,26 +57939,9 @@ registerPackage: {
     responseSerialize: serialize_pulumirpc_RegisterPackageResponse,
     responseDeserialize: deserialize_pulumirpc_RegisterPackageResponse,
   },
-  // SignalAndWaitForShutdown lets the resource monitor know that no more
-// events will be generated. This call blocks until the resource monitor is
-// finished, which will happen once all the steps have executed. This allows
-// the language runtime to stay running and handle callback requests, even
-// after the user program has completed. Runtime SDKs should call this after
-// executing the user's program. This can only be called once.
-signalAndWaitForShutdown: {
-    path: '/pulumirpc.ResourceMonitor/SignalAndWaitForShutdown',
-    requestStream: false,
-    responseStream: false,
-    requestType: google_protobuf_empty_pb.Empty,
-    responseType: google_protobuf_empty_pb.Empty,
-    requestSerialize: serialize_google_protobuf_Empty,
-    requestDeserialize: deserialize_google_protobuf_Empty,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
-  },
 };
 
-exports.ResourceMonitorClient = grpc.makeGenericClientConstructor(ResourceMonitorService, 'ResourceMonitor');
+exports.ResourceMonitorClient = grpc.makeGenericClientConstructor(ResourceMonitorService);
 
 
 /***/ }),
@@ -57321,13 +57964,7 @@ exports.ResourceMonitorClient = grpc.makeGenericClientConstructor(ResourceMonito
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 var google_protobuf_empty_pb = __nccwpck_require__(40291);
 goog.object.extend(proto, google_protobuf_empty_pb);
@@ -57346,18 +57983,14 @@ goog.exportSymbol('proto.pulumirpc.ReadResourceRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.ReadResourceResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterPackageRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterPackageResponse', null, global);
-goog.exportSymbol('proto.pulumirpc.RegisterResourceHookRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceOutputsRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceRequest.CustomTimeouts', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceRequest.PropertyDependencies', null, global);
-goog.exportSymbol('proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.RegisterResourceResponse.PropertyDependencies', null, global);
 goog.exportSymbol('proto.pulumirpc.ResourceCallRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.ResourceCallRequest.ArgumentDependencies', null, global);
-goog.exportSymbol('proto.pulumirpc.ResourceHookRequest', null, global);
-goog.exportSymbol('proto.pulumirpc.ResourceHookResponse', null, global);
 goog.exportSymbol('proto.pulumirpc.ResourceInvokeRequest', null, global);
 goog.exportSymbol('proto.pulumirpc.Result', null, global);
 goog.exportSymbol('proto.pulumirpc.SupportsFeatureRequest', null, global);
@@ -57514,27 +58147,6 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.displayName = 'proto.pulumirpc.RegisterResourceRequest.CustomTimeouts';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.repeatedFields_, null);
-};
-goog.inherits(proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.displayName = 'proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -57798,48 +58410,6 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.pulumirpc.ResourceHookRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.ResourceHookRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.ResourceHookRequest.displayName = 'proto.pulumirpc.ResourceHookRequest';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.ResourceHookResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.ResourceHookResponse, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.ResourceHookResponse.displayName = 'proto.pulumirpc.ResourceHookResponse';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
 proto.pulumirpc.RegisterPackageRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
@@ -57893,27 +58463,6 @@ if (goog.DEBUG && !COMPILED) {
    */
   proto.pulumirpc.Parameterization.displayName = 'proto.pulumirpc.Parameterization';
 }
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.RegisterResourceHookRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.RegisterResourceHookRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.RegisterResourceHookRequest.displayName = 'proto.pulumirpc.RegisterResourceHookRequest';
-}
 
 
 
@@ -57946,7 +58495,7 @@ proto.pulumirpc.SupportsFeatureRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.SupportsFeatureRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, "")
+    id: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -58076,7 +58625,7 @@ proto.pulumirpc.SupportsFeatureResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.SupportsFeatureResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-hassupport: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
+    hassupport: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
   };
 
   if (includeInstance) {
@@ -58213,23 +58762,21 @@ proto.pulumirpc.ReadResourceRequest.prototype.toObject = function(opt_includeIns
  */
 proto.pulumirpc.ReadResourceRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-type: jspb.Message.getFieldWithDefault(msg, 2, ""),
-name: jspb.Message.getFieldWithDefault(msg, 3, ""),
-parent: jspb.Message.getFieldWithDefault(msg, 4, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-dependenciesList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f,
-provider: jspb.Message.getFieldWithDefault(msg, 7, ""),
-version: jspb.Message.getFieldWithDefault(msg, 8, ""),
-acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 9, false),
-additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 10)) == null ? undefined : f,
-acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 12, false),
-plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 13, ""),
-pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
-stacktrace: (f = msg.getStacktrace()) && pulumi_source_pb.StackTrace.toObject(includeInstance, f),
-parentstacktracehandle: jspb.Message.getFieldWithDefault(msg, 18, ""),
-packageref: jspb.Message.getFieldWithDefault(msg, 16, "")
+    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    parent: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    dependenciesList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f,
+    provider: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 8, ""),
+    acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 9, false),
+    additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 10)) == null ? undefined : f,
+    acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 12, false),
+    plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 13, ""),
+    pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
+    packageref: jspb.Message.getFieldWithDefault(msg, 16, "")
   };
 
   if (includeInstance) {
@@ -58325,15 +58872,6 @@ proto.pulumirpc.ReadResourceRequest.deserializeBinaryFromReader = function(msg, 
       var value = new pulumi_source_pb.SourcePosition;
       reader.readMessage(value,pulumi_source_pb.SourcePosition.deserializeBinaryFromReader);
       msg.setSourceposition(value);
-      break;
-    case 17:
-      var value = new pulumi_source_pb.StackTrace;
-      reader.readMessage(value,pulumi_source_pb.StackTrace.deserializeBinaryFromReader);
-      msg.setStacktrace(value);
-      break;
-    case 18:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentstacktracehandle(value);
       break;
     case 16:
       var value = /** @type {string} */ (reader.readString());
@@ -58463,21 +59001,6 @@ proto.pulumirpc.ReadResourceRequest.serializeBinaryToWriter = function(message, 
       14,
       f,
       pulumi_source_pb.SourcePosition.serializeBinaryToWriter
-    );
-  }
-  f = message.getStacktrace();
-  if (f != null) {
-    writer.writeMessage(
-      17,
-      f,
-      pulumi_source_pb.StackTrace.serializeBinaryToWriter
-    );
-  }
-  f = message.getParentstacktracehandle();
-  if (f.length > 0) {
-    writer.writeString(
-      18,
-      f
     );
   }
   f = message.getPackageref();
@@ -58782,8 +59305,7 @@ proto.pulumirpc.ReadResourceRequest.prototype.getPluginchecksumsMap = function(o
  */
 proto.pulumirpc.ReadResourceRequest.prototype.clearPluginchecksumsMap = function() {
   this.getPluginchecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -58820,61 +59342,6 @@ proto.pulumirpc.ReadResourceRequest.prototype.clearSourceposition = function() {
  */
 proto.pulumirpc.ReadResourceRequest.prototype.hasSourceposition = function() {
   return jspb.Message.getField(this, 14) != null;
-};
-
-
-/**
- * optional StackTrace stackTrace = 17;
- * @return {?proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.ReadResourceRequest.prototype.getStacktrace = function() {
-  return /** @type{?proto.pulumirpc.StackTrace} */ (
-    jspb.Message.getWrapperField(this, pulumi_source_pb.StackTrace, 17));
-};
-
-
-/**
- * @param {?proto.pulumirpc.StackTrace|undefined} value
- * @return {!proto.pulumirpc.ReadResourceRequest} returns this
-*/
-proto.pulumirpc.ReadResourceRequest.prototype.setStacktrace = function(value) {
-  return jspb.Message.setWrapperField(this, 17, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ReadResourceRequest} returns this
- */
-proto.pulumirpc.ReadResourceRequest.prototype.clearStacktrace = function() {
-  return this.setStacktrace(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ReadResourceRequest.prototype.hasStacktrace = function() {
-  return jspb.Message.getField(this, 17) != null;
-};
-
-
-/**
- * optional string parentStackTraceHandle = 18;
- * @return {string}
- */
-proto.pulumirpc.ReadResourceRequest.prototype.getParentstacktracehandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 18, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ReadResourceRequest} returns this
- */
-proto.pulumirpc.ReadResourceRequest.prototype.setParentstacktracehandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 18, value);
 };
 
 
@@ -58928,8 +59395,8 @@ proto.pulumirpc.ReadResourceResponse.prototype.toObject = function(opt_includeIn
  */
 proto.pulumirpc.ReadResourceResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -59083,7 +59550,7 @@ proto.pulumirpc.ReadResourceResponse.prototype.hasProperties = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.pulumirpc.RegisterResourceRequest.repeatedFields_ = [7,12,14,15,23,26,31,37];
+proto.pulumirpc.RegisterResourceRequest.repeatedFields_ = [7,12,14,15,23,26,31];
 
 
 
@@ -59116,45 +59583,41 @@ proto.pulumirpc.RegisterResourceRequest.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.RegisterResourceRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-type: jspb.Message.getFieldWithDefault(msg, 1, ""),
-name: jspb.Message.getFieldWithDefault(msg, 2, ""),
-parent: jspb.Message.getFieldWithDefault(msg, 3, ""),
-custom: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-object: (f = msg.getObject()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-protect: (f = jspb.Message.getBooleanField(msg, 6)) == null ? undefined : f,
-dependenciesList: (f = jspb.Message.getRepeatedField(msg, 7)) == null ? undefined : f,
-provider: jspb.Message.getFieldWithDefault(msg, 8, ""),
-propertydependenciesMap: (f = msg.getPropertydependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.RegisterResourceRequest.PropertyDependencies.toObject) : [],
-deletebeforereplace: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
-version: jspb.Message.getFieldWithDefault(msg, 11, ""),
-ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 12)) == null ? undefined : f,
-acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 13, false),
-additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 14)) == null ? undefined : f,
-aliasurnsList: (f = jspb.Message.getRepeatedField(msg, 15)) == null ? undefined : f,
-importid: jspb.Message.getFieldWithDefault(msg, 16, ""),
-customtimeouts: (f = msg.getCustomtimeouts()) && proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.toObject(includeInstance, f),
-deletebeforereplacedefined: jspb.Message.getBooleanFieldWithDefault(msg, 18, false),
-supportspartialvalues: jspb.Message.getBooleanFieldWithDefault(msg, 19, false),
-remote: jspb.Message.getBooleanFieldWithDefault(msg, 20, false),
-acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 21, false),
-providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
-replaceonchangesList: (f = jspb.Message.getRepeatedField(msg, 23)) == null ? undefined : f,
-plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 24, ""),
-pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-retainondelete: (f = jspb.Message.getBooleanField(msg, 25)) == null ? undefined : f,
-aliasesList: jspb.Message.toObjectList(msg.getAliasesList(),
+    type: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    parent: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    custom: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    object: (f = msg.getObject()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    protect: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
+    dependenciesList: (f = jspb.Message.getRepeatedField(msg, 7)) == null ? undefined : f,
+    provider: jspb.Message.getFieldWithDefault(msg, 8, ""),
+    propertydependenciesMap: (f = msg.getPropertydependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.RegisterResourceRequest.PropertyDependencies.toObject) : [],
+    deletebeforereplace: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
+    version: jspb.Message.getFieldWithDefault(msg, 11, ""),
+    ignorechangesList: (f = jspb.Message.getRepeatedField(msg, 12)) == null ? undefined : f,
+    acceptsecrets: jspb.Message.getBooleanFieldWithDefault(msg, 13, false),
+    additionalsecretoutputsList: (f = jspb.Message.getRepeatedField(msg, 14)) == null ? undefined : f,
+    aliasurnsList: (f = jspb.Message.getRepeatedField(msg, 15)) == null ? undefined : f,
+    importid: jspb.Message.getFieldWithDefault(msg, 16, ""),
+    customtimeouts: (f = msg.getCustomtimeouts()) && proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.toObject(includeInstance, f),
+    deletebeforereplacedefined: jspb.Message.getBooleanFieldWithDefault(msg, 18, false),
+    supportspartialvalues: jspb.Message.getBooleanFieldWithDefault(msg, 19, false),
+    remote: jspb.Message.getBooleanFieldWithDefault(msg, 20, false),
+    acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 21, false),
+    providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
+    replaceonchangesList: (f = jspb.Message.getRepeatedField(msg, 23)) == null ? undefined : f,
+    plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 24, ""),
+    pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    retainondelete: jspb.Message.getBooleanFieldWithDefault(msg, 25, false),
+    aliasesList: jspb.Message.toObjectList(msg.getAliasesList(),
     pulumi_alias_pb.Alias.toObject, includeInstance),
-deletedwith: jspb.Message.getFieldWithDefault(msg, 27, ""),
-aliasspecs: jspb.Message.getBooleanFieldWithDefault(msg, 28, false),
-sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
-stacktrace: (f = msg.getStacktrace()) && pulumi_source_pb.StackTrace.toObject(includeInstance, f),
-parentstacktracehandle: jspb.Message.getFieldWithDefault(msg, 36, ""),
-transformsList: jspb.Message.toObjectList(msg.getTransformsList(),
+    deletedwith: jspb.Message.getFieldWithDefault(msg, 27, ""),
+    aliasspecs: jspb.Message.getBooleanFieldWithDefault(msg, 28, false),
+    sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
+    transformsList: jspb.Message.toObjectList(msg.getTransformsList(),
     pulumi_callback_pb.Callback.toObject, includeInstance),
-supportsresultreporting: jspb.Message.getBooleanFieldWithDefault(msg, 32, false),
-packageref: jspb.Message.getFieldWithDefault(msg, 33, ""),
-hooks: (f = msg.getHooks()) && proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.toObject(includeInstance, f),
-hidediffsList: (f = jspb.Message.getRepeatedField(msg, 37)) == null ? undefined : f
+    supportsresultreporting: jspb.Message.getBooleanFieldWithDefault(msg, 32, false),
+    packageref: jspb.Message.getFieldWithDefault(msg, 33, "")
   };
 
   if (includeInstance) {
@@ -59321,15 +59784,6 @@ proto.pulumirpc.RegisterResourceRequest.deserializeBinaryFromReader = function(m
       reader.readMessage(value,pulumi_source_pb.SourcePosition.deserializeBinaryFromReader);
       msg.setSourceposition(value);
       break;
-    case 35:
-      var value = new pulumi_source_pb.StackTrace;
-      reader.readMessage(value,pulumi_source_pb.StackTrace.deserializeBinaryFromReader);
-      msg.setStacktrace(value);
-      break;
-    case 36:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentstacktracehandle(value);
-      break;
     case 31:
       var value = new pulumi_callback_pb.Callback;
       reader.readMessage(value,pulumi_callback_pb.Callback.deserializeBinaryFromReader);
@@ -59342,15 +59796,6 @@ proto.pulumirpc.RegisterResourceRequest.deserializeBinaryFromReader = function(m
     case 33:
       var value = /** @type {string} */ (reader.readString());
       msg.setPackageref(value);
-      break;
-    case 34:
-      var value = new proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding;
-      reader.readMessage(value,proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.deserializeBinaryFromReader);
-      msg.setHooks(value);
-      break;
-    case 37:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addHidediffs(value);
       break;
     default:
       reader.skipField();
@@ -59586,21 +60031,6 @@ proto.pulumirpc.RegisterResourceRequest.serializeBinaryToWriter = function(messa
       pulumi_source_pb.SourcePosition.serializeBinaryToWriter
     );
   }
-  f = message.getStacktrace();
-  if (f != null) {
-    writer.writeMessage(
-      35,
-      f,
-      pulumi_source_pb.StackTrace.serializeBinaryToWriter
-    );
-  }
-  f = message.getParentstacktracehandle();
-  if (f.length > 0) {
-    writer.writeString(
-      36,
-      f
-    );
-  }
   f = message.getTransformsList();
   if (f.length > 0) {
     writer.writeRepeatedMessage(
@@ -59620,21 +60050,6 @@ proto.pulumirpc.RegisterResourceRequest.serializeBinaryToWriter = function(messa
   if (f.length > 0) {
     writer.writeString(
       33,
-      f
-    );
-  }
-  f = message.getHooks();
-  if (f != null) {
-    writer.writeMessage(
-      34,
-      f,
-      proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.serializeBinaryToWriter
-    );
-  }
-  f = message.getHidediffsList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      37,
       f
     );
   }
@@ -59680,7 +60095,7 @@ proto.pulumirpc.RegisterResourceRequest.PropertyDependencies.prototype.toObject 
  */
 proto.pulumirpc.RegisterResourceRequest.PropertyDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -59829,9 +60244,9 @@ proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.prototype.toObject = func
  */
 proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.toObject = function(includeInstance, msg) {
   var f, obj = {
-create: jspb.Message.getFieldWithDefault(msg, 1, ""),
-update: jspb.Message.getFieldWithDefault(msg, 2, ""),
-pb_delete: jspb.Message.getFieldWithDefault(msg, 3, "")
+    create: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    update: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    pb_delete: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
   if (includeInstance) {
@@ -59984,407 +60399,6 @@ proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.prototype.getDelete = fun
  */
 proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.prototype.setDelete = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
-};
-
-
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.repeatedFields_ = [1,2,3,4,5,6];
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.toObject = function(includeInstance, msg) {
-  var f, obj = {
-beforeCreateList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
-afterCreateList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
-beforeUpdateList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-afterUpdateList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
-beforeDeleteList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-afterDeleteList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding;
-  return proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeCreate(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterCreate(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeUpdate(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterUpdate(value);
-      break;
-    case 5:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addBeforeDelete(value);
-      break;
-    case 6:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAfterDelete(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getBeforeCreateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      1,
-      f
-    );
-  }
-  f = message.getAfterCreateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      2,
-      f
-    );
-  }
-  f = message.getBeforeUpdateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      3,
-      f
-    );
-  }
-  f = message.getAfterUpdateList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      4,
-      f
-    );
-  }
-  f = message.getBeforeDeleteList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      5,
-      f
-    );
-  }
-  f = message.getAfterDeleteList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      6,
-      f
-    );
-  }
-};
-
-
-/**
- * repeated string before_create = 1;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getBeforeCreateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setBeforeCreateList = function(value) {
-  return jspb.Message.setField(this, 1, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addBeforeCreate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearBeforeCreateList = function() {
-  return this.setBeforeCreateList([]);
-};
-
-
-/**
- * repeated string after_create = 2;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getAfterCreateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setAfterCreateList = function(value) {
-  return jspb.Message.setField(this, 2, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addAfterCreate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearAfterCreateList = function() {
-  return this.setAfterCreateList([]);
-};
-
-
-/**
- * repeated string before_update = 3;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getBeforeUpdateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setBeforeUpdateList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addBeforeUpdate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearBeforeUpdateList = function() {
-  return this.setBeforeUpdateList([]);
-};
-
-
-/**
- * repeated string after_update = 4;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getAfterUpdateList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 4));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setAfterUpdateList = function(value) {
-  return jspb.Message.setField(this, 4, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addAfterUpdate = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearAfterUpdateList = function() {
-  return this.setAfterUpdateList([]);
-};
-
-
-/**
- * repeated string before_delete = 5;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getBeforeDeleteList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 5));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setBeforeDeleteList = function(value) {
-  return jspb.Message.setField(this, 5, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addBeforeDelete = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 5, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearBeforeDeleteList = function() {
-  return this.setBeforeDeleteList([]);
-};
-
-
-/**
- * repeated string after_delete = 6;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.getAfterDeleteList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 6));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.setAfterDeleteList = function(value) {
-  return jspb.Message.setField(this, 6, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.addAfterDelete = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 6, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.prototype.clearAfterDeleteList = function() {
-  return this.setAfterDeleteList([]);
 };
 
 
@@ -60607,8 +60621,7 @@ proto.pulumirpc.RegisterResourceRequest.prototype.getPropertydependenciesMap = f
  */
 proto.pulumirpc.RegisterResourceRequest.prototype.clearPropertydependenciesMap = function() {
   this.getPropertydependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -60922,8 +60935,7 @@ proto.pulumirpc.RegisterResourceRequest.prototype.getProvidersMap = function(opt
  */
 proto.pulumirpc.RegisterResourceRequest.prototype.clearProvidersMap = function() {
   this.getProvidersMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -61000,8 +61012,7 @@ proto.pulumirpc.RegisterResourceRequest.prototype.getPluginchecksumsMap = functi
  */
 proto.pulumirpc.RegisterResourceRequest.prototype.clearPluginchecksumsMap = function() {
   this.getPluginchecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -61152,61 +61163,6 @@ proto.pulumirpc.RegisterResourceRequest.prototype.hasSourceposition = function()
 
 
 /**
- * optional StackTrace stackTrace = 35;
- * @return {?proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.getStacktrace = function() {
-  return /** @type{?proto.pulumirpc.StackTrace} */ (
-    jspb.Message.getWrapperField(this, pulumi_source_pb.StackTrace, 35));
-};
-
-
-/**
- * @param {?proto.pulumirpc.StackTrace|undefined} value
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
-*/
-proto.pulumirpc.RegisterResourceRequest.prototype.setStacktrace = function(value) {
-  return jspb.Message.setWrapperField(this, 35, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.clearStacktrace = function() {
-  return this.setStacktrace(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.hasStacktrace = function() {
-  return jspb.Message.getField(this, 35) != null;
-};
-
-
-/**
- * optional string parentStackTraceHandle = 36;
- * @return {string}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.getParentstacktracehandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 36, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.setParentstacktracehandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 36, value);
-};
-
-
-/**
  * repeated Callback transforms = 31;
  * @return {!Array<!proto.pulumirpc.Callback>}
  */
@@ -61280,80 +61236,6 @@ proto.pulumirpc.RegisterResourceRequest.prototype.setPackageref = function(value
 };
 
 
-/**
- * optional ResourceHooksBinding hooks = 34;
- * @return {?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.getHooks = function() {
-  return /** @type{?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} */ (
-    jspb.Message.getWrapperField(this, proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding, 34));
-};
-
-
-/**
- * @param {?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding|undefined} value
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
-*/
-proto.pulumirpc.RegisterResourceRequest.prototype.setHooks = function(value) {
-  return jspb.Message.setWrapperField(this, 34, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.clearHooks = function() {
-  return this.setHooks(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.hasHooks = function() {
-  return jspb.Message.getField(this, 34) != null;
-};
-
-
-/**
- * repeated string hideDiffs = 37;
- * @return {!Array<string>}
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.getHidediffsList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 37));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.setHidediffsList = function(value) {
-  return jspb.Message.setField(this, 37, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.addHidediffs = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 37, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.RegisterResourceRequest} returns this
- */
-proto.pulumirpc.RegisterResourceRequest.prototype.clearHidediffsList = function() {
-  return this.setHidediffsList([]);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
@@ -61393,13 +61275,13 @@ proto.pulumirpc.RegisterResourceResponse.prototype.toObject = function(opt_inclu
  */
 proto.pulumirpc.RegisterResourceResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-id: jspb.Message.getFieldWithDefault(msg, 2, ""),
-object: (f = msg.getObject()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-stable: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
-stablesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-propertydependenciesMap: (f = msg.getPropertydependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.RegisterResourceResponse.PropertyDependencies.toObject) : [],
-result: jspb.Message.getFieldWithDefault(msg, 7, 0)
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    id: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    object: (f = msg.getObject()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    stable: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    stablesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
+    propertydependenciesMap: (f = msg.getPropertydependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.RegisterResourceResponse.PropertyDependencies.toObject) : [],
+    result: jspb.Message.getFieldWithDefault(msg, 7, 0)
   };
 
   if (includeInstance) {
@@ -61585,7 +61467,7 @@ proto.pulumirpc.RegisterResourceResponse.PropertyDependencies.prototype.toObject
  */
 proto.pulumirpc.RegisterResourceResponse.PropertyDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -61849,8 +61731,7 @@ proto.pulumirpc.RegisterResourceResponse.prototype.getPropertydependenciesMap = 
  */
 proto.pulumirpc.RegisterResourceResponse.prototype.clearPropertydependenciesMap = function() {
   this.getPropertydependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -61903,8 +61784,8 @@ proto.pulumirpc.RegisterResourceOutputsRequest.prototype.toObject = function(opt
  */
 proto.pulumirpc.RegisterResourceOutputsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-outputs: (f = msg.getOutputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
+    urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    outputs: (f = msg.getOutputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -62084,17 +61965,15 @@ proto.pulumirpc.ResourceInvokeRequest.prototype.toObject = function(opt_includeI
  */
 proto.pulumirpc.ResourceInvokeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-provider: jspb.Message.getFieldWithDefault(msg, 3, ""),
-version: jspb.Message.getFieldWithDefault(msg, 4, ""),
-acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
-plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 6, ""),
-pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
-stacktrace: (f = msg.getStacktrace()) && pulumi_source_pb.StackTrace.toObject(includeInstance, f),
-parentstacktracehandle: jspb.Message.getFieldWithDefault(msg, 11, ""),
-packageref: jspb.Message.getFieldWithDefault(msg, 9, "")
+    tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    provider: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    acceptresources: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
+    plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
+    packageref: jspb.Message.getFieldWithDefault(msg, 9, "")
   };
 
   if (includeInstance) {
@@ -62166,15 +62045,6 @@ proto.pulumirpc.ResourceInvokeRequest.deserializeBinaryFromReader = function(msg
       var value = new pulumi_source_pb.SourcePosition;
       reader.readMessage(value,pulumi_source_pb.SourcePosition.deserializeBinaryFromReader);
       msg.setSourceposition(value);
-      break;
-    case 10:
-      var value = new pulumi_source_pb.StackTrace;
-      reader.readMessage(value,pulumi_source_pb.StackTrace.deserializeBinaryFromReader);
-      msg.setStacktrace(value);
-      break;
-    case 11:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentstacktracehandle(value);
       break;
     case 9:
       var value = /** @type {string} */ (reader.readString());
@@ -62262,21 +62132,6 @@ proto.pulumirpc.ResourceInvokeRequest.serializeBinaryToWriter = function(message
       7,
       f,
       pulumi_source_pb.SourcePosition.serializeBinaryToWriter
-    );
-  }
-  f = message.getStacktrace();
-  if (f != null) {
-    writer.writeMessage(
-      10,
-      f,
-      pulumi_source_pb.StackTrace.serializeBinaryToWriter
-    );
-  }
-  f = message.getParentstacktracehandle();
-  if (f.length > 0) {
-    writer.writeString(
-      11,
-      f
     );
   }
   f = message.getPackageref();
@@ -62435,8 +62290,7 @@ proto.pulumirpc.ResourceInvokeRequest.prototype.getPluginchecksumsMap = function
  */
 proto.pulumirpc.ResourceInvokeRequest.prototype.clearPluginchecksumsMap = function() {
   this.getPluginchecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -62473,61 +62327,6 @@ proto.pulumirpc.ResourceInvokeRequest.prototype.clearSourceposition = function()
  */
 proto.pulumirpc.ResourceInvokeRequest.prototype.hasSourceposition = function() {
   return jspb.Message.getField(this, 7) != null;
-};
-
-
-/**
- * optional StackTrace stackTrace = 10;
- * @return {?proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.ResourceInvokeRequest.prototype.getStacktrace = function() {
-  return /** @type{?proto.pulumirpc.StackTrace} */ (
-    jspb.Message.getWrapperField(this, pulumi_source_pb.StackTrace, 10));
-};
-
-
-/**
- * @param {?proto.pulumirpc.StackTrace|undefined} value
- * @return {!proto.pulumirpc.ResourceInvokeRequest} returns this
-*/
-proto.pulumirpc.ResourceInvokeRequest.prototype.setStacktrace = function(value) {
-  return jspb.Message.setWrapperField(this, 10, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceInvokeRequest} returns this
- */
-proto.pulumirpc.ResourceInvokeRequest.prototype.clearStacktrace = function() {
-  return this.setStacktrace(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceInvokeRequest.prototype.hasStacktrace = function() {
-  return jspb.Message.getField(this, 10) != null;
-};
-
-
-/**
- * optional string parentStackTraceHandle = 11;
- * @return {string}
- */
-proto.pulumirpc.ResourceInvokeRequest.prototype.getParentstacktracehandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 11, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceInvokeRequest} returns this
- */
-proto.pulumirpc.ResourceInvokeRequest.prototype.setParentstacktracehandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 11, value);
 };
 
 
@@ -62581,17 +62380,15 @@ proto.pulumirpc.ResourceCallRequest.prototype.toObject = function(opt_includeIns
  */
 proto.pulumirpc.ResourceCallRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-argdependenciesMap: (f = msg.getArgdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ResourceCallRequest.ArgumentDependencies.toObject) : [],
-provider: jspb.Message.getFieldWithDefault(msg, 4, ""),
-version: jspb.Message.getFieldWithDefault(msg, 5, ""),
-plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 13, ""),
-pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
-stacktrace: (f = msg.getStacktrace()) && pulumi_source_pb.StackTrace.toObject(includeInstance, f),
-parentstacktracehandle: jspb.Message.getFieldWithDefault(msg, 19, ""),
-packageref: jspb.Message.getFieldWithDefault(msg, 17, "")
+    tok: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    argdependenciesMap: (f = msg.getArgdependenciesMap()) ? f.toObject(includeInstance, proto.pulumirpc.ResourceCallRequest.ArgumentDependencies.toObject) : [],
+    provider: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    plugindownloadurl: jspb.Message.getFieldWithDefault(msg, 13, ""),
+    pluginchecksumsMap: (f = msg.getPluginchecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    sourceposition: (f = msg.getSourceposition()) && pulumi_source_pb.SourcePosition.toObject(includeInstance, f),
+    packageref: jspb.Message.getFieldWithDefault(msg, 17, "")
   };
 
   if (includeInstance) {
@@ -62665,15 +62462,6 @@ proto.pulumirpc.ResourceCallRequest.deserializeBinaryFromReader = function(msg, 
       var value = new pulumi_source_pb.SourcePosition;
       reader.readMessage(value,pulumi_source_pb.SourcePosition.deserializeBinaryFromReader);
       msg.setSourceposition(value);
-      break;
-    case 18:
-      var value = new pulumi_source_pb.StackTrace;
-      reader.readMessage(value,pulumi_source_pb.StackTrace.deserializeBinaryFromReader);
-      msg.setStacktrace(value);
-      break;
-    case 19:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setParentstacktracehandle(value);
       break;
     case 17:
       var value = /** @type {string} */ (reader.readString());
@@ -62760,21 +62548,6 @@ proto.pulumirpc.ResourceCallRequest.serializeBinaryToWriter = function(message, 
       pulumi_source_pb.SourcePosition.serializeBinaryToWriter
     );
   }
-  f = message.getStacktrace();
-  if (f != null) {
-    writer.writeMessage(
-      18,
-      f,
-      pulumi_source_pb.StackTrace.serializeBinaryToWriter
-    );
-  }
-  f = message.getParentstacktracehandle();
-  if (f.length > 0) {
-    writer.writeString(
-      19,
-      f
-    );
-  }
   f = message.getPackageref();
   if (f.length > 0) {
     writer.writeString(
@@ -62824,7 +62597,7 @@ proto.pulumirpc.ResourceCallRequest.ArgumentDependencies.prototype.toObject = fu
  */
 proto.pulumirpc.ResourceCallRequest.ArgumentDependencies.toObject = function(includeInstance, msg) {
   var f, obj = {
-urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+    urnsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -63015,8 +62788,7 @@ proto.pulumirpc.ResourceCallRequest.prototype.getArgdependenciesMap = function(o
  */
 proto.pulumirpc.ResourceCallRequest.prototype.clearArgdependenciesMap = function() {
   this.getArgdependenciesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -63092,8 +62864,7 @@ proto.pulumirpc.ResourceCallRequest.prototype.getPluginchecksumsMap = function(o
  */
 proto.pulumirpc.ResourceCallRequest.prototype.clearPluginchecksumsMap = function() {
   this.getPluginchecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -63134,61 +62905,6 @@ proto.pulumirpc.ResourceCallRequest.prototype.hasSourceposition = function() {
 
 
 /**
- * optional StackTrace stackTrace = 18;
- * @return {?proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.ResourceCallRequest.prototype.getStacktrace = function() {
-  return /** @type{?proto.pulumirpc.StackTrace} */ (
-    jspb.Message.getWrapperField(this, pulumi_source_pb.StackTrace, 18));
-};
-
-
-/**
- * @param {?proto.pulumirpc.StackTrace|undefined} value
- * @return {!proto.pulumirpc.ResourceCallRequest} returns this
-*/
-proto.pulumirpc.ResourceCallRequest.prototype.setStacktrace = function(value) {
-  return jspb.Message.setWrapperField(this, 18, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceCallRequest} returns this
- */
-proto.pulumirpc.ResourceCallRequest.prototype.clearStacktrace = function() {
-  return this.setStacktrace(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceCallRequest.prototype.hasStacktrace = function() {
-  return jspb.Message.getField(this, 18) != null;
-};
-
-
-/**
- * optional string parentStackTraceHandle = 19;
- * @return {string}
- */
-proto.pulumirpc.ResourceCallRequest.prototype.getParentstacktracehandle = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 19, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceCallRequest} returns this
- */
-proto.pulumirpc.ResourceCallRequest.prototype.setParentstacktracehandle = function(value) {
-  return jspb.Message.setProto3StringField(this, 19, value);
-};
-
-
-/**
  * optional string packageRef = 17;
  * @return {string}
  */
@@ -63212,7 +62928,7 @@ proto.pulumirpc.ResourceCallRequest.prototype.setPackageref = function(value) {
  * @private {!Array<number>}
  * @const
  */
-proto.pulumirpc.TransformResourceOptions.repeatedFields_ = [1,3,4,6,13,18];
+proto.pulumirpc.TransformResourceOptions.repeatedFields_ = [1,3,4,6,13];
 
 
 
@@ -63245,25 +62961,22 @@ proto.pulumirpc.TransformResourceOptions.prototype.toObject = function(opt_inclu
  */
 proto.pulumirpc.TransformResourceOptions.toObject = function(includeInstance, msg) {
   var f, obj = {
-dependsOnList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
-protect: (f = jspb.Message.getBooleanField(msg, 2)) == null ? undefined : f,
-ignoreChangesList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-replaceOnChangesList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
-version: jspb.Message.getFieldWithDefault(msg, 5, ""),
-aliasesList: jspb.Message.toObjectList(msg.getAliasesList(),
+    dependsOnList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
+    protect: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    ignoreChangesList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
+    replaceOnChangesList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
+    version: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    aliasesList: jspb.Message.toObjectList(msg.getAliasesList(),
     pulumi_alias_pb.Alias.toObject, includeInstance),
-provider: jspb.Message.getFieldWithDefault(msg, 7, ""),
-customTimeouts: (f = msg.getCustomTimeouts()) && proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.toObject(includeInstance, f),
-pluginDownloadUrl: jspb.Message.getFieldWithDefault(msg, 9, ""),
-retainOnDelete: (f = jspb.Message.getBooleanField(msg, 10)) == null ? undefined : f,
-deletedWith: jspb.Message.getFieldWithDefault(msg, 11, ""),
-deleteBeforeReplace: (f = jspb.Message.getBooleanField(msg, 12)) == null ? undefined : f,
-additionalSecretOutputsList: (f = jspb.Message.getRepeatedField(msg, 13)) == null ? undefined : f,
-providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
-pluginChecksumsMap: (f = msg.getPluginChecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-hooks: (f = msg.getHooks()) && proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.toObject(includeInstance, f),
-pb_import: jspb.Message.getFieldWithDefault(msg, 17, ""),
-hideDiffList: (f = jspb.Message.getRepeatedField(msg, 18)) == null ? undefined : f
+    provider: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    customTimeouts: (f = msg.getCustomTimeouts()) && proto.pulumirpc.RegisterResourceRequest.CustomTimeouts.toObject(includeInstance, f),
+    pluginDownloadUrl: jspb.Message.getFieldWithDefault(msg, 9, ""),
+    retainOnDelete: jspb.Message.getBooleanFieldWithDefault(msg, 10, false),
+    deletedWith: jspb.Message.getFieldWithDefault(msg, 11, ""),
+    deleteBeforeReplace: jspb.Message.getBooleanFieldWithDefault(msg, 12, false),
+    additionalSecretOutputsList: (f = jspb.Message.getRepeatedField(msg, 13)) == null ? undefined : f,
+    providersMap: (f = msg.getProvidersMap()) ? f.toObject(includeInstance, undefined) : [],
+    pluginChecksumsMap: (f = msg.getPluginChecksumsMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -63365,19 +63078,6 @@ proto.pulumirpc.TransformResourceOptions.deserializeBinaryFromReader = function(
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readBytes, null, "", "");
          });
-      break;
-    case 16:
-      var value = new proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding;
-      reader.readMessage(value,proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.deserializeBinaryFromReader);
-      msg.setHooks(value);
-      break;
-    case 17:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setImport(value);
-      break;
-    case 18:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addHideDiff(value);
       break;
     default:
       reader.skipField();
@@ -63508,28 +63208,6 @@ proto.pulumirpc.TransformResourceOptions.serializeBinaryToWriter = function(mess
   f = message.getPluginChecksumsMap(true);
   if (f && f.getLength() > 0) {
     f.serializeBinary(15, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBytes);
-  }
-  f = message.getHooks();
-  if (f != null) {
-    writer.writeMessage(
-      16,
-      f,
-      proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding.serializeBinaryToWriter
-    );
-  }
-  f = message.getImport();
-  if (f.length > 0) {
-    writer.writeString(
-      17,
-      f
-    );
-  }
-  f = message.getHideDiffList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      18,
-      f
-    );
   }
 };
 
@@ -63956,8 +63634,7 @@ proto.pulumirpc.TransformResourceOptions.prototype.getProvidersMap = function(op
  */
 proto.pulumirpc.TransformResourceOptions.prototype.clearProvidersMap = function() {
   this.getProvidersMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -63979,100 +63656,7 @@ proto.pulumirpc.TransformResourceOptions.prototype.getPluginChecksumsMap = funct
  */
 proto.pulumirpc.TransformResourceOptions.prototype.clearPluginChecksumsMap = function() {
   this.getPluginChecksumsMap().clear();
-  return this;
-};
-
-
-/**
- * optional RegisterResourceRequest.ResourceHooksBinding hooks = 16;
- * @return {?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding}
- */
-proto.pulumirpc.TransformResourceOptions.prototype.getHooks = function() {
-  return /** @type{?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding} */ (
-    jspb.Message.getWrapperField(this, proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding, 16));
-};
-
-
-/**
- * @param {?proto.pulumirpc.RegisterResourceRequest.ResourceHooksBinding|undefined} value
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
-*/
-proto.pulumirpc.TransformResourceOptions.prototype.setHooks = function(value) {
-  return jspb.Message.setWrapperField(this, 16, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
- */
-proto.pulumirpc.TransformResourceOptions.prototype.clearHooks = function() {
-  return this.setHooks(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.TransformResourceOptions.prototype.hasHooks = function() {
-  return jspb.Message.getField(this, 16) != null;
-};
-
-
-/**
- * optional string import = 17;
- * @return {string}
- */
-proto.pulumirpc.TransformResourceOptions.prototype.getImport = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 17, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
- */
-proto.pulumirpc.TransformResourceOptions.prototype.setImport = function(value) {
-  return jspb.Message.setProto3StringField(this, 17, value);
-};
-
-
-/**
- * repeated string hide_diff = 18;
- * @return {!Array<string>}
- */
-proto.pulumirpc.TransformResourceOptions.prototype.getHideDiffList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 18));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
- */
-proto.pulumirpc.TransformResourceOptions.prototype.setHideDiffList = function(value) {
-  return jspb.Message.setField(this, 18, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
- */
-proto.pulumirpc.TransformResourceOptions.prototype.addHideDiff = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 18, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.TransformResourceOptions} returns this
- */
-proto.pulumirpc.TransformResourceOptions.prototype.clearHideDiffList = function() {
-  return this.setHideDiffList([]);
-};
+  return this;};
 
 
 
@@ -64107,12 +63691,12 @@ proto.pulumirpc.TransformRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.TransformRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-type: jspb.Message.getFieldWithDefault(msg, 1, ""),
-name: jspb.Message.getFieldWithDefault(msg, 2, ""),
-custom: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-parent: jspb.Message.getFieldWithDefault(msg, 4, ""),
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-options: (f = msg.getOptions()) && proto.pulumirpc.TransformResourceOptions.toObject(includeInstance, f)
+    type: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    custom: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    parent: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    options: (f = msg.getOptions()) && proto.pulumirpc.TransformResourceOptions.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -64429,8 +64013,8 @@ proto.pulumirpc.TransformResponse.prototype.toObject = function(opt_includeInsta
  */
 proto.pulumirpc.TransformResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-options: (f = msg.getOptions()) && proto.pulumirpc.TransformResourceOptions.toObject(includeInstance, f)
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    options: (f = msg.getOptions()) && proto.pulumirpc.TransformResourceOptions.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -64631,9 +64215,9 @@ proto.pulumirpc.TransformInvokeRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.TransformInvokeRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-token: jspb.Message.getFieldWithDefault(msg, 1, ""),
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-options: (f = msg.getOptions()) && proto.pulumirpc.TransformInvokeOptions.toObject(includeInstance, f)
+    token: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    options: (f = msg.getOptions()) && proto.pulumirpc.TransformInvokeOptions.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -64863,8 +64447,8 @@ proto.pulumirpc.TransformInvokeResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.TransformInvokeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-options: (f = msg.getOptions()) && proto.pulumirpc.TransformInvokeOptions.toObject(includeInstance, f)
+    args: (f = msg.getArgs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
+    options: (f = msg.getOptions()) && proto.pulumirpc.TransformInvokeOptions.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -65065,10 +64649,10 @@ proto.pulumirpc.TransformInvokeOptions.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.TransformInvokeOptions.toObject = function(includeInstance, msg) {
   var f, obj = {
-provider: jspb.Message.getFieldWithDefault(msg, 1, ""),
-pluginDownloadUrl: jspb.Message.getFieldWithDefault(msg, 2, ""),
-version: jspb.Message.getFieldWithDefault(msg, 3, ""),
-pluginChecksumsMap: (f = msg.getPluginChecksumsMap()) ? f.toObject(includeInstance, undefined) : []
+    provider: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    pluginDownloadUrl: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    pluginChecksumsMap: (f = msg.getPluginChecksumsMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -65253,562 +64837,7 @@ proto.pulumirpc.TransformInvokeOptions.prototype.getPluginChecksumsMap = functio
  */
 proto.pulumirpc.TransformInvokeOptions.prototype.clearPluginChecksumsMap = function() {
   this.getPluginChecksumsMap().clear();
-  return this;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.ResourceHookRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.ResourceHookRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ResourceHookRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-urn: jspb.Message.getFieldWithDefault(msg, 1, ""),
-id: jspb.Message.getFieldWithDefault(msg, 2, ""),
-name: jspb.Message.getFieldWithDefault(msg, 3, ""),
-type: jspb.Message.getFieldWithDefault(msg, 4, ""),
-newInputs: (f = msg.getNewInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-oldInputs: (f = msg.getOldInputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-newOutputs: (f = msg.getNewOutputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
-oldOutputs: (f = msg.getOldOutputs()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.ResourceHookRequest}
- */
-proto.pulumirpc.ResourceHookRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.ResourceHookRequest;
-  return proto.pulumirpc.ResourceHookRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.ResourceHookRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.ResourceHookRequest}
- */
-proto.pulumirpc.ResourceHookRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setUrn(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setId(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setType(value);
-      break;
-    case 5:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setNewInputs(value);
-      break;
-    case 6:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setOldInputs(value);
-      break;
-    case 7:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setNewOutputs(value);
-      break;
-    case 8:
-      var value = new google_protobuf_struct_pb.Struct;
-      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
-      msg.setOldOutputs(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.ResourceHookRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.ResourceHookRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ResourceHookRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getUrn();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = message.getId();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      3,
-      f
-    );
-  }
-  f = message.getType();
-  if (f.length > 0) {
-    writer.writeString(
-      4,
-      f
-    );
-  }
-  f = message.getNewInputs();
-  if (f != null) {
-    writer.writeMessage(
-      5,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getOldInputs();
-  if (f != null) {
-    writer.writeMessage(
-      6,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getNewOutputs();
-  if (f != null) {
-    writer.writeMessage(
-      7,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-  f = message.getOldOutputs();
-  if (f != null) {
-    writer.writeMessage(
-      8,
-      f,
-      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * optional string urn = 1;
- * @return {string}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getUrn = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.setUrn = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional string id = 2;
- * @return {string}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.setId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional string name = 3;
- * @return {string}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
-};
-
-
-/**
- * optional string type = 4;
- * @return {string}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.setType = function(value) {
-  return jspb.Message.setProto3StringField(this, 4, value);
-};
-
-
-/**
- * optional google.protobuf.Struct new_inputs = 5;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getNewInputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 5));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
-*/
-proto.pulumirpc.ResourceHookRequest.prototype.setNewInputs = function(value) {
-  return jspb.Message.setWrapperField(this, 5, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.clearNewInputs = function() {
-  return this.setNewInputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.hasNewInputs = function() {
-  return jspb.Message.getField(this, 5) != null;
-};
-
-
-/**
- * optional google.protobuf.Struct old_inputs = 6;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getOldInputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 6));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
-*/
-proto.pulumirpc.ResourceHookRequest.prototype.setOldInputs = function(value) {
-  return jspb.Message.setWrapperField(this, 6, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.clearOldInputs = function() {
-  return this.setOldInputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.hasOldInputs = function() {
-  return jspb.Message.getField(this, 6) != null;
-};
-
-
-/**
- * optional google.protobuf.Struct new_outputs = 7;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getNewOutputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 7));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
-*/
-proto.pulumirpc.ResourceHookRequest.prototype.setNewOutputs = function(value) {
-  return jspb.Message.setWrapperField(this, 7, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.clearNewOutputs = function() {
-  return this.setNewOutputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.hasNewOutputs = function() {
-  return jspb.Message.getField(this, 7) != null;
-};
-
-
-/**
- * optional google.protobuf.Struct old_outputs = 8;
- * @return {?proto.google.protobuf.Struct}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.getOldOutputs = function() {
-  return /** @type{?proto.google.protobuf.Struct} */ (
-    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 8));
-};
-
-
-/**
- * @param {?proto.google.protobuf.Struct|undefined} value
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
-*/
-proto.pulumirpc.ResourceHookRequest.prototype.setOldOutputs = function(value) {
-  return jspb.Message.setWrapperField(this, 8, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.ResourceHookRequest} returns this
- */
-proto.pulumirpc.ResourceHookRequest.prototype.clearOldOutputs = function() {
-  return this.setOldOutputs(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.ResourceHookRequest.prototype.hasOldOutputs = function() {
-  return jspb.Message.getField(this, 8) != null;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.ResourceHookResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.ResourceHookResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.ResourceHookResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ResourceHookResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-error: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.ResourceHookResponse}
- */
-proto.pulumirpc.ResourceHookResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.ResourceHookResponse;
-  return proto.pulumirpc.ResourceHookResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.ResourceHookResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.ResourceHookResponse}
- */
-proto.pulumirpc.ResourceHookResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setError(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.ResourceHookResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.ResourceHookResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.ResourceHookResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.ResourceHookResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getError();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string error = 1;
- * @return {string}
- */
-proto.pulumirpc.ResourceHookResponse.prototype.getError = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.ResourceHookResponse} returns this
- */
-proto.pulumirpc.ResourceHookResponse.prototype.setError = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
+  return this;};
 
 
 
@@ -65843,11 +64872,11 @@ proto.pulumirpc.RegisterPackageRequest.prototype.toObject = function(opt_include
  */
 proto.pulumirpc.RegisterPackageRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, ""),
-downloadUrl: jspb.Message.getFieldWithDefault(msg, 3, ""),
-checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
-parameterization: (f = msg.getParameterization()) && proto.pulumirpc.Parameterization.toObject(includeInstance, f)
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    downloadUrl: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    checksumsMap: (f = msg.getChecksumsMap()) ? f.toObject(includeInstance, undefined) : [],
+    parameterization: (f = msg.getParameterization()) && proto.pulumirpc.Parameterization.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -66045,8 +65074,7 @@ proto.pulumirpc.RegisterPackageRequest.prototype.getChecksumsMap = function(opt_
  */
 proto.pulumirpc.RegisterPackageRequest.prototype.clearChecksumsMap = function() {
   this.getChecksumsMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -66118,7 +65146,7 @@ proto.pulumirpc.RegisterPackageResponse.prototype.toObject = function(opt_includ
  */
 proto.pulumirpc.RegisterPackageResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-ref: jspb.Message.getFieldWithDefault(msg, 1, "")
+    ref: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -66248,9 +65276,9 @@ proto.pulumirpc.Parameterization.prototype.toObject = function(opt_includeInstan
  */
 proto.pulumirpc.Parameterization.toObject = function(includeInstance, msg) {
   var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-version: jspb.Message.getFieldWithDefault(msg, 2, ""),
-value: msg.getValue_asB64()
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    value: msg.getValue_asB64()
   };
 
   if (includeInstance) {
@@ -66430,217 +65458,6 @@ proto.pulumirpc.Parameterization.prototype.setValue = function(value) {
 };
 
 
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.RegisterResourceHookRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.RegisterResourceHookRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.RegisterResourceHookRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-callback: (f = msg.getCallback()) && pulumi_callback_pb.Callback.toObject(includeInstance, f),
-onDryRun: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.RegisterResourceHookRequest}
- */
-proto.pulumirpc.RegisterResourceHookRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.RegisterResourceHookRequest;
-  return proto.pulumirpc.RegisterResourceHookRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.RegisterResourceHookRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.RegisterResourceHookRequest}
- */
-proto.pulumirpc.RegisterResourceHookRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    case 2:
-      var value = new pulumi_callback_pb.Callback;
-      reader.readMessage(value,pulumi_callback_pb.Callback.deserializeBinaryFromReader);
-      msg.setCallback(value);
-      break;
-    case 3:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setOnDryRun(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.RegisterResourceHookRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.RegisterResourceHookRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.RegisterResourceHookRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = message.getCallback();
-  if (f != null) {
-    writer.writeMessage(
-      2,
-      f,
-      pulumi_callback_pb.Callback.serializeBinaryToWriter
-    );
-  }
-  f = message.getOnDryRun();
-  if (f) {
-    writer.writeBool(
-      3,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string name = 1;
- * @return {string}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.pulumirpc.RegisterResourceHookRequest} returns this
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional Callback callback = 2;
- * @return {?proto.pulumirpc.Callback}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.getCallback = function() {
-  return /** @type{?proto.pulumirpc.Callback} */ (
-    jspb.Message.getWrapperField(this, pulumi_callback_pb.Callback, 2));
-};
-
-
-/**
- * @param {?proto.pulumirpc.Callback|undefined} value
- * @return {!proto.pulumirpc.RegisterResourceHookRequest} returns this
-*/
-proto.pulumirpc.RegisterResourceHookRequest.prototype.setCallback = function(value) {
-  return jspb.Message.setWrapperField(this, 2, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.RegisterResourceHookRequest} returns this
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.clearCallback = function() {
-  return this.setCallback(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.hasCallback = function() {
-  return jspb.Message.getField(this, 2) != null;
-};
-
-
-/**
- * optional bool on_dry_run = 3;
- * @return {boolean}
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.getOnDryRun = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.pulumirpc.RegisterResourceHookRequest} returns this
- */
-proto.pulumirpc.RegisterResourceHookRequest.prototype.setOnDryRun = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 3, value);
-};
-
-
 /**
  * @enum {number}
  */
@@ -66673,17 +65490,9 @@ goog.object.extend(exports, proto.pulumirpc);
 
 var jspb = __nccwpck_require__(69917);
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var proto = { pulumirpc: { codegen: { }, testing: { } } }, global = proto;
 
 goog.exportSymbol('proto.pulumirpc.SourcePosition', null, global);
-goog.exportSymbol('proto.pulumirpc.StackFrame', null, global);
-goog.exportSymbol('proto.pulumirpc.StackTrace', null, global);
 /**
  * Generated by JsPbCodeGenerator.
  * @param {Array=} opt_data Optional initial data array, typically from a
@@ -66704,48 +65513,6 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pulumirpc.SourcePosition.displayName = 'proto.pulumirpc.SourcePosition';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.StackFrame = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.pulumirpc.StackFrame, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.StackFrame.displayName = 'proto.pulumirpc.StackFrame';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.pulumirpc.StackTrace = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.pulumirpc.StackTrace.repeatedFields_, null);
-};
-goog.inherits(proto.pulumirpc.StackTrace, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.pulumirpc.StackTrace.displayName = 'proto.pulumirpc.StackTrace';
 }
 
 
@@ -66779,9 +65546,9 @@ proto.pulumirpc.SourcePosition.prototype.toObject = function(opt_includeInstance
  */
 proto.pulumirpc.SourcePosition.toObject = function(includeInstance, msg) {
   var f, obj = {
-uri: jspb.Message.getFieldWithDefault(msg, 1, ""),
-line: jspb.Message.getFieldWithDefault(msg, 2, 0),
-column: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    uri: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    line: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    column: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -66937,317 +65704,6 @@ proto.pulumirpc.SourcePosition.prototype.setColumn = function(value) {
 };
 
 
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.StackFrame.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.StackFrame.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.StackFrame} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.StackFrame.toObject = function(includeInstance, msg) {
-  var f, obj = {
-pc: (f = msg.getPc()) && proto.pulumirpc.SourcePosition.toObject(includeInstance, f)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.StackFrame}
- */
-proto.pulumirpc.StackFrame.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.StackFrame;
-  return proto.pulumirpc.StackFrame.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.StackFrame} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.StackFrame}
- */
-proto.pulumirpc.StackFrame.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = new proto.pulumirpc.SourcePosition;
-      reader.readMessage(value,proto.pulumirpc.SourcePosition.deserializeBinaryFromReader);
-      msg.setPc(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.StackFrame.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.StackFrame.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.StackFrame} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.StackFrame.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getPc();
-  if (f != null) {
-    writer.writeMessage(
-      1,
-      f,
-      proto.pulumirpc.SourcePosition.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * optional SourcePosition pc = 1;
- * @return {?proto.pulumirpc.SourcePosition}
- */
-proto.pulumirpc.StackFrame.prototype.getPc = function() {
-  return /** @type{?proto.pulumirpc.SourcePosition} */ (
-    jspb.Message.getWrapperField(this, proto.pulumirpc.SourcePosition, 1));
-};
-
-
-/**
- * @param {?proto.pulumirpc.SourcePosition|undefined} value
- * @return {!proto.pulumirpc.StackFrame} returns this
-*/
-proto.pulumirpc.StackFrame.prototype.setPc = function(value) {
-  return jspb.Message.setWrapperField(this, 1, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.pulumirpc.StackFrame} returns this
- */
-proto.pulumirpc.StackFrame.prototype.clearPc = function() {
-  return this.setPc(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.pulumirpc.StackFrame.prototype.hasPc = function() {
-  return jspb.Message.getField(this, 1) != null;
-};
-
-
-
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.pulumirpc.StackTrace.repeatedFields_ = [1];
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.pulumirpc.StackTrace.prototype.toObject = function(opt_includeInstance) {
-  return proto.pulumirpc.StackTrace.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.pulumirpc.StackTrace} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.StackTrace.toObject = function(includeInstance, msg) {
-  var f, obj = {
-framesList: jspb.Message.toObjectList(msg.getFramesList(),
-    proto.pulumirpc.StackFrame.toObject, includeInstance)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.StackTrace.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.pulumirpc.StackTrace;
-  return proto.pulumirpc.StackTrace.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.pulumirpc.StackTrace} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.pulumirpc.StackTrace}
- */
-proto.pulumirpc.StackTrace.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = new proto.pulumirpc.StackFrame;
-      reader.readMessage(value,proto.pulumirpc.StackFrame.deserializeBinaryFromReader);
-      msg.addFrames(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.pulumirpc.StackTrace.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.pulumirpc.StackTrace.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.pulumirpc.StackTrace} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.pulumirpc.StackTrace.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getFramesList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      1,
-      f,
-      proto.pulumirpc.StackFrame.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * repeated StackFrame frames = 1;
- * @return {!Array<!proto.pulumirpc.StackFrame>}
- */
-proto.pulumirpc.StackTrace.prototype.getFramesList = function() {
-  return /** @type{!Array<!proto.pulumirpc.StackFrame>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.pulumirpc.StackFrame, 1));
-};
-
-
-/**
- * @param {!Array<!proto.pulumirpc.StackFrame>} value
- * @return {!proto.pulumirpc.StackTrace} returns this
-*/
-proto.pulumirpc.StackTrace.prototype.setFramesList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 1, value);
-};
-
-
-/**
- * @param {!proto.pulumirpc.StackFrame=} opt_value
- * @param {number=} opt_index
- * @return {!proto.pulumirpc.StackFrame}
- */
-proto.pulumirpc.StackTrace.prototype.addFrames = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pulumirpc.StackFrame, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.pulumirpc.StackTrace} returns this
- */
-proto.pulumirpc.StackTrace.prototype.clearFramesList = function() {
-  return this.setFramesList([]);
-};
-
-
 goog.object.extend(exports, proto.pulumirpc);
 
 
@@ -67258,7 +65714,7 @@ goog.object.extend(exports, proto.pulumirpc);
 
 "use strict";
 
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016-2018, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67515,26 +65971,7 @@ class Resource {
                 this.__aliases.push(collapseAliasToUrn(alias, name, t, parent));
             }
         }
-        // This is somewhat brittle in that it expects a call stack of the form:
-        //
-        // - {@link Resource} class constructor
-        // - abstract {@link Resource} subclass constructor
-        // - concrete {@link Resource} subclass constructor
-        // - user code
-        //
-        // This stack reflects the expected class hierarchy of:
-        //
-        // Resource > Custom/Component resource > Cloud/Component resource
-        //
-        // For example, consider the AWS S3 Bucket resource. When user code
-        // instantiates a Bucket, the stack will look like this:
-        //
-        //     new Resource (/path/to/resource.ts:123:45)
-        //     new CustomResource (/path/to/resource.ts:678:90)
-        //     new Bucket (/path/to/bucket.ts:987:65)
-        //     <user code> (/path/to/index.ts:4:3)
-        const stackTrace = Resource.stackTrace(4);
-        const sourcePosition = stackTrace.length < 1 ? undefined : stackTrace[0];
+        const sourcePosition = Resource.sourcePosition();
         if (opts.urn) {
             // This is a resource that already exists. Read its state from the engine.
             resource_1.getResource(this, parent, props, custom, opts.urn);
@@ -67544,78 +65981,67 @@ class Resource {
             if (!custom) {
                 throw new errors_1.ResourceError("Cannot read an existing resource unless it has a custom provider", opts.parent);
             }
-            resource_1.readResource(this, parent, t, name, props, opts, sourcePosition, stackTrace, packageRef);
+            resource_1.readResource(this, parent, t, name, props, opts, sourcePosition, packageRef);
         }
         else {
             // Kick off the resource registration.  If we are actually performing a deployment, this
             // resource's properties will be resolved asynchronously after the operation completes, so
             // that dependent computations resolve normally.  If we are just planning, on the other
             // hand, values will never resolve.
-            resource_1.registerResource(this, parent, t, name, custom, remote, (urn) => new DependencyResource(urn), props, opts, sourcePosition, stackTrace, packageRef);
+            resource_1.registerResource(this, parent, t, name, custom, remote, (urn) => new DependencyResource(urn), props, opts, sourcePosition, packageRef);
         }
     }
     static isInstance(obj) {
         return utils.isInstance(obj, "__pulumiResource");
     }
     /**
-     * Returns the list of callsites for the current stack. The top of the stack is at index 0.
+     * Returns the source position of the user code that instantiated this
+     * resource.
      *
-     * Some callsites may not contain position information. It is up to the caller to detect this situation.
+     * This is somewhat brittle in that it expects a call stack of the form:
+     *
+     * - {@link Resource} class constructor
+     * - abstract {@link Resource} subclass constructor
+     * - concrete {@link Resource} subclass constructor
+     * - user code
+     *
+     * This stack reflects the expected class hierarchy of:
+     *
+     * Resource > Custom/Component resource > Cloud/Component resource
+     *
+     * For example, consider the AWS S3 Bucket resource. When user code
+     * instantiates a Bucket, the stack will look like this:
+     *
+     *     new Resource (/path/to/resource.ts:123:45)
+     *     new CustomResource (/path/to/resource.ts:678:90)
+     *     new Bucket (/path/to/bucket.ts:987:65)
+     *     <user code> (/path/to/index.ts:4:3)
+     *
+     * Because Node can only give us the stack trace as text, we parse out the
+     * source position using a regex that matches traces of this form (see
+     * the {@link sourcePositionRegExp} above).
      */
-    static callsites() {
-        // NOTE: it would be lovely to implement this using prepareStackTrace and actual V8 callsite information.
-        // Unfortunately, the V8 source locations are not mapped from transpiled locations to user locations, and
-        // Node 20.x does not expose an easy way to access source map information. Furthermore, ts-node may inject
-        // hooks that perform this mapping as part of prepareStackTrace. Instead of using prepareStackTrace, then,
-        // we parse its output as returned via `new Error().stack`. The stack trace will look like:
+    static sourcePosition() {
+        const stackObj = {};
+        Error.captureStackTrace(stackObj, Resource.sourcePosition);
+        // Parse out the source position of the user code. If any part of the match is missing, return undefined.
+        const { file, line, col } = Resource.sourcePositionRegExp.exec(stackObj.stack)?.groups || {};
+        if (!file || !line || !col) {
+            return undefined;
+        }
+        // Parse the line and column numbers. If either fails to parse, return undefined.
         //
-        //     Error
-        //         at foo (file:line:column)
-        //         at bar (file:line:column)
-        //         at baz (file:line:column)
-        //
-        // We process this by splitting it into lines and parsing the position information out of each line.
-        const stackTraceLimit = Error.stackTraceLimit;
-        try {
-            Error.stackTraceLimit = Number.POSITIVE_INFINITY;
-            const stackTrace = new Error().stack;
-            return (stackTrace
-                ?.split("\n")
-                ?.slice(1)
-                ?.map((frame) => {
-                const { file, line, column } = Resource.framePositionRegExp.exec(frame)?.groups || {};
-                if (!file || !line || !column || file.startsWith("node:")) {
-                    return {};
-                }
-                const lineNum = parseInt(line, 10);
-                const colNum = parseInt(column, 10);
-                if (Number.isNaN(lineNum) || Number.isNaN(colNum)) {
-                    return {};
-                }
-                return { file, line: lineNum, column: colNum };
-            }) || []);
+        // Note: this really shouldn't happen given the regex; this is just a bit of defensive coding.
+        const lineNum = parseInt(line, 10);
+        const colNum = parseInt(col, 10);
+        if (Number.isNaN(lineNum) || Number.isNaN(colNum)) {
+            return undefined;
         }
-        finally {
-            Error.stackTraceLimit = stackTraceLimit;
-        }
-    }
-    static stackTrace(skip) {
-        let stack = Resource.callsites();
-        if (stack.length < skip + 1) {
-            return [];
-        }
-        stack = stack.slice(skip + 1);
-        return stack.map((frame) => {
-            const { file, line, column } = frame;
-            if (!file || !line || !column) {
-                return undefined;
-            }
-            return {
-                uri: url.pathToFileURL(file).toString(),
-                line,
-                column,
-            };
-        });
+        return {
+            uri: url.pathToFileURL(file).toString(),
+            line: lineNum,
+            column: colNum,
+        };
     }
     /**
      * Returns the provider for the given module member, if one exists.
@@ -67632,7 +66058,7 @@ exports.Resource = Resource;
 /**
  * A regexp for use with {@link sourcePosition}.
  */
-Resource.framePositionRegExp = /^\s*at .* \((?<file>.*):(?<line>[0-9]+):(?<column>[0-9]+)\)$/;
+Resource.sourcePositionRegExp = /Error:\s*\n\s*at new Resource \(.*\)\n\s*at new \S*Resource \(.*\)\n(\s*at new \S* \(.*\)\n)?[^(]*\((?<file>.*):(?<line>[0-9]+):(?<col>[0-9]+)\)\n/;
 function convertToProvidersMap(providers) {
     if (!providers) {
         return {};
@@ -67688,27 +66114,6 @@ function collapseAliasToUrn(alias, defaultName, defaultType, defaultParent) {
         return createUrn(name, type, parent, project, stack);
     });
 }
-/**
- * ResourceHook is a named hook that can be registered as a resource hook.
- */
-class ResourceHook {
-    constructor(name, callback, opts) {
-        /**
-         * A private field to help with RTTI that works in SxS scenarios.
-         *
-         * @internal
-         */
-        this.__pulumiResourceHook = true;
-        this.name = name;
-        this.callback = callback;
-        this.opts = opts;
-        this.__registered = resource_1.registerResourceHook(this);
-    }
-    static isInstance(obj) {
-        return utils.isInstance(obj, "__pulumiResourceHook");
-    }
-}
-exports.ResourceHook = ResourceHook;
 /**
  * {@link CustomResource} is a resource whose create, read, update, and delete
  * (CRUD) operations are managed by performing external operations on some
@@ -67826,10 +66231,17 @@ class ComponentResource extends Resource {
      *  True if this is a remote component resource.
      */
     constructor(type, name, args = {}, opts = {}, remote = false, packageRef) {
-        // If the PULUMI_NODEJS_SKIP_COMPONENT_INPUTS environment variable is set,
-        // we skip sending the inputs to the engine.
+        // Explicitly ignore the props passed in.  We allow them for back compat reasons.  However,
+        // we explicitly do not want to pass them along to the engine.  The ComponentResource acts
+        // only as a container for other resources.  Another way to think about this is that a normal
+        // 'custom resource' corresponds to real piece of cloud infrastructure.  So, when it changes
+        // in some way, the cloud resource needs to be updated (and vice versa).  That is not true
+        // for a component resource.  The component is just used for organizational purposes and does
+        // not correspond to a real piece of cloud infrastructure.  As such, changes to it *itself*
+        // do not have any effect on the cloud side of things at all.
         super(type, name, 
-        /*custom:*/ false, process.env.PULUMI_NODEJS_SKIP_COMPONENT_INPUTS ? {} : args, opts, remote, false, packageRef);
+        /*custom:*/ false, 
+        /*props:*/ remote || opts?.urn ? args : {}, opts, remote, false, packageRef);
         /**
          * A private field to help with RTTI that works in SxS scenarios.
          *
@@ -67844,10 +66256,7 @@ class ComponentResource extends Resource {
         this.__registered = false;
         this.__remote = remote;
         this.__registered = remote || !!opts?.urn;
-        this.__data =
-            remote || opts?.urn
-                ? Promise.resolve({})
-                : this.initializeAndRegisterOutputs(args, opts, name, type);
+        this.__data = remote || opts?.urn ? Promise.resolve({}) : this.initializeAndRegisterOutputs(args);
     }
     /**
      * Returns true if the given object is a {@link CustomResource}. This is
@@ -67860,8 +66269,8 @@ class ComponentResource extends Resource {
     /**
      * @internal
      */
-    async initializeAndRegisterOutputs(args, opts, name, type) {
-        const data = await this.initialize(args, opts, name, type);
+    async initializeAndRegisterOutputs(args) {
+        const data = await this.initialize(args);
         this.registerOutputs();
         return data;
     }
@@ -67870,7 +66279,7 @@ class ComponentResource extends Resource {
      * automatically when constructed. The data will be available immediately for subclass
      * constructors to use. To access the data use {@link getData}.
      */
-    async initialize(args, opts, name, type) {
+    async initialize(args) {
         return undefined;
     }
     /**
@@ -67928,30 +66337,7 @@ function mergeOptions(opts1, opts2) {
             dest[key] = merge(destVal, sourceVal, /*alwaysCreateArray:*/ true);
             continue;
         }
-        if (key === "hooks") {
-            continue;
-        }
         dest[key] = merge(destVal, sourceVal, /*alwaysCreateArray:*/ false);
-    }
-    if (dest.hooks || source.hooks) {
-        const hookTypes = [
-            "beforeCreate",
-            "afterCreate",
-            "beforeUpdate",
-            "afterUpdate",
-            "beforeDelete",
-            "afterDelete",
-        ];
-        for (const hookType of hookTypes) {
-            const destHooks = dest?.hooks?.[hookType];
-            const sourceHooks = source?.hooks?.[hookType];
-            if (destHooks || sourceHooks) {
-                if (!dest.hooks) {
-                    dest.hooks = {};
-                }
-                dest.hooks[hookType] = merge(destHooks, sourceHooks, /*alwaysCreateArray:*/ false);
-            }
-        }
     }
     // Now, if we are left with a .providers that is just a single key/value pair, then
     // collapse that down into .provider form.
@@ -68113,7 +66499,7 @@ exports.resourceName = resourceName;
 
 "use strict";
 
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016-2024, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68145,8 +66531,6 @@ const resproto = __importStar(__nccwpck_require__(52480));
 const resource_1 = __nccwpck_require__(90796);
 const resource_2 = __nccwpck_require__(30140);
 const rpc_1 = __nccwpck_require__(25158);
-const debuggable_1 = __nccwpck_require__(20257);
-const settings_1 = __nccwpck_require__(34530);
 /**
  * Raises the gRPC Max Message size from `4194304` (4mb) to `419430400` (400mb)
  *
@@ -68172,43 +66556,6 @@ class CallbackServer {
                 if (err !== null) {
                     reject(err);
                     return;
-                }
-                // The running callbacks server keeps the Node.js eventloop
-                // active, so we will never exit the process. Normally we would
-                // shutdown the server when we're done, however we don't have a
-                // good way to tell when that is the case. Consider a user
-                // provider Pulumi program:
-                //
-                // setTimeout(() => new random.RandomPet(
-                //      "username", {}, { transforms: [...] }), 2000);
-                //
-                // When we import the user program (module really), it will
-                // return immediately, but we have to wait for the timeout to
-                // trigger and then the resource registration to complete.
-                //
-                // Usually the best indication that no more work is outstanding
-                // is `process.on("beforeExit", ...)`, which will be emitted
-                // when there is no more work waiting in the eventloop. However
-                // if we have a server running, we'll never get to that event.
-                //
-                // To break out of this catch-22, we `unref` the server, and the
-                // sessions created by the server.
-                //
-                // https://nodejs.org/api/net.html#serverunref
-                // https://nodejs.org/api/http2.html#http2sessionunref
-                try {
-                    // https://github.com/grpc/grpc-node/blob/01db2bc6206963a6678ee05fa4651fd2ee40068c/packages/grpc-js/src/server.ts#L271
-                    // @ts-ignore 2341 // http2Servers is private
-                    const httpServer = Array.from(self._server.http2Servers.keys())[0];
-                    if (httpServer) {
-                        httpServer.unref();
-                        httpServer.on("session", (session) => {
-                            session.unref();
-                        });
-                    }
-                }
-                catch (error) {
-                    log.debug(`failed to unref the callback server: ${error}`);
                 }
                 // The server takes a while to _actually_ startup so we need to keep trying to send an invoke
                 // to ourselves before we resolve the address to tell the engine about it.
@@ -68287,7 +66634,6 @@ class CallbackServer {
                 ropts = {
                     deleteBeforeReplace: opts.getDeleteBeforeReplace(),
                     additionalSecretOutputs: opts.getAdditionalSecretOutputsList(),
-                    import: opts.getImport(),
                 };
             }
             else {
@@ -68329,7 +66675,6 @@ class CallbackServer {
                     delete: timeouts.getDelete(),
                 };
             }
-            ropts.hooks = resource_2.hookBindingFromProto(opts.getHooks());
             ropts.deletedWith =
                 opts.getDeletedWith() !== "" ? new resource_1.DependencyResource(opts.getDeletedWith()) : undefined;
             ropts.dependsOn = opts.getDependsOnList().map((dep) => new resource_1.DependencyResource(dep));
@@ -68425,9 +66770,6 @@ class CallbackServer {
                     if (result.opts.version !== undefined) {
                         opts.setVersion(result.opts.version);
                     }
-                    if (result.opts.hooks !== undefined) {
-                        opts.setHooks(await resource_2.prepareHooks(result.opts.hooks, request.getName()));
-                    }
                     if (request.getCustom()) {
                         const copts = result.opts;
                         if (copts.deleteBeforeReplace !== undefined) {
@@ -68435,9 +66777,6 @@ class CallbackServer {
                         }
                         if (copts.additionalSecretOutputs !== undefined) {
                             opts.setAdditionalSecretOutputsList(copts.additionalSecretOutputs);
-                        }
-                        if (copts.import !== undefined) {
-                            opts.setImport(copts.import);
                         }
                     }
                     else {
@@ -68597,78 +66936,8 @@ class CallbackServer {
             }
         });
     }
-    async registerResourceHook(hook) {
-        const cb = async (bytes) => {
-            try {
-                const request = resproto.ResourceHookRequest.deserializeBinary(bytes);
-                const newInputs = request.getNewInputs();
-                const oldInputs = request.getOldInputs();
-                const newOutputs = request.getNewOutputs();
-                const oldOutputs = request.getOldOutputs();
-                await hook.callback({
-                    urn: request.getUrn(),
-                    id: request.getId(),
-                    name: request.getName(),
-                    type: request.getType(),
-                    newInputs: newInputs
-                        ? outputtifySecrets(rpc_1.deserializeProperties(newInputs, true /*keepUnknowns */))
-                        : undefined,
-                    oldInputs: oldInputs
-                        ? outputtifySecrets(rpc_1.deserializeProperties(oldInputs, true /*keepUnknowns */))
-                        : undefined,
-                    newOutputs: newOutputs
-                        ? outputtifySecrets(rpc_1.deserializeProperties(newOutputs, true /*keepUnknowns */))
-                        : undefined,
-                    oldOutputs: oldOutputs
-                        ? outputtifySecrets(rpc_1.deserializeProperties(oldOutputs, true /*keepUnknowns */))
-                        : undefined,
-                });
-            }
-            catch (error) {
-                const response = new resproto.ResourceHookResponse();
-                response.setError(error.message);
-                return response;
-            }
-            return new resproto.ResourceHookResponse();
-        };
-        const uuid = crypto_1.randomUUID();
-        this._callbacks.set(uuid, cb);
-        const callback = new callback_pb_1.Callback();
-        callback.setToken(uuid);
-        callback.setTarget(await this._target);
-        const req = new resproto.RegisterResourceHookRequest();
-        req.setCallback(callback);
-        req.setName(hook.name);
-        req.setOnDryRun(hook.opts?.onDryRun ?? false);
-        const done = settings_1.rpcKeepAlive();
-        return debuggable_1.debuggablePromise(new Promise((resolve, reject) => {
-            this._monitor.registerResourceHook(req, (err, _) => {
-                if (err !== null) {
-                    // Remove this from the list of callbacks given we didn't manage to actually register it.
-                    this._callbacks.delete(uuid);
-                    reject(err);
-                }
-                else {
-                    resolve();
-                }
-                done();
-            });
-        }), `resourceHook:${hook.name}`);
-    }
 }
 exports.CallbackServer = CallbackServer;
-function outputtifySecrets(props) {
-    const outputs = {};
-    for (const [key, value] of Object.entries(props)) {
-        if (rpc_1.isRpcSecret(value)) {
-            outputs[key] = output_1.secret(rpc_1.unwrapRpcSecret(value));
-        }
-        else {
-            outputs[key] = value;
-        }
-    }
-    return outputs;
-}
 //# sourceMappingURL=callbacks.js.map
 
 /***/ }),
@@ -68906,14 +67175,7 @@ function debuggablePromise(p, ctx) {
             //
             // process.exitCode is undefined unless set, in which case it's the exit code that was
             // passed to process.exit.
-            //
-            // If `localStore.terminated` is true, the monitor was terminated while we were waiting
-            // for an operation to complete. In this case we have in flight promises (the ones tied
-            // to the operation), but we don't to report the leaks message. Pulumi will already have
-            // notified the user of the error reason that lead to the monitor shutdown.
-            if ((process.exitCode === undefined || process.exitCode === 0) &&
-                !log.hasErrors() &&
-                !localStore.terminated) {
+            if ((process.exitCode === undefined || process.exitCode === 0) && !log.hasErrors()) {
                 const [leaks, message] = leakedPromises();
                 if (leaks.size === 0) {
                     // No leaks - proceed with the exit.
@@ -69160,18 +67422,6 @@ function marshalSourcePosition(sourcePosition) {
     pos.setColumn(sourcePosition.column);
     return pos;
 }
-function marshalStackTrace(stackTrace) {
-    if (stackTrace === undefined) {
-        return undefined;
-    }
-    const trace = new sourceproto.StackTrace();
-    trace.setFramesList(stackTrace.map((pos) => {
-        const frame = new sourceproto.StackFrame();
-        frame.setPc(marshalSourcePosition(pos));
-        return frame;
-    }));
-    return trace;
-}
 /**
  * Get an existing resource's state from the engine.
  */
@@ -69272,7 +67522,7 @@ exports.getResource = getResource;
  * that resources read in this way will not be part of the resulting stack's
  * state, as they are presumed to belong to another.
  */
-function readResource(res, parent, t, name, props, opts, sourcePosition, stackTrace, packageRef) {
+function readResource(res, parent, t, name, props, opts, sourcePosition, packageRef) {
     if (!opts.id) {
         throw new Error("Cannot read resource whose options are lacking an ID value");
     }
@@ -69313,7 +67563,6 @@ function readResource(res, parent, t, name, props, opts, sourcePosition, stackTr
         req.setAcceptresources(!utils.disableResourceReferences);
         req.setAdditionalsecretoutputsList(opts.additionalSecretOutputs || []);
         req.setSourceposition(marshalSourcePosition(sourcePosition));
-        req.setStacktrace(marshalStackTrace(stackTrace));
         req.setPackageref(packageRefStr || "");
         // Now run the operation, serializing the invocation if necessary.
         const opLabel = `monitor.readResource(${label})`;
@@ -69430,7 +67679,7 @@ exports.mapAliasesForRequest = mapAliasesForRequest;
  * objects that the registration operation will resolve at the right time (or
  * remain unresolved for deployments).
  */
-function registerResource(res, parent, t, name, custom, remote, newDependency, props, opts, sourcePosition, stackTrace, packageRef) {
+function registerResource(res, parent, t, name, custom, remote, newDependency, props, opts, sourcePosition, packageRef) {
     const label = `resource:${name}[${t}]`;
     log.debug(`Registering resource: t=${t}, name=${name}, custom=${custom}, remote=${remote}`);
     // Wait for all values to be available, and then perform the RPC.
@@ -69470,8 +67719,6 @@ function registerResource(res, parent, t, name, custom, remote, newDependency, p
                 opts.pluginDownloadURL = undefined;
             }
         }
-        const hookPrefix = `${t}_${name}`;
-        const hooks = await prepareHooks(opts.hooks, hookPrefix);
         const req = new resproto.RegisterResourceRequest();
         req.setPackageref(packageRefStr || "");
         req.setType(t);
@@ -69512,16 +67759,11 @@ function registerResource(res, parent, t, name, custom, remote, newDependency, p
         if (opts.retainOnDelete !== undefined) {
             req.setRetainondelete(opts.retainOnDelete);
         }
-        if (opts.hideDiffs !== undefined) {
-            req.setHidediffsList(opts.hideDiffs);
-        }
         req.setDeletedwith(resop.deletedWithURN || "");
         req.setAliasspecs(true);
         req.setSourceposition(marshalSourcePosition(sourcePosition));
-        req.setStacktrace(marshalStackTrace(stackTrace));
         req.setTransformsList(callbacks);
         req.setSupportsresultreporting(true);
-        req.setHooks(hooks);
         if (resop.deletedWithURN && !state_1.getStore().supportsDeletedWith) {
             throw new Error("The Pulumi CLI does not support the DeletedWith option. Please update the Pulumi CLI.");
         }
@@ -69617,7 +67859,6 @@ function registerResource(res, parent, t, name, custom, remote, newDependency, p
         });
     })
         .catch((err) => {
-        log.debug(`RegisterResource RPC failed: t=${t}, name=${name}, err=${err}`);
         // If we fail to prepare the resource, we need to ensure that we still call done to prevent a hang.
         done();
         throw err;
@@ -69819,90 +68060,6 @@ async function prepareResource(label, res, parent, custom, remote, props, opts, 
     };
 }
 exports.prepareResource = prepareResource;
-/**
- * Prepare the hooks to bind to the resource. This ensures that all hook required registrations have completed.
- * Hooks that are plain functions get wrapped in a `ResourceHook`.
- *
- * @param binding The resource hook binding.
- * @param namePrefix The name prefix to use for plain function hooks.
- *
- * @internal
- */
-async function prepareHooks(binding, namePrefix) {
-    if (!binding || Object.keys(binding).length === 0) {
-        return Promise.resolve(undefined);
-    }
-    const req = new resproto.RegisterResourceRequest.ResourceHooksBinding();
-    const hookTypes = [
-        { bindingKey: "beforeCreate", addMethod: "addBeforeCreate" },
-        { bindingKey: "afterCreate", addMethod: "addAfterCreate" },
-        { bindingKey: "beforeUpdate", addMethod: "addBeforeUpdate" },
-        { bindingKey: "afterUpdate", addMethod: "addAfterUpdate" },
-        { bindingKey: "beforeDelete", addMethod: "addBeforeDelete" },
-        { bindingKey: "afterDelete", addMethod: "addAfterDelete" },
-    ];
-    for (const { bindingKey, addMethod } of hookTypes) {
-        let i = 0;
-        for (let hook of binding[bindingKey] ?? []) {
-            if (!resource_1.ResourceHook.isInstance(hook)) {
-                hook = new resource_1.ResourceHook(`${namePrefix}_${bindingKey}_${i}`, hook);
-            }
-            await hook.__registered;
-            req[addMethod](hook.name);
-            i++;
-        }
-    }
-    return req;
-}
-exports.prepareHooks = prepareHooks;
-/**
- * StubResourceHook is a resource hook that does nothing.
- *
- * Note that we do not subclass {@link ResourceHook} here, because we do
- * not want to call the super constructor, which would cause a hook
- * registration.
- *
- * We need to reconstruct {@link ResourceHook} instances to set on the
- * {@link ResourceOption}, but we only have the name available to us. We also
- * know that these hooks have already been registered, so we can construct
- * dummy hooks here, that will later be serialized back into list of hook
- * names.
- *
- * @internal
- */
-class StubResourceHook {
-    constructor(name) {
-        this.__pulumiResourceHook = true;
-        this.name = name;
-        this.callback = () => {
-            return;
-        };
-        this.__registered = Promise.resolve();
-    }
-    static isInstance(obj) {
-        return utils.isInstance(obj, "__pulumiResourceHook");
-    }
-}
-exports.StubResourceHook = StubResourceHook;
-/**
- * Convert a hook binding from a protobuf message to an {@link ResourceHookBinding} with {@link StubHook}s.
- *
- * @internal
- */
-function hookBindingFromProto(protoBinding) {
-    if (protoBinding) {
-        const resourceHooks = {};
-        resourceHooks.beforeCreate = protoBinding.getBeforeCreateList().map((n) => new StubResourceHook(n));
-        resourceHooks.afterCreate = protoBinding.getAfterCreateList().map((n) => new StubResourceHook(n));
-        resourceHooks.beforeUpdate = protoBinding.getBeforeUpdateList().map((n) => new StubResourceHook(n));
-        resourceHooks.afterUpdate = protoBinding.getAfterUpdateList().map((n) => new StubResourceHook(n));
-        resourceHooks.beforeDelete = protoBinding.getBeforeDeleteList().map((n) => new StubResourceHook(n));
-        resourceHooks.afterDelete = protoBinding.getAfterDeleteList().map((n) => new StubResourceHook(n));
-        return resourceHooks;
-    }
-    return;
-}
-exports.hookBindingFromProto = hookBindingFromProto;
 function addAll(to, from) {
     for (const val of from) {
         to.add(val);
@@ -70028,17 +68185,6 @@ function runAsyncResourceOp(label, callback, serial) {
         }
     }
 }
-async function registerResourceHook(hook) {
-    if (!state_1.getStore().supportsResourceHooks) {
-        throw new Error("The Pulumi CLI does not support resource hooks. Please update the Pulumi CLI");
-    }
-    const callbackServer = settings_1.getCallbacks();
-    if (callbackServer === undefined) {
-        throw new Error("Callback server could not initialize");
-    }
-    return callbackServer.registerResourceHook(hook);
-}
-exports.registerResourceHook = registerResourceHook;
 //# sourceMappingURL=resource.js.map
 
 /***/ }),
@@ -70078,7 +68224,7 @@ const debuggable_1 = __nccwpck_require__(20257);
 const dependsOn_1 = __nccwpck_require__(44920);
 const settings_1 = __nccwpck_require__(34530);
 const state_1 = __nccwpck_require__(24741);
-const semver = __importStar(__nccwpck_require__(11383));
+const semver = __importStar(__nccwpck_require__(52952));
 // Fix to cover cases such as https://github.com/pulumi/pulumi/issues/17736 where an array or other
 // nested object contains an Output, and it's toString method tries to call toString on that output.
 function safeToString(v) {
@@ -70360,13 +68506,9 @@ exports.serializeSecretValue = serializeSecretValue;
  * so that they are ready to go on the wire.
  */
 async function serializeProperty(ctx, prop, dependentResources, opts) {
-    // if prop is a function type just return undefined, we don't want to try and keep these values around.
-    if (typeof prop === "function") {
-        if (settings_1.excessiveDebugOutput) {
-            log.debug(`Serialize property [${ctx}]: function=${prop}`);
-        }
-        return undefined;
-    }
+    // IMPORTANT:
+    // IMPORTANT: Keep this in sync with serializePropertiesSync in invoke.ts
+    // IMPORTANT:
     if (prop === undefined ||
         prop === null ||
         typeof prop === "boolean" ||
@@ -70951,7 +69093,6 @@ const engrpc = __importStar(__nccwpck_require__(5053));
 const engproto = __importStar(__nccwpck_require__(10986));
 const resrpc = __importStar(__nccwpck_require__(25815));
 const resproto = __importStar(__nccwpck_require__(52480));
-const emptyproto = __importStar(__nccwpck_require__(40291));
 /**
  * Raises the gRPC Max Message size from `4194304` (4mb) to `419430400` (400mb).
  *
@@ -71064,7 +69205,7 @@ async function awaitFeatureSupport() {
     const monitorRef = getMonitor();
     if (monitorRef !== undefined) {
         const store = state_1.getStore();
-        const [secrets, resourceReferences, outputValues, deletedWith, aliasSpecs, transforms, invokeTransforms, parameterization, resourceHooks,] = await Promise.all([
+        const [secrets, resourceReferences, outputValues, deletedWith, aliasSpecs, transforms, invokeTransforms, parameterization,] = await Promise.all([
             "secrets",
             "resourceReferences",
             "outputValues",
@@ -71073,7 +69214,6 @@ async function awaitFeatureSupport() {
             "transforms",
             "invokeTransforms",
             "parameterization",
-            "resourceHooks",
         ].map((feature) => monitorSupportsFeature(monitorRef, feature)));
         store.supportsSecrets = secrets;
         store.supportsResourceReferences = resourceReferences;
@@ -71083,7 +69223,6 @@ async function awaitFeatureSupport() {
         store.supportsTransforms = transforms;
         store.supportsInvokeTransforms = invokeTransforms;
         store.supportsParameterization = parameterization;
-        store.supportsResourceHooks = resourceHooks;
     }
 }
 exports.awaitFeatureSupport = awaitFeatureSupport;
@@ -71295,8 +69434,6 @@ function getEngine() {
 }
 exports.getEngine = getEngine;
 function terminateRpcs() {
-    const store = state_1.getStore();
-    store.terminated = true;
     disconnectSync();
 }
 exports.terminateRpcs = terminateRpcs;
@@ -71329,71 +69466,31 @@ function options() {
  * Permanently disconnects from the server, closing the connections. It waits
  * for the existing RPC queue to drain.  If any RPCs come in afterwards,
  * however, they will crash the process.
- *
- * If `signalShutdown` is true, signal to the monitor that we're ready to
- * shutdown. This will wait until the monitor has completed all steps,
- * including deletion steps.
  */
-async function disconnect(signalShutdown = false) {
-    await waitForRPCs();
-    if (signalShutdown) {
-        await signalAndWaitForShutdown();
-    }
-    disconnectSync();
+function disconnect() {
+    return waitForRPCs(/*disconnectFromServers*/ true);
 }
 exports.disconnect = disconnect;
 /**
- * Waits for the existing RPC queue to drain.
- *
  * @internal
  */
-function waitForRPCs() {
+function waitForRPCs(disconnectFromServers = false) {
     const localStore = state_1.getStore();
     let done;
-    const closeCallback = async () => {
+    const closeCallback = () => {
         if (done !== localStore.settings.rpcDone) {
             // If the done promise has changed, some activity occurred in between callbacks.  Wait again.
             done = localStore.settings.rpcDone;
             return debuggable_1.debuggablePromise(done.then(closeCallback), "disconnect");
+        }
+        if (disconnectFromServers) {
+            disconnectSync();
         }
         return Promise.resolve();
     };
     return closeCallback();
 }
 exports.waitForRPCs = waitForRPCs;
-/**
- * Signals to the monitor that we're ready to shutdown. This will wait until the
- * monitor has completed all steps, including deletion steps.
- *
- * @internal
- */
-function signalAndWaitForShutdown() {
-    return new Promise((resolve, reject) => {
-        const monitorRef = getMonitor();
-        if (!monitorRef) {
-            return resolve();
-        }
-        monitorRef.signalAndWaitForShutdown(new emptyproto.Empty(), (err, _) => {
-            if (err) {
-                // If we are running against an older version of the CLI,
-                // SignalAndWaitForShutdown might not be implemented. This is
-                // mostly fine, but means that delete hooks do not work. Since
-                // we check if the CLI supports the `resourceHook` feature when
-                // registering hooks, it's fine to ignore the `UNIMPLEMENTED`
-                // error here.
-                // If we get `UNAVAILABLE`, the monitor was already shutdown, likely
-                // due to an error, and we can ignore the GRPC error here, since
-                // Pulumi will have notified the user.
-                if (err && (err.code === grpc.status.UNIMPLEMENTED || err.code === grpc.status.UNAVAILABLE)) {
-                    return resolve();
-                }
-                return reject(new Error(`Error while signaling shutdown: ${err}`));
-            }
-            return resolve();
-        });
-    });
-}
-exports.signalAndWaitForShutdown = signalAndWaitForShutdown;
 /**
  * Returns the configured number of process listeners available.
  */
@@ -71798,6 +69895,10 @@ const pulumiEnvKeys = {
 /**
  * @internal
  */
+exports.asyncLocalStorage = new async_hooks_1.AsyncLocalStorage();
+/**
+ * @internal
+ */
 class LocalStore {
     constructor() {
         this.settings = {
@@ -71827,8 +69928,6 @@ class LocalStore {
          */
         this.leakCandidates = new Set();
         this.logErrorCount = 0;
-        /* Tracks whether the monitor was terminated while we were waiting for an operation to complete */
-        this.terminated = false;
         this.supportsSecrets = false;
         this.supportsResourceReferences = false;
         this.supportsOutputValues = false;
@@ -71837,7 +69936,6 @@ class LocalStore {
         this.supportsTransforms = false;
         this.supportsInvokeTransforms = false;
         this.supportsParameterization = false;
-        this.supportsResourceHooks = false;
         this.resourcePackages = new Map();
         this.resourceModules = new Map();
     }
@@ -71892,24 +69990,11 @@ function setStackResource(newStackResource) {
     localStore.stackResource = newStackResource;
 }
 exports.setStackResource = setStackResource;
-// Ensure there is a global.asyncLocalStorage if this is the first copy of `runtime` to
-// load.
-if (global.asyncLocalStorage === undefined) {
-    global.asyncLocalStorage = new async_hooks_1.AsyncLocalStorage();
-}
-/**
- * @internal
- */
-function withLocalStorage(callback, ...args) {
-    const store = new LocalStore();
-    return global.asyncLocalStorage.run(store, callback, ...args);
-}
-exports.withLocalStorage = withLocalStorage;
 /**
  * @internal
  */
 function getLocalStore() {
-    return global.asyncLocalStorage.getStore();
+    return exports.asyncLocalStorage.getStore();
 }
 exports.getLocalStore = getLocalStore;
 getLocalStore.captureReplacement = () => {
@@ -72070,7 +70155,7 @@ exports.errorOutputString = process.env.PULUMI_ERROR_OUTPUT_STRING === "1" || pr
 // See the License for the specific language governing permissions and
 // limitations under the License.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.version = "3.206.0";
+exports.version = "3.165.0";
 //# sourceMappingURL=version.js.map
 
 /***/ }),
@@ -77004,642 +75089,6 @@ module.exports = new Type('tag:yaml.org,2002:timestamp', {
 
 /***/ }),
 
-/***/ 19451:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
-
-function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
-
-function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-
-function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
-
-var entities = __nccwpck_require__(3000);
-
-var defaults = {
-  fg: '#FFF',
-  bg: '#000',
-  newline: false,
-  escapeXML: false,
-  stream: false,
-  colors: getDefaultColors()
-};
-
-function getDefaultColors() {
-  var colors = {
-    0: '#000',
-    1: '#A00',
-    2: '#0A0',
-    3: '#A50',
-    4: '#00A',
-    5: '#A0A',
-    6: '#0AA',
-    7: '#AAA',
-    8: '#555',
-    9: '#F55',
-    10: '#5F5',
-    11: '#FF5',
-    12: '#55F',
-    13: '#F5F',
-    14: '#5FF',
-    15: '#FFF'
-  };
-  range(0, 5).forEach(function (red) {
-    range(0, 5).forEach(function (green) {
-      range(0, 5).forEach(function (blue) {
-        return setStyleColor(red, green, blue, colors);
-      });
-    });
-  });
-  range(0, 23).forEach(function (gray) {
-    var c = gray + 232;
-    var l = toHexString(gray * 10 + 8);
-    colors[c] = '#' + l + l + l;
-  });
-  return colors;
-}
-/**
- * @param {number} red
- * @param {number} green
- * @param {number} blue
- * @param {object} colors
- */
-
-
-function setStyleColor(red, green, blue, colors) {
-  var c = 16 + red * 36 + green * 6 + blue;
-  var r = red > 0 ? red * 40 + 55 : 0;
-  var g = green > 0 ? green * 40 + 55 : 0;
-  var b = blue > 0 ? blue * 40 + 55 : 0;
-  colors[c] = toColorHexString([r, g, b]);
-}
-/**
- * Converts from a number like 15 to a hex string like 'F'
- * @param {number} num
- * @returns {string}
- */
-
-
-function toHexString(num) {
-  var str = num.toString(16);
-
-  while (str.length < 2) {
-    str = '0' + str;
-  }
-
-  return str;
-}
-/**
- * Converts from an array of numbers like [15, 15, 15] to a hex string like 'FFF'
- * @param {[red, green, blue]} ref
- * @returns {string}
- */
-
-
-function toColorHexString(ref) {
-  var results = [];
-
-  var _iterator = _createForOfIteratorHelper(ref),
-      _step;
-
-  try {
-    for (_iterator.s(); !(_step = _iterator.n()).done;) {
-      var r = _step.value;
-      results.push(toHexString(r));
-    }
-  } catch (err) {
-    _iterator.e(err);
-  } finally {
-    _iterator.f();
-  }
-
-  return '#' + results.join('');
-}
-/**
- * @param {Array} stack
- * @param {string} token
- * @param {*} data
- * @param {object} options
- */
-
-
-function generateOutput(stack, token, data, options) {
-  var result;
-
-  if (token === 'text') {
-    result = pushText(data, options);
-  } else if (token === 'display') {
-    result = handleDisplay(stack, data, options);
-  } else if (token === 'xterm256Foreground') {
-    result = pushForegroundColor(stack, options.colors[data]);
-  } else if (token === 'xterm256Background') {
-    result = pushBackgroundColor(stack, options.colors[data]);
-  } else if (token === 'rgb') {
-    result = handleRgb(stack, data);
-  }
-
-  return result;
-}
-/**
- * @param {Array} stack
- * @param {string} data
- * @returns {*}
- */
-
-
-function handleRgb(stack, data) {
-  data = data.substring(2).slice(0, -1);
-  var operation = +data.substr(0, 2);
-  var color = data.substring(5).split(';');
-  var rgb = color.map(function (value) {
-    return ('0' + Number(value).toString(16)).substr(-2);
-  }).join('');
-  return pushStyle(stack, (operation === 38 ? 'color:#' : 'background-color:#') + rgb);
-}
-/**
- * @param {Array} stack
- * @param {number} code
- * @param {object} options
- * @returns {*}
- */
-
-
-function handleDisplay(stack, code, options) {
-  code = parseInt(code, 10);
-  var codeMap = {
-    '-1': function _() {
-      return '<br/>';
-    },
-    0: function _() {
-      return stack.length && resetStyles(stack);
-    },
-    1: function _() {
-      return pushTag(stack, 'b');
-    },
-    3: function _() {
-      return pushTag(stack, 'i');
-    },
-    4: function _() {
-      return pushTag(stack, 'u');
-    },
-    8: function _() {
-      return pushStyle(stack, 'display:none');
-    },
-    9: function _() {
-      return pushTag(stack, 'strike');
-    },
-    22: function _() {
-      return pushStyle(stack, 'font-weight:normal;text-decoration:none;font-style:normal');
-    },
-    23: function _() {
-      return closeTag(stack, 'i');
-    },
-    24: function _() {
-      return closeTag(stack, 'u');
-    },
-    39: function _() {
-      return pushForegroundColor(stack, options.fg);
-    },
-    49: function _() {
-      return pushBackgroundColor(stack, options.bg);
-    },
-    53: function _() {
-      return pushStyle(stack, 'text-decoration:overline');
-    }
-  };
-  var result;
-
-  if (codeMap[code]) {
-    result = codeMap[code]();
-  } else if (4 < code && code < 7) {
-    result = pushTag(stack, 'blink');
-  } else if (29 < code && code < 38) {
-    result = pushForegroundColor(stack, options.colors[code - 30]);
-  } else if (39 < code && code < 48) {
-    result = pushBackgroundColor(stack, options.colors[code - 40]);
-  } else if (89 < code && code < 98) {
-    result = pushForegroundColor(stack, options.colors[8 + (code - 90)]);
-  } else if (99 < code && code < 108) {
-    result = pushBackgroundColor(stack, options.colors[8 + (code - 100)]);
-  }
-
-  return result;
-}
-/**
- * Clear all the styles
- * @returns {string}
- */
-
-
-function resetStyles(stack) {
-  var stackClone = stack.slice(0);
-  stack.length = 0;
-  return stackClone.reverse().map(function (tag) {
-    return '</' + tag + '>';
-  }).join('');
-}
-/**
- * Creates an array of numbers ranging from low to high
- * @param {number} low
- * @param {number} high
- * @returns {Array}
- * @example range(3, 7); // creates [3, 4, 5, 6, 7]
- */
-
-
-function range(low, high) {
-  var results = [];
-
-  for (var j = low; j <= high; j++) {
-    results.push(j);
-  }
-
-  return results;
-}
-/**
- * Returns a new function that is true if value is NOT the same category
- * @param {string} category
- * @returns {function}
- */
-
-
-function notCategory(category) {
-  return function (e) {
-    return (category === null || e.category !== category) && category !== 'all';
-  };
-}
-/**
- * Converts a code into an ansi token type
- * @param {number} code
- * @returns {string}
- */
-
-
-function categoryForCode(code) {
-  code = parseInt(code, 10);
-  var result = null;
-
-  if (code === 0) {
-    result = 'all';
-  } else if (code === 1) {
-    result = 'bold';
-  } else if (2 < code && code < 5) {
-    result = 'underline';
-  } else if (4 < code && code < 7) {
-    result = 'blink';
-  } else if (code === 8) {
-    result = 'hide';
-  } else if (code === 9) {
-    result = 'strike';
-  } else if (29 < code && code < 38 || code === 39 || 89 < code && code < 98) {
-    result = 'foreground-color';
-  } else if (39 < code && code < 48 || code === 49 || 99 < code && code < 108) {
-    result = 'background-color';
-  }
-
-  return result;
-}
-/**
- * @param {string} text
- * @param {object} options
- * @returns {string}
- */
-
-
-function pushText(text, options) {
-  if (options.escapeXML) {
-    return entities.encodeXML(text);
-  }
-
-  return text;
-}
-/**
- * @param {Array} stack
- * @param {string} tag
- * @param {string} [style='']
- * @returns {string}
- */
-
-
-function pushTag(stack, tag, style) {
-  if (!style) {
-    style = '';
-  }
-
-  stack.push(tag);
-  return "<".concat(tag).concat(style ? " style=\"".concat(style, "\"") : '', ">");
-}
-/**
- * @param {Array} stack
- * @param {string} style
- * @returns {string}
- */
-
-
-function pushStyle(stack, style) {
-  return pushTag(stack, 'span', style);
-}
-
-function pushForegroundColor(stack, color) {
-  return pushTag(stack, 'span', 'color:' + color);
-}
-
-function pushBackgroundColor(stack, color) {
-  return pushTag(stack, 'span', 'background-color:' + color);
-}
-/**
- * @param {Array} stack
- * @param {string} style
- * @returns {string}
- */
-
-
-function closeTag(stack, style) {
-  var last;
-
-  if (stack.slice(-1)[0] === style) {
-    last = stack.pop();
-  }
-
-  if (last) {
-    return '</' + style + '>';
-  }
-}
-/**
- * @param {string} text
- * @param {object} options
- * @param {function} callback
- * @returns {Array}
- */
-
-
-function tokenize(text, options, callback) {
-  var ansiMatch = false;
-  var ansiHandler = 3;
-
-  function remove() {
-    return '';
-  }
-
-  function removeXterm256Foreground(m, g1) {
-    callback('xterm256Foreground', g1);
-    return '';
-  }
-
-  function removeXterm256Background(m, g1) {
-    callback('xterm256Background', g1);
-    return '';
-  }
-
-  function newline(m) {
-    if (options.newline) {
-      callback('display', -1);
-    } else {
-      callback('text', m);
-    }
-
-    return '';
-  }
-
-  function ansiMess(m, g1) {
-    ansiMatch = true;
-
-    if (g1.trim().length === 0) {
-      g1 = '0';
-    }
-
-    g1 = g1.trimRight(';').split(';');
-
-    var _iterator2 = _createForOfIteratorHelper(g1),
-        _step2;
-
-    try {
-      for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-        var g = _step2.value;
-        callback('display', g);
-      }
-    } catch (err) {
-      _iterator2.e(err);
-    } finally {
-      _iterator2.f();
-    }
-
-    return '';
-  }
-
-  function realText(m) {
-    callback('text', m);
-    return '';
-  }
-
-  function rgb(m) {
-    callback('rgb', m);
-    return '';
-  }
-  /* eslint no-control-regex:0 */
-
-
-  var tokens = [{
-    pattern: /^\x08+/,
-    sub: remove
-  }, {
-    pattern: /^\x1b\[[012]?K/,
-    sub: remove
-  }, {
-    pattern: /^\x1b\[\(B/,
-    sub: remove
-  }, {
-    pattern: /^\x1b\[[34]8;2;\d+;\d+;\d+m/,
-    sub: rgb
-  }, {
-    pattern: /^\x1b\[38;5;(\d+)m/,
-    sub: removeXterm256Foreground
-  }, {
-    pattern: /^\x1b\[48;5;(\d+)m/,
-    sub: removeXterm256Background
-  }, {
-    pattern: /^\n/,
-    sub: newline
-  }, {
-    pattern: /^\r+\n/,
-    sub: newline
-  }, {
-    pattern: /^\r/,
-    sub: newline
-  }, {
-    pattern: /^\x1b\[((?:\d{1,3};?)+|)m/,
-    sub: ansiMess
-  }, {
-    // CSI n J
-    // ED - Erase in Display Clears part of the screen.
-    // If n is 0 (or missing), clear from cursor to end of screen.
-    // If n is 1, clear from cursor to beginning of the screen.
-    // If n is 2, clear entire screen (and moves cursor to upper left on DOS ANSI.SYS).
-    // If n is 3, clear entire screen and delete all lines saved in the scrollback buffer
-    //   (this feature was added for xterm and is supported by other terminal applications).
-    pattern: /^\x1b\[\d?J/,
-    sub: remove
-  }, {
-    // CSI n ; m f
-    // HVP - Horizontal Vertical Position Same as CUP
-    pattern: /^\x1b\[\d{0,3};\d{0,3}f/,
-    sub: remove
-  }, {
-    // catch-all for CSI sequences?
-    pattern: /^\x1b\[?[\d;]{0,3}/,
-    sub: remove
-  }, {
-    /**
-     * extracts real text - not containing:
-     * - `\x1b' - ESC - escape (Ascii 27)
-     * - '\x08' - BS - backspace (Ascii 8)
-     * - `\n` - Newline - linefeed (LF) (ascii 10)
-     * - `\r` - Windows Carriage Return (CR)
-     */
-    pattern: /^(([^\x1b\x08\r\n])+)/,
-    sub: realText
-  }];
-
-  function process(handler, i) {
-    if (i > ansiHandler && ansiMatch) {
-      return;
-    }
-
-    ansiMatch = false;
-    text = text.replace(handler.pattern, handler.sub);
-  }
-
-  var results1 = [];
-  var _text = text,
-      length = _text.length;
-
-  outer: while (length > 0) {
-    for (var i = 0, o = 0, len = tokens.length; o < len; i = ++o) {
-      var handler = tokens[i];
-      process(handler, i);
-
-      if (text.length !== length) {
-        // We matched a token and removed it from the text. We need to
-        // start matching *all* tokens against the new text.
-        length = text.length;
-        continue outer;
-      }
-    }
-
-    if (text.length === length) {
-      break;
-    }
-
-    results1.push(0);
-    length = text.length;
-  }
-
-  return results1;
-}
-/**
- * If streaming, then the stack is "sticky"
- *
- * @param {Array} stickyStack
- * @param {string} token
- * @param {*} data
- * @returns {Array}
- */
-
-
-function updateStickyStack(stickyStack, token, data) {
-  if (token !== 'text') {
-    stickyStack = stickyStack.filter(notCategory(categoryForCode(data)));
-    stickyStack.push({
-      token: token,
-      data: data,
-      category: categoryForCode(data)
-    });
-  }
-
-  return stickyStack;
-}
-
-var Filter = /*#__PURE__*/function () {
-  /**
-   * @param {object} options
-   * @param {string=} options.fg The default foreground color used when reset color codes are encountered.
-   * @param {string=} options.bg The default background color used when reset color codes are encountered.
-   * @param {boolean=} options.newline Convert newline characters to `<br/>`.
-   * @param {boolean=} options.escapeXML Generate HTML/XML entities.
-   * @param {boolean=} options.stream Save style state across invocations of `toHtml()`.
-   * @param {(string[] | {[code: number]: string})=} options.colors Can override specific colors or the entire ANSI palette.
-   */
-  function Filter(options) {
-    _classCallCheck(this, Filter);
-
-    options = options || {};
-
-    if (options.colors) {
-      options.colors = Object.assign({}, defaults.colors, options.colors);
-    }
-
-    this.options = Object.assign({}, defaults, options);
-    this.stack = [];
-    this.stickyStack = [];
-  }
-  /**
-   * @param {string | string[]} input
-   * @returns {string}
-   */
-
-
-  _createClass(Filter, [{
-    key: "toHtml",
-    value: function toHtml(input) {
-      var _this = this;
-
-      input = typeof input === 'string' ? [input] : input;
-      var stack = this.stack,
-          options = this.options;
-      var buf = [];
-      this.stickyStack.forEach(function (element) {
-        var output = generateOutput(stack, element.token, element.data, options);
-
-        if (output) {
-          buf.push(output);
-        }
-      });
-      tokenize(input.join(''), options, function (token, data) {
-        var output = generateOutput(stack, token, data, options);
-
-        if (output) {
-          buf.push(output);
-        }
-
-        if (options.stream) {
-          _this.stickyStack = updateStickyStack(_this.stickyStack, token, data);
-        }
-      });
-
-      if (stack.length) {
-        buf.push(resetStyles(stack));
-      }
-
-      return buf.join('');
-    }
-  }]);
-
-  return Filter;
-}();
-
-module.exports = Filter;
-//# sourceMappingURL=ansi_to_html.js.map
-
-/***/ }),
-
 /***/ 83682:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -78741,7 +76190,7 @@ function hookChildProcess(cp, parsed) {
         // the command exists and emit an "error" instead
         // See https://github.com/IndigoUnited/node-cross-spawn/issues/16
         if (name === 'exit') {
-            const err = verifyENOENT(arg1, parsed, 'spawn');
+            const err = verifyENOENT(arg1, parsed);
 
             if (err) {
                 return originalEmit.call(cp, 'error', err);
@@ -78898,15 +76347,17 @@ function escapeArgument(arg, doubleEscapeMetaChars) {
     arg = `${arg}`;
 
     // Algorithm below is based on https://qntm.org/cmd
+    // It's slightly altered to disable JS backtracking to avoid hanging on specially crafted input
+    // Please see https://github.com/moxystudio/node-cross-spawn/pull/160 for more information
 
     // Sequence of backslashes followed by a double quote:
     // double up all the backslashes and escape the double quote
-    arg = arg.replace(/(\\*)"/g, '$1$1\\"');
+    arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
 
     // Sequence of backslashes followed by the end of the string
     // (which will become a double quote later):
     // double up all the backslashes
-    arg = arg.replace(/(\\*)$/, '$1$1');
+    arg = arg.replace(/(?=(\\+?)?)\1$/, '$1$1');
 
     // All other backslashes occur literally
 
@@ -78969,7 +76420,7 @@ module.exports = readShebang;
 
 const path = __nccwpck_require__(71017);
 const which = __nccwpck_require__(9383);
-const getPathKey = __nccwpck_require__(29060);
+const getPathKey = __nccwpck_require__(20539);
 
 function resolveCommandAttempt(parsed, withoutPathExt) {
     const env = parsed.options.env || process.env;
@@ -79017,30 +76468,6 @@ function resolveCommand(parsed) {
 }
 
 module.exports = resolveCommand;
-
-
-/***/ }),
-
-/***/ 29060:
-/***/ ((module) => {
-
-"use strict";
-
-
-const pathKey = (options = {}) => {
-	const environment = options.env || process.env;
-	const platform = options.platform || process.platform;
-
-	if (platform !== 'win32') {
-		return 'PATH';
-	}
-
-	return Object.keys(environment).reverse().find(key => key.toUpperCase() === 'PATH') || 'Path';
-};
-
-module.exports = pathKey;
-// TODO: Remove this for the next major release
-module.exports["default"] = pathKey;
 
 
 /***/ }),
@@ -79581,314 +77008,6 @@ var eos = function(stream, opts, callback) {
 };
 
 module.exports = eos;
-
-
-/***/ }),
-
-/***/ 85107:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.decodeHTML = exports.decodeHTMLStrict = exports.decodeXML = void 0;
-var entities_json_1 = __importDefault(__nccwpck_require__(59323));
-var legacy_json_1 = __importDefault(__nccwpck_require__(29591));
-var xml_json_1 = __importDefault(__nccwpck_require__(2586));
-var decode_codepoint_1 = __importDefault(__nccwpck_require__(31227));
-var strictEntityRe = /&(?:[a-zA-Z0-9]+|#[xX][\da-fA-F]+|#\d+);/g;
-exports.decodeXML = getStrictDecoder(xml_json_1.default);
-exports.decodeHTMLStrict = getStrictDecoder(entities_json_1.default);
-function getStrictDecoder(map) {
-    var replace = getReplacer(map);
-    return function (str) { return String(str).replace(strictEntityRe, replace); };
-}
-var sorter = function (a, b) { return (a < b ? 1 : -1); };
-exports.decodeHTML = (function () {
-    var legacy = Object.keys(legacy_json_1.default).sort(sorter);
-    var keys = Object.keys(entities_json_1.default).sort(sorter);
-    for (var i = 0, j = 0; i < keys.length; i++) {
-        if (legacy[j] === keys[i]) {
-            keys[i] += ";?";
-            j++;
-        }
-        else {
-            keys[i] += ";";
-        }
-    }
-    var re = new RegExp("&(?:" + keys.join("|") + "|#[xX][\\da-fA-F]+;?|#\\d+;?)", "g");
-    var replace = getReplacer(entities_json_1.default);
-    function replacer(str) {
-        if (str.substr(-1) !== ";")
-            str += ";";
-        return replace(str);
-    }
-    // TODO consider creating a merged map
-    return function (str) { return String(str).replace(re, replacer); };
-})();
-function getReplacer(map) {
-    return function replace(str) {
-        if (str.charAt(1) === "#") {
-            var secondChar = str.charAt(2);
-            if (secondChar === "X" || secondChar === "x") {
-                return decode_codepoint_1.default(parseInt(str.substr(3), 16));
-            }
-            return decode_codepoint_1.default(parseInt(str.substr(2), 10));
-        }
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        return map[str.slice(1, -1)] || str;
-    };
-}
-
-
-/***/ }),
-
-/***/ 31227:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-var decode_json_1 = __importDefault(__nccwpck_require__(33600));
-// Adapted from https://github.com/mathiasbynens/he/blob/master/src/he.js#L94-L119
-var fromCodePoint = 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-String.fromCodePoint ||
-    function (codePoint) {
-        var output = "";
-        if (codePoint > 0xffff) {
-            codePoint -= 0x10000;
-            output += String.fromCharCode(((codePoint >>> 10) & 0x3ff) | 0xd800);
-            codePoint = 0xdc00 | (codePoint & 0x3ff);
-        }
-        output += String.fromCharCode(codePoint);
-        return output;
-    };
-function decodeCodePoint(codePoint) {
-    if ((codePoint >= 0xd800 && codePoint <= 0xdfff) || codePoint > 0x10ffff) {
-        return "\uFFFD";
-    }
-    if (codePoint in decode_json_1.default) {
-        codePoint = decode_json_1.default[codePoint];
-    }
-    return fromCodePoint(codePoint);
-}
-exports["default"] = decodeCodePoint;
-
-
-/***/ }),
-
-/***/ 2006:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.escapeUTF8 = exports.escape = exports.encodeNonAsciiHTML = exports.encodeHTML = exports.encodeXML = void 0;
-var xml_json_1 = __importDefault(__nccwpck_require__(2586));
-var inverseXML = getInverseObj(xml_json_1.default);
-var xmlReplacer = getInverseReplacer(inverseXML);
-/**
- * Encodes all non-ASCII characters, as well as characters not valid in XML
- * documents using XML entities.
- *
- * If a character has no equivalent entity, a
- * numeric hexadecimal reference (eg. `&#xfc;`) will be used.
- */
-exports.encodeXML = getASCIIEncoder(inverseXML);
-var entities_json_1 = __importDefault(__nccwpck_require__(59323));
-var inverseHTML = getInverseObj(entities_json_1.default);
-var htmlReplacer = getInverseReplacer(inverseHTML);
-/**
- * Encodes all entities and non-ASCII characters in the input.
- *
- * This includes characters that are valid ASCII characters in HTML documents.
- * For example `#` will be encoded as `&num;`. To get a more compact output,
- * consider using the `encodeNonAsciiHTML` function.
- *
- * If a character has no equivalent entity, a
- * numeric hexadecimal reference (eg. `&#xfc;`) will be used.
- */
-exports.encodeHTML = getInverse(inverseHTML, htmlReplacer);
-/**
- * Encodes all non-ASCII characters, as well as characters not valid in HTML
- * documents using HTML entities.
- *
- * If a character has no equivalent entity, a
- * numeric hexadecimal reference (eg. `&#xfc;`) will be used.
- */
-exports.encodeNonAsciiHTML = getASCIIEncoder(inverseHTML);
-function getInverseObj(obj) {
-    return Object.keys(obj)
-        .sort()
-        .reduce(function (inverse, name) {
-        inverse[obj[name]] = "&" + name + ";";
-        return inverse;
-    }, {});
-}
-function getInverseReplacer(inverse) {
-    var single = [];
-    var multiple = [];
-    for (var _i = 0, _a = Object.keys(inverse); _i < _a.length; _i++) {
-        var k = _a[_i];
-        if (k.length === 1) {
-            // Add value to single array
-            single.push("\\" + k);
-        }
-        else {
-            // Add value to multiple array
-            multiple.push(k);
-        }
-    }
-    // Add ranges to single characters.
-    single.sort();
-    for (var start = 0; start < single.length - 1; start++) {
-        // Find the end of a run of characters
-        var end = start;
-        while (end < single.length - 1 &&
-            single[end].charCodeAt(1) + 1 === single[end + 1].charCodeAt(1)) {
-            end += 1;
-        }
-        var count = 1 + end - start;
-        // We want to replace at least three characters
-        if (count < 3)
-            continue;
-        single.splice(start, count, single[start] + "-" + single[end]);
-    }
-    multiple.unshift("[" + single.join("") + "]");
-    return new RegExp(multiple.join("|"), "g");
-}
-// /[^\0-\x7F]/gu
-var reNonASCII = /(?:[\x80-\uD7FF\uE000-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF])/g;
-var getCodePoint = 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-String.prototype.codePointAt != null
-    ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        function (str) { return str.codePointAt(0); }
-    : // http://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
-        function (c) {
-            return (c.charCodeAt(0) - 0xd800) * 0x400 +
-                c.charCodeAt(1) -
-                0xdc00 +
-                0x10000;
-        };
-function singleCharReplacer(c) {
-    return "&#x" + (c.length > 1 ? getCodePoint(c) : c.charCodeAt(0))
-        .toString(16)
-        .toUpperCase() + ";";
-}
-function getInverse(inverse, re) {
-    return function (data) {
-        return data
-            .replace(re, function (name) { return inverse[name]; })
-            .replace(reNonASCII, singleCharReplacer);
-    };
-}
-var reEscapeChars = new RegExp(xmlReplacer.source + "|" + reNonASCII.source, "g");
-/**
- * Encodes all non-ASCII characters, as well as characters not valid in XML
- * documents using numeric hexadecimal reference (eg. `&#xfc;`).
- *
- * Have a look at `escapeUTF8` if you want a more concise output at the expense
- * of reduced transportability.
- *
- * @param data String to escape.
- */
-function escape(data) {
-    return data.replace(reEscapeChars, singleCharReplacer);
-}
-exports.escape = escape;
-/**
- * Encodes all characters not valid in XML documents using numeric hexadecimal
- * reference (eg. `&#xfc;`).
- *
- * Note that the output will be character-set dependent.
- *
- * @param data String to escape.
- */
-function escapeUTF8(data) {
-    return data.replace(xmlReplacer, singleCharReplacer);
-}
-exports.escapeUTF8 = escapeUTF8;
-function getASCIIEncoder(obj) {
-    return function (data) {
-        return data.replace(reEscapeChars, function (c) { return obj[c] || singleCharReplacer(c); });
-    };
-}
-
-
-/***/ }),
-
-/***/ 3000:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.decodeXMLStrict = exports.decodeHTML5Strict = exports.decodeHTML4Strict = exports.decodeHTML5 = exports.decodeHTML4 = exports.decodeHTMLStrict = exports.decodeHTML = exports.decodeXML = exports.encodeHTML5 = exports.encodeHTML4 = exports.escapeUTF8 = exports.escape = exports.encodeNonAsciiHTML = exports.encodeHTML = exports.encodeXML = exports.encode = exports.decodeStrict = exports.decode = void 0;
-var decode_1 = __nccwpck_require__(85107);
-var encode_1 = __nccwpck_require__(2006);
-/**
- * Decodes a string with entities.
- *
- * @param data String to decode.
- * @param level Optional level to decode at. 0 = XML, 1 = HTML. Default is 0.
- * @deprecated Use `decodeXML` or `decodeHTML` directly.
- */
-function decode(data, level) {
-    return (!level || level <= 0 ? decode_1.decodeXML : decode_1.decodeHTML)(data);
-}
-exports.decode = decode;
-/**
- * Decodes a string with entities. Does not allow missing trailing semicolons for entities.
- *
- * @param data String to decode.
- * @param level Optional level to decode at. 0 = XML, 1 = HTML. Default is 0.
- * @deprecated Use `decodeHTMLStrict` or `decodeXML` directly.
- */
-function decodeStrict(data, level) {
-    return (!level || level <= 0 ? decode_1.decodeXML : decode_1.decodeHTMLStrict)(data);
-}
-exports.decodeStrict = decodeStrict;
-/**
- * Encodes a string with entities.
- *
- * @param data String to encode.
- * @param level Optional level to encode at. 0 = XML, 1 = HTML. Default is 0.
- * @deprecated Use `encodeHTML`, `encodeXML` or `encodeNonAsciiHTML` directly.
- */
-function encode(data, level) {
-    return (!level || level <= 0 ? encode_1.encodeXML : encode_1.encodeHTML)(data);
-}
-exports.encode = encode;
-var encode_2 = __nccwpck_require__(2006);
-Object.defineProperty(exports, "encodeXML", ({ enumerable: true, get: function () { return encode_2.encodeXML; } }));
-Object.defineProperty(exports, "encodeHTML", ({ enumerable: true, get: function () { return encode_2.encodeHTML; } }));
-Object.defineProperty(exports, "encodeNonAsciiHTML", ({ enumerable: true, get: function () { return encode_2.encodeNonAsciiHTML; } }));
-Object.defineProperty(exports, "escape", ({ enumerable: true, get: function () { return encode_2.escape; } }));
-Object.defineProperty(exports, "escapeUTF8", ({ enumerable: true, get: function () { return encode_2.escapeUTF8; } }));
-// Legacy aliases (deprecated)
-Object.defineProperty(exports, "encodeHTML4", ({ enumerable: true, get: function () { return encode_2.encodeHTML; } }));
-Object.defineProperty(exports, "encodeHTML5", ({ enumerable: true, get: function () { return encode_2.encodeHTML; } }));
-var decode_2 = __nccwpck_require__(85107);
-Object.defineProperty(exports, "decodeXML", ({ enumerable: true, get: function () { return decode_2.decodeXML; } }));
-Object.defineProperty(exports, "decodeHTML", ({ enumerable: true, get: function () { return decode_2.decodeHTML; } }));
-Object.defineProperty(exports, "decodeHTMLStrict", ({ enumerable: true, get: function () { return decode_2.decodeHTMLStrict; } }));
-// Legacy aliases (deprecated)
-Object.defineProperty(exports, "decodeHTML4", ({ enumerable: true, get: function () { return decode_2.decodeHTML; } }));
-Object.defineProperty(exports, "decodeHTML5", ({ enumerable: true, get: function () { return decode_2.decodeHTML; } }));
-Object.defineProperty(exports, "decodeHTML4Strict", ({ enumerable: true, get: function () { return decode_2.decodeHTMLStrict; } }));
-Object.defineProperty(exports, "decodeHTML5Strict", ({ enumerable: true, get: function () { return decode_2.decodeHTMLStrict; } }));
-Object.defineProperty(exports, "decodeXMLStrict", ({ enumerable: true, get: function () { return decode_2.decodeXML; } }));
 
 
 /***/ }),
@@ -99825,7 +96944,7 @@ module.exports = normalizeUrl;
 "use strict";
 
 const path = __nccwpck_require__(71017);
-const pathKey = __nccwpck_require__(37278);
+const pathKey = __nccwpck_require__(20539);
 
 const npmRunPath = options => {
 	options = {
@@ -99870,30 +96989,6 @@ module.exports.env = options => {
 
 	return env;
 };
-
-
-/***/ }),
-
-/***/ 37278:
-/***/ ((module) => {
-
-"use strict";
-
-
-const pathKey = (options = {}) => {
-	const environment = options.env || process.env;
-	const platform = options.platform || process.platform;
-
-	if (platform !== 'win32') {
-		return 'PATH';
-	}
-
-	return Object.keys(environment).reverse().find(key => key.toUpperCase() === 'PATH') || 'Path';
-};
-
-module.exports = pathKey;
-// TODO: Remove this for the next major release
-module.exports["default"] = pathKey;
 
 
 /***/ }),
@@ -100118,6 +97213,30 @@ module.exports.CancelError = CancelError;
 
 /***/ }),
 
+/***/ 20539:
+/***/ ((module) => {
+
+"use strict";
+
+
+const pathKey = (options = {}) => {
+	const environment = options.env || process.env;
+	const platform = options.platform || process.platform;
+
+	if (platform !== 'win32') {
+		return 'PATH';
+	}
+
+	return Object.keys(environment).reverse().find(key => key.toUpperCase() === 'PATH') || 'Path';
+};
+
+module.exports = pathKey;
+// TODO: Remove this for the next major release
+module.exports["default"] = pathKey;
+
+
+/***/ }),
+
 /***/ 21629:
 /***/ ((module, exports, __nccwpck_require__) => {
 
@@ -100159,6 +97278,25 @@ var Namespace = $protobuf.Namespace,
  * @property {IFileOptions} [options] Options
  * @property {*} [sourceCodeInfo] Not supported
  * @property {string} [syntax="proto2"] Syntax
+ * @property {IEdition} [edition] Edition
+ */
+
+/**
+ * Values of the Edition enum.
+ * @typedef IEdition
+ * @type {number}
+ * @property {number} EDITION_UNKNOWN=0
+ * @property {number} EDITION_LEGACY=900
+ * @property {number} EDITION_PROTO2=998
+ * @property {number} EDITION_PROTO3=999
+ * @property {number} EDITION_2023=1000
+ * @property {number} EDITION_2024=1001
+ * @property {number} EDITION_1_TEST_ONLY=1
+ * @property {number} EDITION_2_TEST_ONLY=2
+ * @property {number} EDITION_99997_TEST_ONLY=99997
+ * @property {number} EDITION_99998_TEST_ONLY=99998
+ * @property {number} EDITION_99998_TEST_ONLY=99999
+ * @property {number} EDITION_MAX=2147483647
  */
 
 /**
@@ -100209,20 +97347,21 @@ Root.fromDescriptor = function fromDescriptor(descriptor) {
             filePackage = root;
             if ((fileDescriptor = descriptor.file[j])["package"] && fileDescriptor["package"].length)
                 filePackage = root.define(fileDescriptor["package"]);
+            var edition = editionFromDescriptor(fileDescriptor);
             if (fileDescriptor.name && fileDescriptor.name.length)
                 root.files.push(filePackage.filename = fileDescriptor.name);
             if (fileDescriptor.messageType)
                 for (i = 0; i < fileDescriptor.messageType.length; ++i)
-                    filePackage.add(Type.fromDescriptor(fileDescriptor.messageType[i], fileDescriptor.syntax));
+                    filePackage.add(Type.fromDescriptor(fileDescriptor.messageType[i], edition));
             if (fileDescriptor.enumType)
                 for (i = 0; i < fileDescriptor.enumType.length; ++i)
-                    filePackage.add(Enum.fromDescriptor(fileDescriptor.enumType[i]));
+                    filePackage.add(Enum.fromDescriptor(fileDescriptor.enumType[i], edition));
             if (fileDescriptor.extension)
                 for (i = 0; i < fileDescriptor.extension.length; ++i)
-                    filePackage.add(Field.fromDescriptor(fileDescriptor.extension[i]));
+                    filePackage.add(Field.fromDescriptor(fileDescriptor.extension[i], edition));
             if (fileDescriptor.service)
                 for (i = 0; i < fileDescriptor.service.length; ++i)
-                    filePackage.add(Service.fromDescriptor(fileDescriptor.service[i]));
+                    filePackage.add(Service.fromDescriptor(fileDescriptor.service[i], edition));
             var opts = fromDescriptorOptions(fileDescriptor.options, exports.FileOptions);
             if (opts) {
                 var ks = Object.keys(opts);
@@ -100232,42 +97371,41 @@ Root.fromDescriptor = function fromDescriptor(descriptor) {
         }
     }
 
-    return root;
+    return root.resolveAll();
 };
 
 /**
  * Converts a root to a descriptor set.
  * @returns {Message<IFileDescriptorSet>} Descriptor
- * @param {string} [syntax="proto2"] Syntax
+ * @param {string} [edition="proto2"] The syntax or edition to use
  */
-Root.prototype.toDescriptor = function toDescriptor(syntax) {
+Root.prototype.toDescriptor = function toDescriptor(edition) {
     var set = exports.FileDescriptorSet.create();
-    Root_toDescriptorRecursive(this, set.file, syntax);
+    Root_toDescriptorRecursive(this, set.file, edition);
     return set;
 };
 
 // Traverses a namespace and assembles the descriptor set
-function Root_toDescriptorRecursive(ns, files, syntax) {
+function Root_toDescriptorRecursive(ns, files, edition) {
 
     // Create a new file
     var file = exports.FileDescriptorProto.create({ name: ns.filename || (ns.fullName.substring(1).replace(/\./g, "_") || "root") + ".proto" });
-    if (syntax)
-        file.syntax = syntax;
+    editionToDescriptor(edition, file);
     if (!(ns instanceof Root))
         file["package"] = ns.fullName.substring(1);
 
     // Add nested types
     for (var i = 0, nested; i < ns.nestedArray.length; ++i)
         if ((nested = ns._nestedArray[i]) instanceof Type)
-            file.messageType.push(nested.toDescriptor(syntax));
+            file.messageType.push(nested.toDescriptor(edition));
         else if (nested instanceof Enum)
             file.enumType.push(nested.toDescriptor());
         else if (nested instanceof Field)
-            file.extension.push(nested.toDescriptor(syntax));
+            file.extension.push(nested.toDescriptor(edition));
         else if (nested instanceof Service)
             file.service.push(nested.toDescriptor());
         else if (nested instanceof /* plain */ Namespace)
-            Root_toDescriptorRecursive(nested, files, syntax); // requires new file
+            Root_toDescriptorRecursive(nested, files, edition); // requires new file
 
     // Keep package-level options
     file.options = toDescriptorOptions(ns.options, exports.FileOptions);
@@ -100318,12 +97456,15 @@ var unnamedMessageIndex = 0;
 
 /**
  * Creates a type from a descriptor.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @param {IDescriptorProto|Reader|Uint8Array} descriptor Descriptor
- * @param {string} [syntax="proto2"] Syntax
+ * @param {string} [edition="proto2"] The syntax or edition to use
+ * @param {boolean} [nested=false] Whether or not this is a nested object
  * @returns {Type} Type instance
  */
-Type.fromDescriptor = function fromDescriptor(descriptor, syntax) {
-
+Type.fromDescriptor = function fromDescriptor(descriptor, edition, nested) {
     // Decode the descriptor message if specified as a buffer:
     if (typeof descriptor.length === "number")
         descriptor = exports.DescriptorProto.decode(descriptor);
@@ -100332,28 +97473,31 @@ Type.fromDescriptor = function fromDescriptor(descriptor, syntax) {
     var type = new Type(descriptor.name.length ? descriptor.name : "Type" + unnamedMessageIndex++, fromDescriptorOptions(descriptor.options, exports.MessageOptions)),
         i;
 
+    if (!nested)
+        type._edition = edition;
+
     /* Oneofs */ if (descriptor.oneofDecl)
         for (i = 0; i < descriptor.oneofDecl.length; ++i)
             type.add(OneOf.fromDescriptor(descriptor.oneofDecl[i]));
     /* Fields */ if (descriptor.field)
         for (i = 0; i < descriptor.field.length; ++i) {
-            var field = Field.fromDescriptor(descriptor.field[i], syntax);
+            var field = Field.fromDescriptor(descriptor.field[i], edition, true);
             type.add(field);
             if (descriptor.field[i].hasOwnProperty("oneofIndex")) // eslint-disable-line no-prototype-builtins
                 type.oneofsArray[descriptor.field[i].oneofIndex].add(field);
         }
     /* Extension fields */ if (descriptor.extension)
         for (i = 0; i < descriptor.extension.length; ++i)
-            type.add(Field.fromDescriptor(descriptor.extension[i], syntax));
+            type.add(Field.fromDescriptor(descriptor.extension[i], edition, true));
     /* Nested types */ if (descriptor.nestedType)
         for (i = 0; i < descriptor.nestedType.length; ++i) {
-            type.add(Type.fromDescriptor(descriptor.nestedType[i], syntax));
+            type.add(Type.fromDescriptor(descriptor.nestedType[i], edition, true));
             if (descriptor.nestedType[i].options && descriptor.nestedType[i].options.mapEntry)
                 type.setOption("map_entry", true);
         }
     /* Nested enums */ if (descriptor.enumType)
         for (i = 0; i < descriptor.enumType.length; ++i)
-            type.add(Enum.fromDescriptor(descriptor.enumType[i]));
+            type.add(Enum.fromDescriptor(descriptor.enumType[i], edition, true));
     /* Extension ranges */ if (descriptor.extensionRange && descriptor.extensionRange.length) {
         type.extensions = [];
         for (i = 0; i < descriptor.extensionRange.length; ++i)
@@ -100375,18 +97519,18 @@ Type.fromDescriptor = function fromDescriptor(descriptor, syntax) {
 /**
  * Converts a type to a descriptor.
  * @returns {Message<IDescriptorProto>} Descriptor
- * @param {string} [syntax="proto2"] Syntax
+ * @param {string} [edition="proto2"] The syntax or edition to use
  */
-Type.prototype.toDescriptor = function toDescriptor(syntax) {
+Type.prototype.toDescriptor = function toDescriptor(edition) {
     var descriptor = exports.DescriptorProto.create({ name: this.name }),
         i;
 
     /* Fields */ for (i = 0; i < this.fieldsArray.length; ++i) {
         var fieldDescriptor;
-        descriptor.field.push(fieldDescriptor = this._fieldsArray[i].toDescriptor(syntax));
+        descriptor.field.push(fieldDescriptor = this._fieldsArray[i].toDescriptor(edition));
         if (this._fieldsArray[i] instanceof MapField) { // map fields are repeated FieldNameEntry
-            var keyType = toDescriptorType(this._fieldsArray[i].keyType, this._fieldsArray[i].resolvedKeyType),
-                valueType = toDescriptorType(this._fieldsArray[i].type, this._fieldsArray[i].resolvedType),
+            var keyType = toDescriptorType(this._fieldsArray[i].keyType, this._fieldsArray[i].resolvedKeyType, false),
+                valueType = toDescriptorType(this._fieldsArray[i].type, this._fieldsArray[i].resolvedType, false),
                 valueTypeName = valueType === /* type */ 11 || valueType === /* enum */ 14
                     ? this._fieldsArray[i].resolvedType && shortname(this.parent, this._fieldsArray[i].resolvedType) || this._fieldsArray[i].type
                     : undefined;
@@ -100404,9 +97548,9 @@ Type.prototype.toDescriptor = function toDescriptor(syntax) {
         descriptor.oneofDecl.push(this._oneofsArray[i].toDescriptor());
     /* Nested... */ for (i = 0; i < this.nestedArray.length; ++i) {
         /* Extension fields */ if (this._nestedArray[i] instanceof Field)
-            descriptor.field.push(this._nestedArray[i].toDescriptor(syntax));
+            descriptor.field.push(this._nestedArray[i].toDescriptor(edition));
         /* Types */ else if (this._nestedArray[i] instanceof Type)
-            descriptor.nestedType.push(this._nestedArray[i].toDescriptor(syntax));
+            descriptor.nestedType.push(this._nestedArray[i].toDescriptor(edition));
         /* Enums */ else if (this._nestedArray[i] instanceof Enum)
             descriptor.enumType.push(this._nestedArray[i].toDescriptor());
         // plain nested namespaces become packages instead in Root#toDescriptor
@@ -100497,11 +97641,15 @@ var numberRe = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/;
 
 /**
  * Creates a field from a descriptor.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @param {IFieldDescriptorProto|Reader|Uint8Array} descriptor Descriptor
- * @param {string} [syntax="proto2"] Syntax
+ * @param {string} [edition="proto2"] The syntax or edition to use
+ * @param {boolean} [nested=false] Whether or not this is a top-level object
  * @returns {Field} Field instance
  */
-Field.fromDescriptor = function fromDescriptor(descriptor, syntax) {
+Field.fromDescriptor = function fromDescriptor(descriptor, edition, nested) {
 
     // Decode the descriptor message if specified as a buffer:
     if (typeof descriptor.length === "number")
@@ -100539,7 +97687,12 @@ Field.fromDescriptor = function fromDescriptor(descriptor, syntax) {
         extendee
     );
 
+    if (!nested)
+        field._edition = edition;
+
     field.options = fromDescriptorOptions(descriptor.options, exports.FieldOptions);
+    if (descriptor.proto3_optional)
+        field.options.proto3_optional = true;
 
     if (descriptor.defaultValue && descriptor.defaultValue.length) {
         var defaultValue = descriptor.defaultValue;
@@ -100560,11 +97713,11 @@ Field.fromDescriptor = function fromDescriptor(descriptor, syntax) {
     }
 
     if (packableDescriptorType(descriptor.type)) {
-        if (syntax === "proto3") { // defaults to packed=true (internal preset is packed=true)
+        if (edition === "proto3") { // defaults to packed=true (internal preset is packed=true)
             if (descriptor.options && !descriptor.options.packed)
                 field.setOption("packed", false);
-        } else if (!(descriptor.options && descriptor.options.packed)) // defaults to packed=false
-            field.setOption("packed", false);
+        } else if ((!edition || edition === "proto2") && descriptor.options && descriptor.options.packed) // defaults to packed=false
+            field.setOption("packed", true);
     }
 
     return field;
@@ -100573,9 +97726,9 @@ Field.fromDescriptor = function fromDescriptor(descriptor, syntax) {
 /**
  * Converts a field to a descriptor.
  * @returns {Message<IFieldDescriptorProto>} Descriptor
- * @param {string} [syntax="proto2"] Syntax
+ * @param {string} [edition="proto2"] The syntax or edition to use
  */
-Field.prototype.toDescriptor = function toDescriptor(syntax) {
+Field.prototype.toDescriptor = function toDescriptor(edition) {
     var descriptor = exports.FieldDescriptorProto.create({ name: this.name, number: this.id });
 
     if (this.map) {
@@ -100587,7 +97740,7 @@ Field.prototype.toDescriptor = function toDescriptor(syntax) {
     } else {
 
         // Rewire field type
-        switch (descriptor.type = toDescriptorType(this.type, this.resolve().resolvedType)) {
+        switch (descriptor.type = toDescriptorType(this.type, this.resolve().resolvedType, this.delimited)) {
             case 10: // group
             case 11: // type
             case 14: // enum
@@ -100596,12 +97749,13 @@ Field.prototype.toDescriptor = function toDescriptor(syntax) {
         }
 
         // Rewire field rule
-        switch (this.rule) {
-            case "repeated": descriptor.label = 3; break;
-            case "required": descriptor.label = 2; break;
-            default: descriptor.label = 1; break;
+        if (this.rule === "repeated") {
+            descriptor.label = 3;
+        } else if (this.required && edition === "proto2") {
+            descriptor.label = 2;
+        } else {
+            descriptor.label = 1;
         }
-
     }
 
     // Handle extension field
@@ -100616,12 +97770,14 @@ Field.prototype.toDescriptor = function toDescriptor(syntax) {
         descriptor.options = toDescriptorOptions(this.options, exports.FieldOptions);
         if (this.options["default"] != null)
             descriptor.defaultValue = String(this.options["default"]);
+        if (this.options.proto3_optional)
+            descriptor.proto3_optional = true;
     }
 
-    if (syntax === "proto3") { // defaults to packed=true
+    if (edition === "proto3") { // defaults to packed=true
         if (!this.packed)
             (descriptor.options || (descriptor.options = exports.FieldOptions.create())).packed = false;
-    } else if (this.packed) // defaults to packed=false
+    } else if ((!edition || edition === "proto2") && this.packed) // defaults to packed=false
         (descriptor.options || (descriptor.options = exports.FieldOptions.create())).packed = true;
 
     return descriptor;
@@ -100656,10 +97812,15 @@ var unnamedEnumIndex = 0;
 
 /**
  * Creates an enum from a descriptor.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @param {IEnumDescriptorProto|Reader|Uint8Array} descriptor Descriptor
+ * @param {string} [edition="proto2"] The syntax or edition to use
+ * @param {boolean} [nested=false] Whether or not this is a top-level object
  * @returns {Enum} Enum instance
  */
-Enum.fromDescriptor = function fromDescriptor(descriptor) {
+Enum.fromDescriptor = function fromDescriptor(descriptor, edition, nested) {
 
     // Decode the descriptor message if specified as a buffer:
     if (typeof descriptor.length === "number")
@@ -100674,11 +97835,16 @@ Enum.fromDescriptor = function fromDescriptor(descriptor) {
             values[name && name.length ? name : "NAME" + value] = value;
         }
 
-    return new Enum(
+    var enm = new Enum(
         descriptor.name && descriptor.name.length ? descriptor.name : "Enum" + unnamedEnumIndex++,
         values,
         fromDescriptorOptions(descriptor.options, exports.EnumOptions)
     );
+
+    if (!nested)
+        enm._edition = edition;
+
+    return enm;
 };
 
 /**
@@ -100712,6 +97878,9 @@ var unnamedOneofIndex = 0;
 
 /**
  * Creates a oneof from a descriptor.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @param {IOneofDescriptorProto|Reader|Uint8Array} descriptor Descriptor
  * @returns {OneOf} OneOf instance
  */
@@ -100759,16 +97928,23 @@ var unnamedServiceIndex = 0;
 
 /**
  * Creates a service from a descriptor.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @param {IServiceDescriptorProto|Reader|Uint8Array} descriptor Descriptor
+ * @param {string} [edition="proto2"] The syntax or edition to use
+ * @param {boolean} [nested=false] Whether or not this is a top-level object
  * @returns {Service} Service instance
  */
-Service.fromDescriptor = function fromDescriptor(descriptor) {
+Service.fromDescriptor = function fromDescriptor(descriptor, edition, nested) {
 
     // Decode the descriptor message if specified as a buffer:
     if (typeof descriptor.length === "number")
         descriptor = exports.ServiceDescriptorProto.decode(descriptor);
 
     var service = new Service(descriptor.name && descriptor.name.length ? descriptor.name : "Service" + unnamedServiceIndex++, fromDescriptorOptions(descriptor.options, exports.ServiceOptions));
+    if (!nested)
+        service._edition = edition;
     if (descriptor.method)
         for (var i = 0; i < descriptor.method.length; ++i)
             service.add(Method.fromDescriptor(descriptor.method[i]));
@@ -100809,6 +97985,9 @@ Service.prototype.toDescriptor = function toDescriptor() {
 
 /**
  * Properties of a MethodOptions message.
+ *
+ * Warning: this is not safe to use with editions protos, since it discards relevant file context.
+ *
  * @interface IMethodOptions
  * @property {boolean} [deprecated]
  */
@@ -100901,7 +98080,7 @@ function packableDescriptorType(type) {
 }
 
 // Converts a protobuf.js basic type to a descriptor type
-function toDescriptorType(type, resolvedType) {
+function toDescriptorType(type, resolvedType, delimited) {
     switch (type) {
         // 0 is reserved for errors
         case "double": return 1;
@@ -100923,41 +98102,60 @@ function toDescriptorType(type, resolvedType) {
     if (resolvedType instanceof Enum)
         return 14;
     if (resolvedType instanceof Type)
-        return resolvedType.group ? 10 : 11;
+        return delimited ? 10 : 11;
     throw Error("illegal type: " + type);
+}
+
+function fromDescriptorOptionsRecursive(obj, type) {
+    var val = {};
+    for (var i = 0, field, key; i < type.fieldsArray.length; ++i) {
+        if ((key = (field = type._fieldsArray[i]).name) === "uninterpretedOption") continue;
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+
+        var newKey = underScore(key);
+        if (field.resolvedType instanceof Type) {
+            val[newKey] = fromDescriptorOptionsRecursive(obj[key], field.resolvedType);
+        } else if(field.resolvedType instanceof Enum) {
+            val[newKey] = field.resolvedType.valuesById[obj[key]];
+        } else {
+            val[newKey] = obj[key];
+        }
+    }
+    return val;
 }
 
 // Converts descriptor options to an options object
 function fromDescriptorOptions(options, type) {
     if (!options)
         return undefined;
-    var out = [];
-    for (var i = 0, field, key, val; i < type.fieldsArray.length; ++i)
-        if ((key = (field = type._fieldsArray[i]).name) !== "uninterpretedOption")
-            if (options.hasOwnProperty(key)) { // eslint-disable-line no-prototype-builtins
-                val = options[key];
-                if (field.resolvedType instanceof Enum && typeof val === "number" && field.resolvedType.valuesById[val] !== undefined)
-                    val = field.resolvedType.valuesById[val];
-                out.push(underScore(key), val);
-            }
-    return out.length ? $protobuf.util.toObject(out) : undefined;
+    return fromDescriptorOptionsRecursive(type.toObject(options), type);
+}
+
+function toDescriptorOptionsRecursive(obj, type) {
+    var val = {};
+    var keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; ++i) {
+        var key = keys[i];
+        var newKey = $protobuf.util.camelCase(key);
+        if (!Object.prototype.hasOwnProperty.call(type.fields, newKey)) continue;
+        var field = type.fields[newKey];
+        if (field.resolvedType instanceof Type) {
+            val[newKey] = toDescriptorOptionsRecursive(obj[key], field.resolvedType);
+        } else {
+            val[newKey] = obj[key];
+        }
+        if (field.repeated && !Array.isArray(val[newKey])) {
+            val[newKey] = [val[newKey]];
+        }
+    }
+    return val;
 }
 
 // Converts an options object to descriptor options
 function toDescriptorOptions(options, type) {
     if (!options)
         return undefined;
-    var out = [];
-    for (var i = 0, ks = Object.keys(options), key, val; i < ks.length; ++i) {
-        val = options[key = ks[i]];
-        if (key === "default")
-            continue;
-        var field = type.fields[key];
-        if (!field && !(field = type.fields[key = $protobuf.util.camelCase(key)]))
-            continue;
-        out.push(key, val);
-    }
-    return out.length ? type.fromObject($protobuf.util.toObject(out)) : undefined;
+    return type.fromObject(toDescriptorOptionsRecursive(options, type));
 }
 
 // Calculates the shortest relative path from `from` to `to`.
@@ -100984,6 +98182,37 @@ function underScore(str) {
     return str.substring(0,1)
          + str.substring(1)
                .replace(/([A-Z])(?=[a-z]|$)/g, function($0, $1) { return "_" + $1.toLowerCase(); });
+}
+
+function editionFromDescriptor(fileDescriptor) {
+    if (fileDescriptor.syntax === "editions") {
+        switch(fileDescriptor.edition) {
+            case exports.Edition.EDITION_2023:
+                return "2023";
+            default:
+                throw new Error("Unsupported edition " + fileDescriptor.edition);
+        }
+    }
+    if (fileDescriptor.syntax === "proto3") {
+        return "proto3";
+    }
+    return "proto2";
+}
+
+function editionToDescriptor(edition, fileDescriptor) {
+    if (!edition) return;
+    if (edition === "proto2" || edition === "proto3") {
+        fileDescriptor.syntax = edition;
+    } else {
+        fileDescriptor.syntax = "editions";
+        switch(edition) {
+            case "2023":
+                fileDescriptor.edition = exports.Edition.EDITION_2023;
+                break;
+            default:
+                throw new Error("Unsupported edition " + edition);
+        }
+    }
 }
 
 // --- exports ---
@@ -101928,16 +99157,14 @@ function missing(field) {
  */
 function decoder(mtype) {
     /* eslint-disable no-unexpected-multiline */
-    var gen = util.codegen(["r", "l"], mtype.name + "$decode")
+    var gen = util.codegen(["r", "l", "e"], mtype.name + "$decode")
     ("if(!(r instanceof Reader))")
         ("r=Reader.create(r)")
     ("var c=l===undefined?r.len:r.pos+l,m=new this.ctor" + (mtype.fieldsArray.filter(function(field) { return field.map; }).length ? ",k,value" : ""))
     ("while(r.pos<c){")
-        ("var t=r.uint32()");
-    if (mtype.group) gen
-        ("if((t&7)===4)")
-            ("break");
-    gen
+        ("var t=r.uint32()")
+        ("if(t===e)")
+            ("break")
         ("switch(t>>>3){");
 
     var i = 0;
@@ -102003,15 +99230,15 @@ function decoder(mtype) {
                 ("}else");
 
             // Non-packed
-            if (types.basic[type] === undefined) gen(field.resolvedType.group
-                    ? "%s.push(types[%i].decode(r))"
+            if (types.basic[type] === undefined) gen(field.delimited
+                    ? "%s.push(types[%i].decode(r,undefined,((t&~7)|4)))"
                     : "%s.push(types[%i].decode(r,r.uint32()))", ref, i);
             else gen
                     ("%s.push(r.%s())", ref, type);
 
         // Non-repeated
-        } else if (types.basic[type] === undefined) gen(field.resolvedType.group
-                ? "%s=types[%i].decode(r)"
+        } else if (types.basic[type] === undefined) gen(field.delimited
+                ? "%s=types[%i].decode(r,undefined,((t&~7)|4))"
                 : "%s=types[%i].decode(r,r.uint32())", ref, i);
         else gen
                 ("%s=r.%s()", ref, type);
@@ -102064,7 +99291,7 @@ var Enum     = __nccwpck_require__(17732),
  * @ignore
  */
 function genTypePartial(gen, field, fieldIndex, ref) {
-    return field.resolvedType.group
+    return field.delimited
         ? gen("types[%i].encode(%s,w.uint32(%i)).uint32(%i)", fieldIndex, ref, (field.id << 3 | 3) >>> 0, (field.id << 3 | 4) >>> 0)
         : gen("types[%i].encode(%s,w.uint32(%i).fork()).ldelim()", fieldIndex, ref, (field.id << 3 | 2) >>> 0);
 }
@@ -102214,6 +99441,12 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
     this.valuesOptions = valuesOptions;
 
     /**
+     * Resolved values features, if any
+     * @type {Object<string, Object<string, *>>|undefined}
+     */
+    this._valuesFeatures = {};
+
+    /**
      * Reserved ranges, if any.
      * @type {Array.<number[]|string>}
      */
@@ -102228,6 +99461,21 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
             if (typeof values[keys[i]] === "number") // use forward entries only
                 this.valuesById[ this.values[keys[i]] = values[keys[i]] ] = keys[i];
 }
+
+/**
+ * @override
+ */
+Enum.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    edition = this._edition || edition;
+    ReflectionObject.prototype._resolveFeatures.call(this, edition);
+
+    Object.keys(this.values).forEach(key => {
+        var parentFeaturesCopy = Object.assign({}, this._features);
+        this._valuesFeatures[key] = Object.assign(parentFeaturesCopy, this.valuesOptions && this.valuesOptions[key] && this.valuesOptions[key].features);
+    });
+
+    return this;
+};
 
 /**
  * Enum descriptor.
@@ -102246,6 +99494,9 @@ function Enum(name, values, options, comment, comments, valuesOptions) {
 Enum.fromJSON = function fromJSON(name, json) {
     var enm = new Enum(name, json.values, json.options, json.comment, json.comments);
     enm.reserved = json.reserved;
+    if (json.edition)
+        enm._edition = json.edition;
+    enm._defaultEdition = "proto3";  // For backwards-compatibility.
     return enm;
 };
 
@@ -102257,6 +99508,7 @@ Enum.fromJSON = function fromJSON(name, json) {
 Enum.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition"       , this._editionToJSON(),
         "options"       , this.options,
         "valuesOptions" , this.valuesOptions,
         "values"        , this.values,
@@ -102398,7 +99650,11 @@ var ruleRe = /^required|optional|repeated$/;
  * @throws {TypeError} If arguments are invalid
  */
 Field.fromJSON = function fromJSON(name, json) {
-    return new Field(name, json.id, json.type, json.rule, json.extend, json.options, json.comment);
+    var field = new Field(name, json.id, json.type, json.rule, json.extend, json.options, json.comment);
+    if (json.edition)
+        field._edition = json.edition;
+    field._defaultEdition = "proto3";  // For backwards-compatibility.
+    return field;
 };
 
 /**
@@ -102469,18 +99725,6 @@ function Field(name, id, type, rule, extend, options, comment) {
     this.extend = extend || undefined; // toJSON
 
     /**
-     * Whether this field is required.
-     * @type {boolean}
-     */
-    this.required = rule === "required";
-
-    /**
-     * Whether this field is optional.
-     * @type {boolean}
-     */
-    this.optional = !this.required;
-
-    /**
      * Whether this field is repeated.
      * @type {boolean}
      */
@@ -102547,13 +99791,6 @@ function Field(name, id, type, rule, extend, options, comment) {
     this.declaringField = null;
 
     /**
-     * Internally remembers whether this field is packed.
-     * @type {boolean|null}
-     * @private
-     */
-    this._packed = null;
-
-    /**
      * Comment for this field.
      * @type {string|null}
      */
@@ -102561,17 +99798,69 @@ function Field(name, id, type, rule, extend, options, comment) {
 }
 
 /**
- * Determines whether this field is packed. Only relevant when repeated and working with proto2.
+ * Determines whether this field is required.
+ * @name Field#required
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "required", {
+    get: function() {
+        return this._features.field_presence === "LEGACY_REQUIRED";
+    }
+});
+
+/**
+ * Determines whether this field is not required.
+ * @name Field#optional
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "optional", {
+    get: function() {
+        return !this.required;
+    }
+});
+
+/**
+ * Determines whether this field uses tag-delimited encoding.  In proto2 this
+ * corresponded to group syntax.
+ * @name Field#delimited
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "delimited", {
+    get: function() {
+        return this.resolvedType instanceof Type &&
+            this._features.message_encoding === "DELIMITED";
+    }
+});
+
+/**
+ * Determines whether this field is packed. Only relevant when repeated.
  * @name Field#packed
  * @type {boolean}
  * @readonly
  */
 Object.defineProperty(Field.prototype, "packed", {
     get: function() {
-        // defaults to packed=true if not explicity set to false
-        if (this._packed === null)
-            this._packed = this.getOption("packed") !== false;
-        return this._packed;
+        return this._features.repeated_field_encoding === "PACKED";
+    }
+});
+
+/**
+ * Determines whether this field tracks presence.
+ * @name Field#hasPresence
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(Field.prototype, "hasPresence", {
+    get: function() {
+        if (this.repeated || this.map) {
+            return false;
+        }
+        return this.partOf || // oneofs
+            this.declaringField || this.extensionField || // extensions
+            this._features.field_presence !== "IMPLICIT";
     }
 });
 
@@ -102579,8 +99868,6 @@ Object.defineProperty(Field.prototype, "packed", {
  * @override
  */
 Field.prototype.setOption = function setOption(name, value, ifNotSet) {
-    if (name === "packed") // clear cached before setting
-        this._packed = null;
     return ReflectionObject.prototype.setOption.call(this, name, value, ifNotSet);
 };
 
@@ -102608,6 +99895,7 @@ Field.prototype.setOption = function setOption(name, value, ifNotSet) {
 Field.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition" , this._editionToJSON(),
         "rule"    , this.rule !== "optional" && this.rule || undefined,
         "type"    , this.type,
         "id"      , this.id,
@@ -102647,7 +99935,7 @@ Field.prototype.resolve = function resolve() {
 
     // remove unnecessary options
     if (this.options) {
-        if (this.options.packed === true || this.options.packed !== undefined && this.resolvedType && !(this.resolvedType instanceof Enum))
+        if (this.options.packed !== undefined && this.resolvedType && !(this.resolvedType instanceof Enum))
             delete this.options.packed;
         if (!Object.keys(this.options).length)
             this.options = undefined;
@@ -102683,6 +99971,46 @@ Field.prototype.resolve = function resolve() {
         this.parent.ctor.prototype[this.name] = this.defaultValue;
 
     return ReflectionObject.prototype.resolve.call(this);
+};
+
+/**
+ * Infers field features from legacy syntax that may have been specified differently.
+ * in older editions.
+ * @param {string|undefined} edition The edition this proto is on, or undefined if pre-editions
+ * @returns {object} The feature values to override
+ */
+Field.prototype._inferLegacyProtoFeatures = function _inferLegacyProtoFeatures(edition) {
+    if (edition !== "proto2" && edition !== "proto3") {
+        return {};
+    }
+
+    var features = {};
+
+    if (this.rule === "required") {
+        features.field_presence = "LEGACY_REQUIRED";
+    }
+    if (this.parent && types.defaults[this.type] === undefined) {
+        // We can't use resolvedType because types may not have been resolved yet.  However,
+        // legacy groups are always in the same scope as the field so we don't have to do a
+        // full scan of the tree.
+        var type = this.parent.get(this.type.split(".").pop());
+        if (type && type instanceof Type && type.group) {
+            features.message_encoding = "DELIMITED";
+        }
+    }
+    if (this.getOption("packed") === true) {
+        features.repeated_field_encoding = "PACKED";
+    } else if (this.getOption("packed") === false) {
+        features.repeated_field_encoding = "EXPANDED";
+    }
+    return features;
+};
+
+/**
+ * @override
+ */
+Field.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    return ReflectionObject.prototype._resolveFeatures.call(this, this._edition || edition);
 };
 
 /**
@@ -103480,10 +100808,40 @@ function Namespace(name, options) {
      * @private
      */
     this._nestedArray = null;
+
+    /**
+     * Cache lookup calls for any objects contains anywhere under this namespace.
+     * This drastically speeds up resolve for large cross-linked protos where the same
+     * types are looked up repeatedly.
+     * @type {Object.<string,ReflectionObject|null>}
+     * @private
+     */
+    this._lookupCache = {};
+
+    /**
+     * Whether or not objects contained in this namespace need feature resolution.
+     * @type {boolean}
+     * @protected
+     */
+    this._needsRecursiveFeatureResolution = true;
+
+    /**
+     * Whether or not objects contained in this namespace need a resolve.
+     * @type {boolean}
+     * @protected
+     */
+    this._needsRecursiveResolve = true;
 }
 
 function clearCache(namespace) {
     namespace._nestedArray = null;
+    namespace._lookupCache = {};
+
+    // Also clear parent caches, since they include nested lookups.
+    var parent = namespace;
+    while(parent = parent.parent) {
+        parent._lookupCache = {};
+    }
     return namespace;
 }
 
@@ -103612,6 +100970,25 @@ Namespace.prototype.add = function add(object) {
         }
     }
     this.nested[object.name] = object;
+
+    if (!(this instanceof Type || this instanceof Service || this instanceof Enum || this instanceof Field)) {
+        // This is a package or a root namespace.
+        if (!object._edition) {
+            // Make sure that some edition is set if it hasn't already been specified.
+            object._edition = object._defaultEdition;
+        }
+    }
+
+    this._needsRecursiveFeatureResolution = true;
+    this._needsRecursiveResolve = true;
+
+    // Also clear parent caches, since they need to recurse down.
+    var parent = this;
+    while(parent = parent.parent) {
+        parent._needsRecursiveFeatureResolution = true;
+        parent._needsRecursiveResolve = true;
+    }
+
     object.onAdd(this);
     return clearCache(this);
 };
@@ -103673,13 +101050,35 @@ Namespace.prototype.define = function define(path, json) {
  * @returns {Namespace} `this`
  */
 Namespace.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
+    this._resolveFeaturesRecursive(this._edition);
+
     var nested = this.nestedArray, i = 0;
+    this.resolve();
     while (i < nested.length)
         if (nested[i] instanceof Namespace)
             nested[i++].resolveAll();
         else
             nested[i++].resolve();
-    return this.resolve();
+    this._needsRecursiveResolve = false;
+    return this;
+};
+
+/**
+ * @override
+ */
+Namespace.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+    this._needsRecursiveFeatureResolution = false;
+
+    edition = this._edition || edition;
+
+    ReflectionObject.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.nestedArray.forEach(nested => {
+        nested._resolveFeaturesRecursive(edition);
+    });
+    return this;
 };
 
 /**
@@ -103690,7 +101089,6 @@ Namespace.prototype.resolveAll = function resolveAll() {
  * @returns {ReflectionObject|null} Looked up object or `null` if none could be found
  */
 Namespace.prototype.lookup = function lookup(path, filterTypes, parentAlreadyChecked) {
-
     /* istanbul ignore next */
     if (typeof filterTypes === "boolean") {
         parentAlreadyChecked = filterTypes;
@@ -103705,29 +101103,72 @@ Namespace.prototype.lookup = function lookup(path, filterTypes, parentAlreadyChe
     } else if (!path.length)
         return this;
 
+    var flatPath = path.join(".");
+
     // Start at root if path is absolute
     if (path[0] === "")
         return this.root.lookup(path.slice(1), filterTypes);
 
+    // Early bailout for objects with matching absolute paths
+    var found = this.root._fullyQualifiedObjects && this.root._fullyQualifiedObjects["." + flatPath];
+    if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+        return found;
+    }
+
+    // Do a regular lookup at this namespace and below
+    found = this._lookupImpl(path, flatPath);
+    if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+        return found;
+    }
+
+    if (parentAlreadyChecked)
+        return null;
+
+    // If there hasn't been a match, walk up the tree and look more broadly
+    var current = this;
+    while (current.parent) {
+        found = current.parent._lookupImpl(path, flatPath);
+        if (found && (!filterTypes || filterTypes.indexOf(found.constructor) > -1)) {
+            return found;
+        }
+        current = current.parent;
+    }
+    return null;
+};
+
+/**
+ * Internal helper for lookup that handles searching just at this namespace and below along with caching.
+ * @param {string[]} path Path to look up
+ * @param {string} flatPath Flattened version of the path to use as a cache key
+ * @returns {ReflectionObject|null} Looked up object or `null` if none could be found
+ * @private
+ */
+Namespace.prototype._lookupImpl = function lookup(path, flatPath) {
+    if(Object.prototype.hasOwnProperty.call(this._lookupCache, flatPath)) {
+        return this._lookupCache[flatPath];
+    }
+
     // Test if the first part matches any nested object, and if so, traverse if path contains more
     var found = this.get(path[0]);
+    var exact = null;
     if (found) {
         if (path.length === 1) {
-            if (!filterTypes || filterTypes.indexOf(found.constructor) > -1)
-                return found;
-        } else if (found instanceof Namespace && (found = found.lookup(path.slice(1), filterTypes, true)))
-            return found;
+            exact = found;
+        } else if (found instanceof Namespace) {
+            path = path.slice(1);
+            exact = found._lookupImpl(path, path.join("."));
+        }
 
     // Otherwise try each nested namespace
-    } else
+    } else {
         for (var i = 0; i < this.nestedArray.length; ++i)
-            if (this._nestedArray[i] instanceof Namespace && (found = this._nestedArray[i].lookup(path, filterTypes, true)))
-                return found;
+            if (this._nestedArray[i] instanceof Namespace && (found = this._nestedArray[i]._lookupImpl(path, flatPath)))
+                exact = found;
+    }
 
-    // If there hasn't been a match, try again at the parent
-    if (this.parent === null || parentAlreadyChecked)
-        return null;
-    return this.parent.lookup(path, filterTypes);
+    // Set this even when null, so that when we walk up the tree we can quickly bail on repeated checks back down.
+    this._lookupCache[flatPath] = exact;
+    return exact;
 };
 
 /**
@@ -103816,9 +101257,16 @@ module.exports = ReflectionObject;
 
 ReflectionObject.className = "ReflectionObject";
 
+const OneOf = __nccwpck_require__(44408);
 var util = __nccwpck_require__(47174);
 
 var Root; // cyclic
+
+/* eslint-disable no-warning-comments */
+// TODO: Replace with embedded proto.
+var editions2023Defaults = {enum_type: "OPEN", field_presence: "EXPLICIT", json_format: "ALLOW", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "PACKED", utf8_validation: "VERIFY"};
+var proto2Defaults = {enum_type: "CLOSED", field_presence: "EXPLICIT", json_format: "LEGACY_BEST_EFFORT", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "EXPANDED", utf8_validation: "NONE"};
+var proto3Defaults = {enum_type: "OPEN", field_presence: "IMPLICIT", json_format: "ALLOW", message_encoding: "LENGTH_PREFIXED", repeated_field_encoding: "PACKED", utf8_validation: "VERIFY"};
 
 /**
  * Constructs a new reflection object instance.
@@ -103853,6 +101301,35 @@ function ReflectionObject(name, options) {
      * @type {string}
      */
     this.name = name;
+
+    /**
+     * The edition specified for this object.  Only relevant for top-level objects.
+     * @type {string}
+     * @private
+     */
+    this._edition = null;
+
+    /**
+     * The default edition to use for this object if none is specified.  For legacy reasons,
+     * this is proto2 except in the JSON parsing case where it was proto3.
+     * @type {string}
+     * @private
+     */
+    this._defaultEdition = "proto2";
+
+    /**
+     * Resolved Features.
+     * @type {object}
+     * @private
+     */
+    this._features = {};
+
+    /**
+     * Whether or not features have been resolved.
+     * @type {boolean}
+     * @private
+     */
+    this._featuresResolved = false;
 
     /**
      * Parent namespace.
@@ -103965,6 +101442,83 @@ ReflectionObject.prototype.resolve = function resolve() {
 };
 
 /**
+ * Resolves this objects editions features.
+ * @param {string} edition The edition we're currently resolving for.
+ * @returns {ReflectionObject} `this`
+ */
+ReflectionObject.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    return this._resolveFeatures(this._edition || edition);
+};
+
+/**
+ * Resolves child features from parent features
+ * @param {string} edition The edition we're currently resolving for.
+ * @returns {undefined}
+ */
+ReflectionObject.prototype._resolveFeatures = function _resolveFeatures(edition) {
+    if (this._featuresResolved) {
+        return;
+    }
+
+    var defaults = {};
+
+    /* istanbul ignore if */
+    if (!edition) {
+        throw new Error("Unknown edition for " + this.fullName);
+    }
+
+    var protoFeatures = Object.assign(this.options ? Object.assign({},  this.options.features) : {},
+        this._inferLegacyProtoFeatures(edition));
+
+    if (this._edition) {
+        // For a namespace marked with a specific edition, reset defaults.
+        /* istanbul ignore else */
+        if (edition === "proto2") {
+            defaults = Object.assign({}, proto2Defaults);
+        } else if (edition === "proto3") {
+            defaults = Object.assign({}, proto3Defaults);
+        } else if (edition === "2023") {
+            defaults = Object.assign({}, editions2023Defaults);
+        } else {
+            throw new Error("Unknown edition: " + edition);
+        }
+        this._features = Object.assign(defaults, protoFeatures || {});
+        this._featuresResolved = true;
+        return;
+    }
+
+    // fields in Oneofs aren't actually children of them, so we have to
+    // special-case it
+    /* istanbul ignore else */
+    if (this.partOf instanceof OneOf) {
+        var lexicalParentFeaturesCopy = Object.assign({}, this.partOf._features);
+        this._features = Object.assign(lexicalParentFeaturesCopy, protoFeatures || {});
+    } else if (this.declaringField) {
+        // Skip feature resolution of sister fields.
+    } else if (this.parent) {
+        var parentFeaturesCopy = Object.assign({}, this.parent._features);
+        this._features = Object.assign(parentFeaturesCopy, protoFeatures || {});
+    } else {
+        throw new Error("Unable to find a parent for " + this.fullName);
+    }
+    if (this.extensionField) {
+        // Sister fields should have the same features as their extensions.
+        this.extensionField._features = this._features;
+    }
+    this._featuresResolved = true;
+};
+
+/**
+ * Infers features from legacy syntax that may have been specified differently.
+ * in older editions.
+ * @param {string|undefined} edition The edition this proto is on, or undefined if pre-editions
+ * @returns {object} The feature values to override
+ */
+ReflectionObject.prototype._inferLegacyProtoFeatures = function _inferLegacyProtoFeatures(/*edition*/) {
+    return {};
+};
+
+/**
  * Gets an option value.
  * @param {string} name Option name
  * @returns {*} Option value or `undefined` if not set
@@ -103979,12 +101533,19 @@ ReflectionObject.prototype.getOption = function getOption(name) {
  * Sets an option.
  * @param {string} name Option name
  * @param {*} value Option value
- * @param {boolean} [ifNotSet] Sets the option only if it isn't currently set
+ * @param {boolean|undefined} [ifNotSet] Sets the option only if it isn't currently set
  * @returns {ReflectionObject} `this`
  */
 ReflectionObject.prototype.setOption = function setOption(name, value, ifNotSet) {
-    if (!ifNotSet || !this.options || this.options[name] === undefined)
-        (this.options || (this.options = {}))[name] = value;
+    if (!this.options)
+        this.options = {};
+    if (/^features\./.test(name)) {
+        util.setProperty(this.options, name, value, ifNotSet);
+    } else if (!ifNotSet || this.options[name] === undefined) {
+        if (this.getOption(name) !== value) this.resolved = false;
+        this.options[name] = value;
+    }
+
     return this;
 };
 
@@ -104008,10 +101569,11 @@ ReflectionObject.prototype.setParsedOption = function setParsedOption(name, valu
         });
         if (opt) {
             // If we found an existing option - just merge the property value
+            // (If it's a feature, will just write over)
             var newValue = opt[name];
             util.setProperty(newValue, propName, value);
         } else {
-            // otherwise, create a new option, set it's property and add it to the list
+            // otherwise, create a new option, set its property and add it to the list
             opt = {};
             opt[name] = util.setProperty({}, propName, value);
             parsedOptions.push(opt);
@@ -104022,6 +101584,7 @@ ReflectionObject.prototype.setParsedOption = function setParsedOption(name, valu
         newOpt[name] = value;
         parsedOptions.push(newOpt);
     }
+
     return this;
 };
 
@@ -104048,6 +101611,19 @@ ReflectionObject.prototype.toString = function toString() {
     if (fullName.length)
         return className + " " + fullName;
     return className;
+};
+
+/**
+ * Converts the edition this object is pinned to for JSON format.
+ * @returns {string|undefined} The edition string for JSON representation
+ */
+ReflectionObject.prototype._editionToJSON = function _editionToJSON() {
+    if (!this._edition || this._edition === "proto3") {
+        // Avoid emitting proto3 since we need to default to it for backwards
+        // compatibility anyway.
+        return undefined;
+    }
+    return this._edition;
 };
 
 // Sets up cyclic dependencies (called in index-light)
@@ -104236,6 +101812,25 @@ OneOf.prototype.onRemove = function onRemove(parent) {
 };
 
 /**
+ * Determines whether this field corresponds to a synthetic oneof created for
+ * a proto3 optional field.  No behavioral logic should depend on this, but it
+ * can be relevant for reflection.
+ * @name OneOf#isProto3Optional
+ * @type {boolean}
+ * @readonly
+ */
+Object.defineProperty(OneOf.prototype, "isProto3Optional", {
+    get: function() {
+        if (this.fieldsArray == null || this.fieldsArray.length !== 1) {
+            return false;
+        }
+
+        var field = this.fieldsArray[0];
+        return field.options != null && field.options["proto3_optional"] === true;
+    }
+});
+
+/**
  * Decorator function as returned by {@link OneOf.d} (TypeScript).
  * @typedef OneOfDecorator
  * @type {function}
@@ -104288,6 +101883,7 @@ var tokenize  = __nccwpck_require__(61157),
     Enum      = __nccwpck_require__(17732),
     Service   = __nccwpck_require__(6178),
     Method    = __nccwpck_require__(57771),
+    ReflectionObject = __nccwpck_require__(83575),
     types     = __nccwpck_require__(6581),
     util      = __nccwpck_require__(47174);
 
@@ -104299,8 +101895,7 @@ var base10Re    = /^[1-9][0-9]*$/,
     base8NegRe  = /^-?0[0-7]+$/,
     numberRe    = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/,
     nameRe      = /^[a-zA-Z_][a-zA-Z_0-9]*$/,
-    typeRefRe   = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/,
-    fqTypeRefRe = /^(?:\.[a-zA-Z_][a-zA-Z_0-9]*)+$/;
+    typeRefRe   = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/;
 
 /**
  * Result object returned from {@link parse}.
@@ -104308,7 +101903,6 @@ var base10Re    = /^[1-9][0-9]*$/,
  * @property {string|undefined} package Package name, if declared
  * @property {string[]|undefined} imports Imports, if any
  * @property {string[]|undefined} weakImports Weak imports, if any
- * @property {string|undefined} syntax Syntax, if specified (either `"proto2"` or `"proto3"`)
  * @property {Root} root Populated root instance
  */
 
@@ -104356,12 +101950,24 @@ function parse(source, root, options) {
         pkg,
         imports,
         weakImports,
-        syntax,
-        isProto3 = false;
+        edition = "proto2";
 
     var ptr = root;
 
+    var topLevelObjects = [];
+    var topLevelOptions = {};
+
     var applyCase = options.keepCase ? function(name) { return name; } : util.camelCase;
+
+    function resolveFileFeatures() {
+        topLevelObjects.forEach(obj => {
+            obj._edition = edition;
+            Object.keys(topLevelOptions).forEach(opt => {
+                if (obj.getOption(opt) !== undefined) return;
+                obj.setOption(opt, topLevelOptions[opt], true);
+            });
+        });
+    }
 
     /* istanbul ignore next */
     function illegal(token, name, insideTryCatch) {
@@ -104401,7 +102007,6 @@ function parse(source, root, options) {
         try {
             return parseNumber(token, /* insideTryCatch */ true);
         } catch (e) {
-
             /* istanbul ignore else */
             if (acceptTypeRef && typeRefRe.test(token))
                 return token;
@@ -104414,10 +102019,23 @@ function parse(source, root, options) {
     function readRanges(target, acceptStrings) {
         var token, start;
         do {
-            if (acceptStrings && ((token = peek()) === "\"" || token === "'"))
-                target.push(readString());
-            else
-                target.push([ start = parseId(next()), skip("to", true) ? parseId(next()) : start ]);
+            if (acceptStrings && ((token = peek()) === "\"" || token === "'")) {
+                var str = readString();
+                target.push(str);
+                if (edition >= 2023) {
+                    throw illegal(str, "id");
+                }
+            } else {
+                try {
+                    target.push([ start = parseId(next()), skip("to", true) ? parseId(next()) : start ]);
+                } catch (err) {
+                    if (acceptStrings && typeRefRe.test(token) && edition >= 2023) {
+                        target.push(token);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
         } while (skip(",", true));
         var dummy = {options: undefined};
         dummy.setOption = function(name, value) {
@@ -104494,7 +102112,6 @@ function parse(source, root, options) {
     }
 
     function parsePackage() {
-
         /* istanbul ignore if */
         if (pkg !== undefined)
             throw illegal("package");
@@ -104506,6 +102123,7 @@ function parse(source, root, options) {
             throw illegal(pkg, "name");
 
         ptr = ptr.define(pkg);
+
         skip(";");
     }
 
@@ -104531,15 +102149,27 @@ function parse(source, root, options) {
 
     function parseSyntax() {
         skip("=");
-        syntax = readString();
-        isProto3 = syntax === "proto3";
+        edition = readString();
 
         /* istanbul ignore if */
-        if (!isProto3 && syntax !== "proto2")
-            throw illegal(syntax, "syntax");
+        if (edition < 2023)
+            throw illegal(edition, "syntax");
 
         skip(";");
     }
+
+    function parseEdition() {
+        skip("=");
+        edition = readString();
+        const supportedEditions = ["2023"];
+
+        /* istanbul ignore if */
+        if (!supportedEditions.includes(edition))
+            throw illegal(edition, "edition");
+
+        skip(";");
+    }
+
 
     function parseCommon(parent, token) {
         switch (token) {
@@ -104608,14 +102238,19 @@ function parse(source, root, options) {
                     break;
 
                 case "required":
+                    if (edition !== "proto2")
+                        throw illegal(token);
+                /* eslint-disable no-fallthrough */
                 case "repeated":
                     parseField(type, token);
                     break;
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
+                    if (edition === "proto3") {
                         parseField(type, "proto3_optional");
+                    } else if (edition !== "proto2") {
+                        throw illegal(token);
                     } else {
                         parseField(type, "optional");
                     }
@@ -104635,8 +102270,9 @@ function parse(source, root, options) {
 
                 default:
                     /* istanbul ignore if */
-                    if (!isProto3 || !typeRefRe.test(token))
+                    if (edition === "proto2" || !typeRefRe.test(token)) {
                         throw illegal(token);
+                    }
 
                     push(token);
                     parseField(type, "optional");
@@ -104644,6 +102280,9 @@ function parse(source, root, options) {
             }
         });
         parent.add(type);
+        if (parent === ptr) {
+            topLevelObjects.push(type);
+        }
     }
 
     function parseField(parent, rule, extend) {
@@ -104670,6 +102309,7 @@ function parse(source, root, options) {
         var name = next();
 
         /* istanbul ignore if */
+
         if (!nameRe.test(name))
             throw illegal(name, "name");
 
@@ -104677,6 +102317,7 @@ function parse(source, root, options) {
         skip("=");
 
         var field = new Field(name, parseId(next()), type, rule, extend);
+
         ifBlock(field, function parseField_block(token) {
 
             /* istanbul ignore else */
@@ -104699,15 +102340,15 @@ function parse(source, root, options) {
         } else {
             parent.add(field);
         }
-
-        // JSON defaults to packed=true if not set so we have to set packed=false explicity when
-        // parsing proto2 descriptors without the option, where applicable. This must be done for
-        // all known packable types and anything that could be an enum (= is not a basic type).
-        if (!isProto3 && field.repeated && (types.packed[type] !== undefined || types.basic[type] === undefined))
-            field.setOption("packed", false, /* ifNotSet */ true);
+        if (parent === ptr) {
+            topLevelObjects.push(field);
+        }
     }
 
     function parseGroup(parent, rule) {
+        if (edition >= 2023) {
+            throw illegal("group");
+        }
         var name = next();
 
         /* istanbul ignore if */
@@ -104730,7 +102371,6 @@ function parse(source, root, options) {
                     parseOption(type, token);
                     skip(";");
                     break;
-
                 case "required":
                 case "repeated":
                     parseField(type, token);
@@ -104738,7 +102378,7 @@ function parse(source, root, options) {
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
+                    if (edition === "proto3") {
                         parseField(type, "proto3_optional");
                     } else {
                         parseField(type, "optional");
@@ -104751,6 +102391,10 @@ function parse(source, root, options) {
 
                 case "enum":
                     parseEnum(type, token);
+                    break;
+
+                case "reserved":
+                    readRanges(type.reserved || (type.reserved = []), true);
                     break;
 
                 /* istanbul ignore next */
@@ -104836,6 +102480,7 @@ function parse(source, root, options) {
 
             case "reserved":
               readRanges(enm.reserved || (enm.reserved = []), true);
+              if(enm.reserved === undefined) enm.reserved = [];
               break;
 
             default:
@@ -104843,6 +102488,9 @@ function parse(source, root, options) {
           }
         });
         parent.add(enm);
+        if (parent === ptr) {
+            topLevelObjects.push(enm);
+        }
     }
 
     function parseEnumValue(parent, token) {
@@ -104856,10 +102504,14 @@ function parse(source, root, options) {
             dummy = {
                 options: undefined
             };
+        dummy.getOption = function(name) {
+            return this.options[name];
+        };
         dummy.setOption = function(name, value) {
-            if (this.options === undefined)
-                this.options = {};
-            this.options[name] = value;
+            ReflectionObject.prototype.setOption.call(dummy, name, value);
+        };
+        dummy.setParsedOption = function() {
+            return undefined;
         };
         ifBlock(dummy, function parseEnumValue_block(token) {
 
@@ -104873,34 +102525,42 @@ function parse(source, root, options) {
         }, function parseEnumValue_line() {
             parseInlineOptions(dummy); // skip
         });
-        parent.add(token, value, dummy.comment, dummy.options);
+        parent.add(token, value, dummy.comment, dummy.parsedOptions || dummy.options);
     }
 
     function parseOption(parent, token) {
-        var isCustom = skip("(", true);
-
-        /* istanbul ignore if */
-        if (!typeRefRe.test(token = next()))
-            throw illegal(token, "name");
-
-        var name = token;
-        var option = name;
-        var propName;
-
-        if (isCustom) {
-            skip(")");
-            name = "(" + name + ")";
-            option = name;
-            token = peek();
-            if (fqTypeRefRe.test(token)) {
-                propName = token.slice(1); //remove '.' before property name
-                name += token;
-                next();
+            var option;
+            var propName;
+            var isOption = true;
+            if (token === "option") {
+                token = next();
             }
-        }
-        skip("=");
-        var optionValue = parseOptionValue(parent, name);
-        setParsedOption(parent, option, optionValue, propName);
+
+            while (token !== "=") {
+                if (token === "(") {
+                    var parensValue = next();
+                    skip(")");
+                    token = "(" + parensValue + ")";
+                }
+                if (isOption) {
+                    isOption = false;
+                    if (token.includes(".") && !token.includes("(")) {
+                        var tokens = token.split(".");
+                        option = tokens[0] + ".";
+                        token = tokens[1];
+                        continue;
+                    }
+                    option = token;
+                } else {
+                    propName = propName ? propName += token : token;
+                }
+                token = next();
+            }
+            var name = propName ? option.concat(propName) : option;
+            var optionValue = parseOptionValue(parent, name);
+            propName = propName && propName[0] === "." ? propName.slice(1) : propName;
+            option = option && option[option.length - 1] === "." ? option.slice(0, -1) : option;
+            setParsedOption(parent, option, optionValue, propName);
     }
 
     function parseOptionValue(parent, name) {
@@ -104922,12 +102582,12 @@ function parse(source, root, options) {
 
                 skip(":", true);
 
-                if (peek() === "{")
-                    value = parseOptionValue(parent, name + "." + token);
-                else if (peek() === "[") {
+                if (peek() === "{") {
                     // option (my_option) = {
                     //     repeated_value: [ "foo", "bar" ]
                     // };
+                    value = parseOptionValue(parent, name + "." + token);
+                } else if (peek() === "[") {
                     value = [];
                     var lastValue;
                     if (skip("[", true)) {
@@ -104967,6 +102627,10 @@ function parse(source, root, options) {
     }
 
     function setOption(parent, name, value) {
+        if (ptr === parent && /^features\./.test(name)) {
+            topLevelOptions[name] = value;
+            return;
+        }
         if (parent.setOption)
             parent.setOption(name, value);
     }
@@ -104994,8 +102658,9 @@ function parse(source, root, options) {
 
         var service = new Service(token);
         ifBlock(service, function parseService_block(token) {
-            if (parseCommon(service, token))
+            if (parseCommon(service, token)) {
                 return;
+            }
 
             /* istanbul ignore else */
             if (token === "rpc")
@@ -105004,6 +102669,9 @@ function parse(source, root, options) {
                 throw illegal(token);
         });
         parent.add(service);
+        if (parent === ptr) {
+            topLevelObjects.push(service);
+        }
     }
 
     function parseMethod(parent, token) {
@@ -105073,7 +102741,7 @@ function parse(source, root, options) {
 
                 case "optional":
                     /* istanbul ignore if */
-                    if (isProto3) {
+                    if (edition === "proto3") {
                         parseField(parent, "proto3_optional", reference);
                     } else {
                         parseField(parent, "optional", reference);
@@ -105082,7 +102750,7 @@ function parse(source, root, options) {
 
                 default:
                     /* istanbul ignore if */
-                    if (!isProto3 || !typeRefRe.test(token))
+                    if (edition === "proto2" || !typeRefRe.test(token))
                         throw illegal(token);
                     push(token);
                     parseField(parent, "optional", reference);
@@ -105122,10 +102790,16 @@ function parse(source, root, options) {
                 parseSyntax();
                 break;
 
-            case "option":
+            case "edition":
+                /* istanbul ignore if */
+                if (!head)
+                    throw illegal(token);
+                parseEdition();
+                break;
 
+            case "option":
                 parseOption(ptr, token);
-                skip(";");
+                skip(";", true);
                 break;
 
             default:
@@ -105141,12 +102815,13 @@ function parse(source, root, options) {
         }
     }
 
+    resolveFileFeatures();
+
     parse.filename = null;
     return {
         "package"     : pkg,
         "imports"     : imports,
          weakImports  : weakImports,
-         syntax       : syntax,
          root         : root
     };
 }
@@ -105690,11 +103365,25 @@ function Root(options) {
      * @type {string[]}
      */
     this.files = [];
+
+    /**
+     * Edition, defaults to proto2 if unspecified.
+     * @type {string}
+     * @private
+     */
+    this._edition = "proto2";
+
+    /**
+     * Global lookup cache of fully qualified names.
+     * @type {Object.<string,ReflectionObject>}
+     * @private
+     */
+    this._fullyQualifiedObjects = {};
 }
 
 /**
  * Loads a namespace descriptor into a root namespace.
- * @param {INamespace} json Nameespace descriptor
+ * @param {INamespace} json Namespace descriptor
  * @param {Root} [root] Root namespace, defaults to create a new one if omitted
  * @returns {Root} Root namespace
  */
@@ -105703,7 +103392,7 @@ Root.fromJSON = function fromJSON(json, root) {
         root = new Root();
     if (json.options)
         root.setOptions(json.options);
-    return root.addJSON(json.nested);
+    return root.addJSON(json.nested).resolveAll();
 };
 
 /**
@@ -105743,18 +103432,24 @@ Root.prototype.load = function load(filename, options, callback) {
         options = undefined;
     }
     var self = this;
-    if (!callback)
+    if (!callback) {
         return util.asPromise(load, self, filename, options);
+    }
 
     var sync = callback === SYNC; // undocumented
 
     // Finishes loading by calling the callback (exactly once)
     function finish(err, root) {
         /* istanbul ignore if */
-        if (!callback)
+        if (!callback) {
             return;
-        if (sync)
+        }
+        if (sync) {
             throw err;
+        }
+        if (root) {
+            root.resolveAll();
+        }
         var cb = callback;
         callback = null;
         cb(err, root);
@@ -105794,8 +103489,9 @@ Root.prototype.load = function load(filename, options, callback) {
         } catch (err) {
             finish(err);
         }
-        if (!sync && !queued)
+        if (!sync && !queued) {
             finish(null, self); // only once anyway
+        }
     }
 
     // Fetches a single file
@@ -105803,15 +103499,16 @@ Root.prototype.load = function load(filename, options, callback) {
         filename = getBundledFileName(filename) || filename;
 
         // Skip if already loaded / attempted
-        if (self.files.indexOf(filename) > -1)
+        if (self.files.indexOf(filename) > -1) {
             return;
+        }
         self.files.push(filename);
 
         // Shortcut bundled definitions
         if (filename in common) {
-            if (sync)
+            if (sync) {
                 process(filename, common[filename]);
-            else {
+            } else {
                 ++queued;
                 setTimeout(function() {
                     --queued;
@@ -105837,8 +103534,9 @@ Root.prototype.load = function load(filename, options, callback) {
             self.fetch(filename, function(err, source) {
                 --queued;
                 /* istanbul ignore if */
-                if (!callback)
+                if (!callback) {
                     return; // terminated meanwhile
+                }
                 if (err) {
                     /* istanbul ignore else */
                     if (!weak)
@@ -105855,17 +103553,21 @@ Root.prototype.load = function load(filename, options, callback) {
 
     // Assembling the root namespace doesn't require working type
     // references anymore, so we can load everything in parallel
-    if (util.isString(filename))
+    if (util.isString(filename)) {
         filename = [ filename ];
+    }
     for (var i = 0, resolved; i < filename.length; ++i)
         if (resolved = self.resolvePath("", filename[i]))
             fetch(resolved);
-
-    if (sync)
+    if (sync) {
+        self.resolveAll();
         return self;
-    if (!queued)
+    }
+    if (!queued) {
         finish(null, self);
-    return undefined;
+    }
+
+    return self;
 };
 // function load(filename:string, options:IParseOptions, callback:LoadCallback):undefined
 
@@ -105907,6 +103609,8 @@ Root.prototype.loadSync = function loadSync(filename, options) {
  * @override
  */
 Root.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
     if (this.deferred.length)
         throw Error("unresolvable extensions: " + this.deferred.map(function(field) {
             return "'extend " + field.extend + "' in " + field.parent.fullName;
@@ -105973,6 +103677,11 @@ Root.prototype._handleAdd = function _handleAdd(object) {
             object.parent[object.name] = object; // expose namespace as property of its parent
     }
 
+    if (object instanceof Type || object instanceof Enum || object instanceof Field) {
+        // Only store types and enums for quick lookup during resolve.
+        this._fullyQualifiedObjects[object.fullName] = object;
+    }
+
     // The above also adds uppercased (and thus conflict-free) nested types, services and enums as
     // properties of namespaces just like static code does. This allows using a .d.ts generated for
     // a static module with reflection-based solutions where the condition is met.
@@ -106013,6 +103722,8 @@ Root.prototype._handleRemove = function _handleRemove(object) {
             delete object.parent[object.name]; // unexpose namespaces
 
     }
+
+    delete this._fullyQualifiedObjects[object.fullName];
 };
 
 // Sets up cyclic dependencies (called in index-light)
@@ -106308,7 +104019,10 @@ Service.fromJSON = function fromJSON(name, json) {
             service.add(Method.fromJSON(names[i], json.methods[names[i]]));
     if (json.nested)
         service.addJSON(json.nested);
+    if (json.edition)
+        service._edition = json.edition;
     service.comment = json.comment;
+    service._defaultEdition = "proto3";  // For backwards-compatibility.
     return service;
 };
 
@@ -106321,6 +104035,7 @@ Service.prototype.toJSON = function toJSON(toJSONOptions) {
     var inherited = Namespace.prototype.toJSON.call(this, toJSONOptions);
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition" , this._editionToJSON(),
         "options" , inherited && inherited.options || undefined,
         "methods" , Namespace.arrayToJSON(this.methodsArray, toJSONOptions) || /* istanbul ignore next */ {},
         "nested"  , inherited && inherited.nested || undefined,
@@ -106357,10 +104072,28 @@ Service.prototype.get = function get(name) {
  * @override
  */
 Service.prototype.resolveAll = function resolveAll() {
+    if (!this._needsRecursiveResolve) return this;
+
+    Namespace.prototype.resolve.call(this);
     var methods = this.methodsArray;
     for (var i = 0; i < methods.length; ++i)
         methods[i].resolve();
-    return Namespace.prototype.resolve.call(this);
+    return this;
+};
+
+/**
+ * @override
+ */
+Service.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+
+    edition = this._edition || edition;
+
+    Namespace.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.methodsArray.forEach(method => {
+        method._resolveFeaturesRecursive(edition);
+    });
+    return this;
 };
 
 /**
@@ -107122,6 +104855,9 @@ Type.fromJSON = function fromJSON(name, json) {
         type.group = true;
     if (json.comment)
         type.comment = json.comment;
+    if (json.edition)
+        type._edition = json.edition;
+    type._defaultEdition = "proto3";  // For backwards-compatibility.
     return type;
 };
 
@@ -107134,6 +104870,7 @@ Type.prototype.toJSON = function toJSON(toJSONOptions) {
     var inherited = Namespace.prototype.toJSON.call(this, toJSONOptions);
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
+        "edition"    , this._editionToJSON(),
         "options"    , inherited && inherited.options || undefined,
         "oneofs"     , Namespace.arrayToJSON(this.oneofsArray, toJSONOptions),
         "fields"     , Namespace.arrayToJSON(this.fieldsArray.filter(function(obj) { return !obj.declaringField; }), toJSONOptions) || {},
@@ -107149,13 +104886,34 @@ Type.prototype.toJSON = function toJSON(toJSONOptions) {
  * @override
  */
 Type.prototype.resolveAll = function resolveAll() {
-    var fields = this.fieldsArray, i = 0;
-    while (i < fields.length)
-        fields[i++].resolve();
+    if (!this._needsRecursiveResolve) return this;
+
+    Namespace.prototype.resolveAll.call(this);
     var oneofs = this.oneofsArray; i = 0;
     while (i < oneofs.length)
         oneofs[i++].resolve();
-    return Namespace.prototype.resolveAll.call(this);
+    var fields = this.fieldsArray, i = 0;
+    while (i < fields.length)
+        fields[i++].resolve();
+    return this;
+};
+
+/**
+ * @override
+ */
+Type.prototype._resolveFeaturesRecursive = function _resolveFeaturesRecursive(edition) {
+    if (!this._needsRecursiveFeatureResolution) return this;
+
+    edition = this._edition || edition;
+
+    Namespace.prototype._resolveFeaturesRecursive.call(this, edition);
+    this.oneofsArray.forEach(oneof => {
+        oneof._resolveFeatures(edition);
+    });
+    this.fieldsArray.forEach(field => {
+        field._resolveFeatures(edition);
+    });
+    return this;
 };
 
 /**
@@ -107822,9 +105580,10 @@ util.decorateEnum = function decorateEnum(object) {
  * @param {Object.<string,*>} dst Destination object
  * @param {string} path dot '.' delimited path of the property to set
  * @param {Object} value the value to set
+ * @param {boolean|undefined} [ifNotSet] Sets the option only if it isn't currently set
  * @returns {Object.<string,*>} Destination object
  */
-util.setProperty = function setProperty(dst, path, value) {
+util.setProperty = function setProperty(dst, path, value, ifNotSet) {
     function setProp(dst, path, value) {
         var part = path.shift();
         if (part === "__proto__" || part === "prototype") {
@@ -107834,6 +105593,8 @@ util.setProperty = function setProperty(dst, path, value) {
             dst[part] = setProp(dst[part] || {}, path, value);
         } else {
             var prevValue = dst[part];
+            if (prevValue && ifNotSet)
+                return dst;
             if (prevValue)
                 value = [].concat(prevValue).concat(value);
             dst[part] = value;
@@ -115103,7 +112864,7 @@ function _resolvePath(name, tmpDir, cb) {
         cb(null, path.join(parentDir, path.basename(pathToResolve)));
       });
     } else {
-      fs.realpath(pathToResolve, cb);
+      fs.realpath(path, cb);
     }
   });
 }
@@ -117480,1440 +115241,1624 @@ module.exports = require("zlib");
 /***/ }),
 
 /***/ 52694:
-/***/ ((module) => {
+/***/ (function(module, exports) {
 
 // GENERATED FILE. DO NOT EDIT.
-var Long = (function(exports) {
-  "use strict";
-  
-  Object.defineProperty(exports, "__esModule", {
-    value: true
-  });
-  exports.default = void 0;
-  
-  /**
-   * @license
-   * Copyright 2009 The Closure Library Authors
-   * Copyright 2020 Daniel Wirtz / The long.js Authors.
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *     http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *
-   * SPDX-License-Identifier: Apache-2.0
-   */
-  // WebAssembly optimizations to do native i64 multiplication and divide
-  var wasm = null;
-  
-  try {
-    wasm = new WebAssembly.Instance(new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 13, 2, 96, 0, 1, 127, 96, 4, 127, 127, 127, 127, 1, 127, 3, 7, 6, 0, 1, 1, 1, 1, 1, 6, 6, 1, 127, 1, 65, 0, 11, 7, 50, 6, 3, 109, 117, 108, 0, 1, 5, 100, 105, 118, 95, 115, 0, 2, 5, 100, 105, 118, 95, 117, 0, 3, 5, 114, 101, 109, 95, 115, 0, 4, 5, 114, 101, 109, 95, 117, 0, 5, 8, 103, 101, 116, 95, 104, 105, 103, 104, 0, 0, 10, 191, 1, 6, 4, 0, 35, 0, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 126, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 127, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 128, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 129, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 130, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11])), {}).exports;
-  } catch (e) {// no wasm support :(
+(function (global, factory) {
+  function preferDefault(exports) {
+    return exports.default || exports;
   }
-  /**
-   * Constructs a 64 bit two's-complement integer, given its low and high 32 bit values as *signed* integers.
-   *  See the from* functions below for more convenient ways of constructing Longs.
-   * @exports Long
-   * @class A Long class for representing a 64 bit two's-complement integer value.
-   * @param {number} low The low (signed) 32 bits of the long
-   * @param {number} high The high (signed) 32 bits of the long
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @constructor
-   */
-  
-  
-  function Long(low, high, unsigned) {
+  if (typeof define === "function" && define.amd) {
+    define([], function () {
+      var exports = {};
+      factory(exports);
+      return preferDefault(exports);
+    });
+  } else if (true) {
+    factory(exports);
+    if (true) module.exports = preferDefault(exports);
+  } else {}
+})(
+  typeof globalThis !== "undefined"
+    ? globalThis
+    : typeof self !== "undefined"
+      ? self
+      : this,
+  function (_exports) {
+    "use strict";
+
+    Object.defineProperty(_exports, "__esModule", {
+      value: true,
+    });
+    _exports.default = void 0;
     /**
-     * The low 32 bits as a signed value.
-     * @type {number}
+     * @license
+     * Copyright 2009 The Closure Library Authors
+     * Copyright 2020 Daniel Wirtz / The long.js Authors.
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *     http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     *
+     * SPDX-License-Identifier: Apache-2.0
      */
-    this.low = low | 0;
+
+    // WebAssembly optimizations to do native i64 multiplication and divide
+    var wasm = null;
+    try {
+      wasm = new WebAssembly.Instance(
+        new WebAssembly.Module(
+          new Uint8Array([
+            // \0asm
+            0, 97, 115, 109,
+            // version 1
+            1, 0, 0, 0,
+            // section "type"
+            1, 13, 2,
+            // 0, () => i32
+            96, 0, 1, 127,
+            // 1, (i32, i32, i32, i32) => i32
+            96, 4, 127, 127, 127, 127, 1, 127,
+            // section "function"
+            3, 7, 6,
+            // 0, type 0
+            0,
+            // 1, type 1
+            1,
+            // 2, type 1
+            1,
+            // 3, type 1
+            1,
+            // 4, type 1
+            1,
+            // 5, type 1
+            1,
+            // section "global"
+            6, 6, 1,
+            // 0, "high", mutable i32
+            127, 1, 65, 0, 11,
+            // section "export"
+            7, 50, 6,
+            // 0, "mul"
+            3, 109, 117, 108, 0, 1,
+            // 1, "div_s"
+            5, 100, 105, 118, 95, 115, 0, 2,
+            // 2, "div_u"
+            5, 100, 105, 118, 95, 117, 0, 3,
+            // 3, "rem_s"
+            5, 114, 101, 109, 95, 115, 0, 4,
+            // 4, "rem_u"
+            5, 114, 101, 109, 95, 117, 0, 5,
+            // 5, "get_high"
+            8, 103, 101, 116, 95, 104, 105, 103, 104, 0, 0,
+            // section "code"
+            10, 191, 1, 6,
+            // 0, "get_high"
+            4, 0, 35, 0, 11,
+            // 1, "mul"
+            36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173,
+            32, 3, 173, 66, 32, 134, 132, 126, 34, 4, 66, 32, 135, 167, 36, 0,
+            32, 4, 167, 11,
+            // 2, "div_s"
+            36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173,
+            32, 3, 173, 66, 32, 134, 132, 127, 34, 4, 66, 32, 135, 167, 36, 0,
+            32, 4, 167, 11,
+            // 3, "div_u"
+            36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173,
+            32, 3, 173, 66, 32, 134, 132, 128, 34, 4, 66, 32, 135, 167, 36, 0,
+            32, 4, 167, 11,
+            // 4, "rem_s"
+            36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173,
+            32, 3, 173, 66, 32, 134, 132, 129, 34, 4, 66, 32, 135, 167, 36, 0,
+            32, 4, 167, 11,
+            // 5, "rem_u"
+            36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173,
+            32, 3, 173, 66, 32, 134, 132, 130, 34, 4, 66, 32, 135, 167, 36, 0,
+            32, 4, 167, 11,
+          ]),
+        ),
+        {},
+      ).exports;
+    } catch {
+      // no wasm support :(
+    }
+
     /**
-     * The high 32 bits as a signed value.
-     * @type {number}
+     * Constructs a 64 bit two's-complement integer, given its low and high 32 bit values as *signed* integers.
+     *  See the from* functions below for more convenient ways of constructing Longs.
+     * @exports Long
+     * @class A Long class for representing a 64 bit two's-complement integer value.
+     * @param {number} low The low (signed) 32 bits of the long
+     * @param {number} high The high (signed) 32 bits of the long
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @constructor
      */
-  
-    this.high = high | 0;
+    function Long(low, high, unsigned) {
+      /**
+       * The low 32 bits as a signed value.
+       * @type {number}
+       */
+      this.low = low | 0;
+
+      /**
+       * The high 32 bits as a signed value.
+       * @type {number}
+       */
+      this.high = high | 0;
+
+      /**
+       * Whether unsigned or not.
+       * @type {boolean}
+       */
+      this.unsigned = !!unsigned;
+    }
+
+    // The internal representation of a long is the two given signed, 32-bit values.
+    // We use 32-bit pieces because these are the size of integers on which
+    // Javascript performs bit-operations.  For operations like addition and
+    // multiplication, we split each number into 16 bit pieces, which can easily be
+    // multiplied within Javascript's floating-point representation without overflow
+    // or change in sign.
+    //
+    // In the algorithms below, we frequently reduce the negative case to the
+    // positive case by negating the input(s) and then post-processing the result.
+    // Note that we must ALWAYS check specially whether those values are MIN_VALUE
+    // (-2^63) because -MIN_VALUE == MIN_VALUE (since 2^63 cannot be represented as
+    // a positive number, it overflows back into a negative).  Not handling this
+    // case would often result in infinite recursion.
+    //
+    // Common constant values ZERO, ONE, NEG_ONE, etc. are defined below the from*
+    // methods on which they depend.
+
     /**
-     * Whether unsigned or not.
+     * An indicator used to reliably determine if an object is a Long or not.
      * @type {boolean}
+     * @const
+     * @private
      */
-  
-    this.unsigned = !!unsigned;
-  } // The internal representation of a long is the two given signed, 32-bit values.
-  // We use 32-bit pieces because these are the size of integers on which
-  // Javascript performs bit-operations.  For operations like addition and
-  // multiplication, we split each number into 16 bit pieces, which can easily be
-  // multiplied within Javascript's floating-point representation without overflow
-  // or change in sign.
-  //
-  // In the algorithms below, we frequently reduce the negative case to the
-  // positive case by negating the input(s) and then post-processing the result.
-  // Note that we must ALWAYS check specially whether those values are MIN_VALUE
-  // (-2^63) because -MIN_VALUE == MIN_VALUE (since 2^63 cannot be represented as
-  // a positive number, it overflows back into a negative).  Not handling this
-  // case would often result in infinite recursion.
-  //
-  // Common constant values ZERO, ONE, NEG_ONE, etc. are defined below the from*
-  // methods on which they depend.
-  
-  /**
-   * An indicator used to reliably determine if an object is a Long or not.
-   * @type {boolean}
-   * @const
-   * @private
-   */
-  
-  
-  Long.prototype.__isLong__;
-  Object.defineProperty(Long.prototype, "__isLong__", {
-    value: true
-  });
-  /**
-   * @function
-   * @param {*} obj Object
-   * @returns {boolean}
-   * @inner
-   */
-  
-  function isLong(obj) {
-    return (obj && obj["__isLong__"]) === true;
-  }
-  /**
-   * @function
-   * @param {*} value number
-   * @returns {number}
-   * @inner
-   */
-  
-  
-  function ctz32(value) {
-    var c = Math.clz32(value & -value);
-    return value ? 31 - c : c;
-  }
-  /**
-   * Tests if the specified object is a Long.
-   * @function
-   * @param {*} obj Object
-   * @returns {boolean}
-   */
-  
-  
-  Long.isLong = isLong;
-  /**
-   * A cache of the Long representations of small integer values.
-   * @type {!Object}
-   * @inner
-   */
-  
-  var INT_CACHE = {};
-  /**
-   * A cache of the Long representations of small unsigned integer values.
-   * @type {!Object}
-   * @inner
-   */
-  
-  var UINT_CACHE = {};
-  /**
-   * @param {number} value
-   * @param {boolean=} unsigned
-   * @returns {!Long}
-   * @inner
-   */
-  
-  function fromInt(value, unsigned) {
-    var obj, cachedObj, cache;
-  
-    if (unsigned) {
-      value >>>= 0;
-  
-      if (cache = 0 <= value && value < 256) {
-        cachedObj = UINT_CACHE[value];
-        if (cachedObj) return cachedObj;
-      }
-  
-      obj = fromBits(value, 0, true);
-      if (cache) UINT_CACHE[value] = obj;
-      return obj;
-    } else {
-      value |= 0;
-  
-      if (cache = -128 <= value && value < 128) {
-        cachedObj = INT_CACHE[value];
-        if (cachedObj) return cachedObj;
-      }
-  
-      obj = fromBits(value, value < 0 ? -1 : 0, false);
-      if (cache) INT_CACHE[value] = obj;
-      return obj;
+    Long.prototype.__isLong__;
+    Object.defineProperty(Long.prototype, "__isLong__", {
+      value: true,
+    });
+
+    /**
+     * @function
+     * @param {*} obj Object
+     * @returns {boolean}
+     * @inner
+     */
+    function isLong(obj) {
+      return (obj && obj["__isLong__"]) === true;
     }
-  }
-  /**
-   * Returns a Long representing the given 32 bit integer value.
-   * @function
-   * @param {number} value The 32 bit integer in question
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {!Long} The corresponding Long value
-   */
-  
-  
-  Long.fromInt = fromInt;
-  /**
-   * @param {number} value
-   * @param {boolean=} unsigned
-   * @returns {!Long}
-   * @inner
-   */
-  
-  function fromNumber(value, unsigned) {
-    if (isNaN(value)) return unsigned ? UZERO : ZERO;
-  
-    if (unsigned) {
-      if (value < 0) return UZERO;
-      if (value >= TWO_PWR_64_DBL) return MAX_UNSIGNED_VALUE;
-    } else {
-      if (value <= -TWO_PWR_63_DBL) return MIN_VALUE;
-      if (value + 1 >= TWO_PWR_63_DBL) return MAX_VALUE;
+
+    /**
+     * @function
+     * @param {*} value number
+     * @returns {number}
+     * @inner
+     */
+    function ctz32(value) {
+      var c = Math.clz32(value & -value);
+      return value ? 31 - c : c;
     }
-  
-    if (value < 0) return fromNumber(-value, unsigned).neg();
-    return fromBits(value % TWO_PWR_32_DBL | 0, value / TWO_PWR_32_DBL | 0, unsigned);
-  }
-  /**
-   * Returns a Long representing the given value, provided that it is a finite number. Otherwise, zero is returned.
-   * @function
-   * @param {number} value The number in question
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {!Long} The corresponding Long value
-   */
-  
-  
-  Long.fromNumber = fromNumber;
-  /**
-   * @param {number} lowBits
-   * @param {number} highBits
-   * @param {boolean=} unsigned
-   * @returns {!Long}
-   * @inner
-   */
-  
-  function fromBits(lowBits, highBits, unsigned) {
-    return new Long(lowBits, highBits, unsigned);
-  }
-  /**
-   * Returns a Long representing the 64 bit integer that comes by concatenating the given low and high bits. Each is
-   *  assumed to use 32 bits.
-   * @function
-   * @param {number} lowBits The low 32 bits
-   * @param {number} highBits The high 32 bits
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {!Long} The corresponding Long value
-   */
-  
-  
-  Long.fromBits = fromBits;
-  /**
-   * @function
-   * @param {number} base
-   * @param {number} exponent
-   * @returns {number}
-   * @inner
-   */
-  
-  var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
-  
-  /**
-   * @param {string} str
-   * @param {(boolean|number)=} unsigned
-   * @param {number=} radix
-   * @returns {!Long}
-   * @inner
-   */
-  
-  function fromString(str, unsigned, radix) {
-    if (str.length === 0) throw Error('empty string');
-  
-    if (typeof unsigned === 'number') {
-      // For goog.math.long compatibility
-      radix = unsigned;
-      unsigned = false;
-    } else {
-      unsigned = !!unsigned;
-    }
-  
-    if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity") return unsigned ? UZERO : ZERO;
-    radix = radix || 10;
-    if (radix < 2 || 36 < radix) throw RangeError('radix');
-    var p;
-    if ((p = str.indexOf('-')) > 0) throw Error('interior hyphen');else if (p === 0) {
-      return fromString(str.substring(1), unsigned, radix).neg();
-    } // Do several (8) digits each time through the loop, so as to
-    // minimize the calls to the very expensive emulated div.
-  
-    var radixToPower = fromNumber(pow_dbl(radix, 8));
-    var result = ZERO;
-  
-    for (var i = 0; i < str.length; i += 8) {
-      var size = Math.min(8, str.length - i),
-          value = parseInt(str.substring(i, i + size), radix);
-  
-      if (size < 8) {
-        var power = fromNumber(pow_dbl(radix, size));
-        result = result.mul(power).add(fromNumber(value));
+
+    /**
+     * Tests if the specified object is a Long.
+     * @function
+     * @param {*} obj Object
+     * @returns {boolean}
+     */
+    Long.isLong = isLong;
+
+    /**
+     * A cache of the Long representations of small integer values.
+     * @type {!Object}
+     * @inner
+     */
+    var INT_CACHE = {};
+
+    /**
+     * A cache of the Long representations of small unsigned integer values.
+     * @type {!Object}
+     * @inner
+     */
+    var UINT_CACHE = {};
+
+    /**
+     * @param {number} value
+     * @param {boolean=} unsigned
+     * @returns {!Long}
+     * @inner
+     */
+    function fromInt(value, unsigned) {
+      var obj, cachedObj, cache;
+      if (unsigned) {
+        value >>>= 0;
+        if ((cache = 0 <= value && value < 256)) {
+          cachedObj = UINT_CACHE[value];
+          if (cachedObj) return cachedObj;
+        }
+        obj = fromBits(value, 0, true);
+        if (cache) UINT_CACHE[value] = obj;
+        return obj;
       } else {
-        result = result.mul(radixToPower);
-        result = result.add(fromNumber(value));
+        value |= 0;
+        if ((cache = -128 <= value && value < 128)) {
+          cachedObj = INT_CACHE[value];
+          if (cachedObj) return cachedObj;
+        }
+        obj = fromBits(value, value < 0 ? -1 : 0, false);
+        if (cache) INT_CACHE[value] = obj;
+        return obj;
       }
     }
-  
-    result.unsigned = unsigned;
-    return result;
-  }
-  /**
-   * Returns a Long representation of the given string, written using the specified radix.
-   * @function
-   * @param {string} str The textual representation of the Long
-   * @param {(boolean|number)=} unsigned Whether unsigned or not, defaults to signed
-   * @param {number=} radix The radix in which the text is written (2-36), defaults to 10
-   * @returns {!Long} The corresponding Long value
-   */
-  
-  
-  Long.fromString = fromString;
-  /**
-   * @function
-   * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val
-   * @param {boolean=} unsigned
-   * @returns {!Long}
-   * @inner
-   */
-  
-  function fromValue(val, unsigned) {
-    if (typeof val === 'number') return fromNumber(val, unsigned);
-    if (typeof val === 'string') return fromString(val, unsigned); // Throws for non-objects, converts non-instanceof Long:
-  
-    return fromBits(val.low, val.high, typeof unsigned === 'boolean' ? unsigned : val.unsigned);
-  }
-  /**
-   * Converts the specified value to a Long using the appropriate from* function for its type.
-   * @function
-   * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val Value
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {!Long}
-   */
-  
-  
-  Long.fromValue = fromValue; // NOTE: the compiler should inline these constant values below and then remove these variables, so there should be
-  // no runtime penalty for these.
-  
-  /**
-   * @type {number}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_16_DBL = 1 << 16;
-  /**
-   * @type {number}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_24_DBL = 1 << 24;
-  /**
-   * @type {number}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_32_DBL = TWO_PWR_16_DBL * TWO_PWR_16_DBL;
-  /**
-   * @type {number}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_64_DBL = TWO_PWR_32_DBL * TWO_PWR_32_DBL;
-  /**
-   * @type {number}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_63_DBL = TWO_PWR_64_DBL / 2;
-  /**
-   * @type {!Long}
-   * @const
-   * @inner
-   */
-  
-  var TWO_PWR_24 = fromInt(TWO_PWR_24_DBL);
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var ZERO = fromInt(0);
-  /**
-   * Signed zero.
-   * @type {!Long}
-   */
-  
-  Long.ZERO = ZERO;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var UZERO = fromInt(0, true);
-  /**
-   * Unsigned zero.
-   * @type {!Long}
-   */
-  
-  Long.UZERO = UZERO;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var ONE = fromInt(1);
-  /**
-   * Signed one.
-   * @type {!Long}
-   */
-  
-  Long.ONE = ONE;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var UONE = fromInt(1, true);
-  /**
-   * Unsigned one.
-   * @type {!Long}
-   */
-  
-  Long.UONE = UONE;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var NEG_ONE = fromInt(-1);
-  /**
-   * Signed negative one.
-   * @type {!Long}
-   */
-  
-  Long.NEG_ONE = NEG_ONE;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var MAX_VALUE = fromBits(0xFFFFFFFF | 0, 0x7FFFFFFF | 0, false);
-  /**
-   * Maximum signed value.
-   * @type {!Long}
-   */
-  
-  Long.MAX_VALUE = MAX_VALUE;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
-  /**
-   * Maximum unsigned value.
-   * @type {!Long}
-   */
-  
-  Long.MAX_UNSIGNED_VALUE = MAX_UNSIGNED_VALUE;
-  /**
-   * @type {!Long}
-   * @inner
-   */
-  
-  var MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
-  /**
-   * Minimum signed value.
-   * @type {!Long}
-   */
-  
-  Long.MIN_VALUE = MIN_VALUE;
-  /**
-   * @alias Long.prototype
-   * @inner
-   */
-  
-  var LongPrototype = Long.prototype;
-  /**
-   * Converts the Long to a 32 bit integer, assuming it is a 32 bit integer.
-   * @this {!Long}
-   * @returns {number}
-   */
-  
-  LongPrototype.toInt = function toInt() {
-    return this.unsigned ? this.low >>> 0 : this.low;
-  };
-  /**
-   * Converts the Long to a the nearest floating-point representation of this value (double, 53 bit mantissa).
-   * @this {!Long}
-   * @returns {number}
-   */
-  
-  
-  LongPrototype.toNumber = function toNumber() {
-    if (this.unsigned) return (this.high >>> 0) * TWO_PWR_32_DBL + (this.low >>> 0);
-    return this.high * TWO_PWR_32_DBL + (this.low >>> 0);
-  };
-  /**
-   * Converts the Long to a string written in the specified radix.
-   * @this {!Long}
-   * @param {number=} radix Radix (2-36), defaults to 10
-   * @returns {string}
-   * @override
-   * @throws {RangeError} If `radix` is out of range
-   */
-  
-  
-  LongPrototype.toString = function toString(radix) {
-    radix = radix || 10;
-    if (radix < 2 || 36 < radix) throw RangeError('radix');
-    if (this.isZero()) return '0';
-  
-    if (this.isNegative()) {
-      // Unsigned Longs are never negative
-      if (this.eq(MIN_VALUE)) {
-        // We need to change the Long value before it can be negated, so we remove
-        // the bottom-most digit in this base and then recurse to do the rest.
-        var radixLong = fromNumber(radix),
+
+    /**
+     * Returns a Long representing the given 32 bit integer value.
+     * @function
+     * @param {number} value The 32 bit integer in question
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {!Long} The corresponding Long value
+     */
+    Long.fromInt = fromInt;
+
+    /**
+     * @param {number} value
+     * @param {boolean=} unsigned
+     * @returns {!Long}
+     * @inner
+     */
+    function fromNumber(value, unsigned) {
+      if (isNaN(value)) return unsigned ? UZERO : ZERO;
+      if (unsigned) {
+        if (value < 0) return UZERO;
+        if (value >= TWO_PWR_64_DBL) return MAX_UNSIGNED_VALUE;
+      } else {
+        if (value <= -TWO_PWR_63_DBL) return MIN_VALUE;
+        if (value + 1 >= TWO_PWR_63_DBL) return MAX_VALUE;
+      }
+      if (value < 0) return fromNumber(-value, unsigned).neg();
+      return fromBits(
+        value % TWO_PWR_32_DBL | 0,
+        (value / TWO_PWR_32_DBL) | 0,
+        unsigned,
+      );
+    }
+
+    /**
+     * Returns a Long representing the given value, provided that it is a finite number. Otherwise, zero is returned.
+     * @function
+     * @param {number} value The number in question
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {!Long} The corresponding Long value
+     */
+    Long.fromNumber = fromNumber;
+
+    /**
+     * @param {number} lowBits
+     * @param {number} highBits
+     * @param {boolean=} unsigned
+     * @returns {!Long}
+     * @inner
+     */
+    function fromBits(lowBits, highBits, unsigned) {
+      return new Long(lowBits, highBits, unsigned);
+    }
+
+    /**
+     * Returns a Long representing the 64 bit integer that comes by concatenating the given low and high bits. Each is
+     *  assumed to use 32 bits.
+     * @function
+     * @param {number} lowBits The low 32 bits
+     * @param {number} highBits The high 32 bits
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {!Long} The corresponding Long value
+     */
+    Long.fromBits = fromBits;
+
+    /**
+     * @function
+     * @param {number} base
+     * @param {number} exponent
+     * @returns {number}
+     * @inner
+     */
+    var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
+
+    /**
+     * @param {string} str
+     * @param {(boolean|number)=} unsigned
+     * @param {number=} radix
+     * @returns {!Long}
+     * @inner
+     */
+    function fromString(str, unsigned, radix) {
+      if (str.length === 0) throw Error("empty string");
+      if (typeof unsigned === "number") {
+        // For goog.math.long compatibility
+        radix = unsigned;
+        unsigned = false;
+      } else {
+        unsigned = !!unsigned;
+      }
+      if (
+        str === "NaN" ||
+        str === "Infinity" ||
+        str === "+Infinity" ||
+        str === "-Infinity"
+      )
+        return unsigned ? UZERO : ZERO;
+      radix = radix || 10;
+      if (radix < 2 || 36 < radix) throw RangeError("radix");
+      var p;
+      if ((p = str.indexOf("-")) > 0) throw Error("interior hyphen");
+      else if (p === 0) {
+        return fromString(str.substring(1), unsigned, radix).neg();
+      }
+
+      // Do several (8) digits each time through the loop, so as to
+      // minimize the calls to the very expensive emulated div.
+      var radixToPower = fromNumber(pow_dbl(radix, 8));
+      var result = ZERO;
+      for (var i = 0; i < str.length; i += 8) {
+        var size = Math.min(8, str.length - i),
+          value = parseInt(str.substring(i, i + size), radix);
+        if (size < 8) {
+          var power = fromNumber(pow_dbl(radix, size));
+          result = result.mul(power).add(fromNumber(value));
+        } else {
+          result = result.mul(radixToPower);
+          result = result.add(fromNumber(value));
+        }
+      }
+      result.unsigned = unsigned;
+      return result;
+    }
+
+    /**
+     * Returns a Long representation of the given string, written using the specified radix.
+     * @function
+     * @param {string} str The textual representation of the Long
+     * @param {(boolean|number)=} unsigned Whether unsigned or not, defaults to signed
+     * @param {number=} radix The radix in which the text is written (2-36), defaults to 10
+     * @returns {!Long} The corresponding Long value
+     */
+    Long.fromString = fromString;
+
+    /**
+     * @function
+     * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val
+     * @param {boolean=} unsigned
+     * @returns {!Long}
+     * @inner
+     */
+    function fromValue(val, unsigned) {
+      if (typeof val === "number") return fromNumber(val, unsigned);
+      if (typeof val === "string") return fromString(val, unsigned);
+      // Throws for non-objects, converts non-instanceof Long:
+      return fromBits(
+        val.low,
+        val.high,
+        typeof unsigned === "boolean" ? unsigned : val.unsigned,
+      );
+    }
+
+    /**
+     * Converts the specified value to a Long using the appropriate from* function for its type.
+     * @function
+     * @param {!Long|number|bigint|string|!{low: number, high: number, unsigned: boolean}} val Value
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {!Long}
+     */
+    Long.fromValue = fromValue;
+
+    // NOTE: the compiler should inline these constant values below and then remove these variables, so there should be
+    // no runtime penalty for these.
+
+    /**
+     * @type {number}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_16_DBL = 1 << 16;
+
+    /**
+     * @type {number}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_24_DBL = 1 << 24;
+
+    /**
+     * @type {number}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_32_DBL = TWO_PWR_16_DBL * TWO_PWR_16_DBL;
+
+    /**
+     * @type {number}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_64_DBL = TWO_PWR_32_DBL * TWO_PWR_32_DBL;
+
+    /**
+     * @type {number}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_63_DBL = TWO_PWR_64_DBL / 2;
+
+    /**
+     * @type {!Long}
+     * @const
+     * @inner
+     */
+    var TWO_PWR_24 = fromInt(TWO_PWR_24_DBL);
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var ZERO = fromInt(0);
+
+    /**
+     * Signed zero.
+     * @type {!Long}
+     */
+    Long.ZERO = ZERO;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var UZERO = fromInt(0, true);
+
+    /**
+     * Unsigned zero.
+     * @type {!Long}
+     */
+    Long.UZERO = UZERO;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var ONE = fromInt(1);
+
+    /**
+     * Signed one.
+     * @type {!Long}
+     */
+    Long.ONE = ONE;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var UONE = fromInt(1, true);
+
+    /**
+     * Unsigned one.
+     * @type {!Long}
+     */
+    Long.UONE = UONE;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var NEG_ONE = fromInt(-1);
+
+    /**
+     * Signed negative one.
+     * @type {!Long}
+     */
+    Long.NEG_ONE = NEG_ONE;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var MAX_VALUE = fromBits(0xffffffff | 0, 0x7fffffff | 0, false);
+
+    /**
+     * Maximum signed value.
+     * @type {!Long}
+     */
+    Long.MAX_VALUE = MAX_VALUE;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var MAX_UNSIGNED_VALUE = fromBits(0xffffffff | 0, 0xffffffff | 0, true);
+
+    /**
+     * Maximum unsigned value.
+     * @type {!Long}
+     */
+    Long.MAX_UNSIGNED_VALUE = MAX_UNSIGNED_VALUE;
+
+    /**
+     * @type {!Long}
+     * @inner
+     */
+    var MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
+
+    /**
+     * Minimum signed value.
+     * @type {!Long}
+     */
+    Long.MIN_VALUE = MIN_VALUE;
+
+    /**
+     * @alias Long.prototype
+     * @inner
+     */
+    var LongPrototype = Long.prototype;
+
+    /**
+     * Converts the Long to a 32 bit integer, assuming it is a 32 bit integer.
+     * @this {!Long}
+     * @returns {number}
+     */
+    LongPrototype.toInt = function toInt() {
+      return this.unsigned ? this.low >>> 0 : this.low;
+    };
+
+    /**
+     * Converts the Long to a the nearest floating-point representation of this value (double, 53 bit mantissa).
+     * @this {!Long}
+     * @returns {number}
+     */
+    LongPrototype.toNumber = function toNumber() {
+      if (this.unsigned)
+        return (this.high >>> 0) * TWO_PWR_32_DBL + (this.low >>> 0);
+      return this.high * TWO_PWR_32_DBL + (this.low >>> 0);
+    };
+
+    /**
+     * Converts the Long to a string written in the specified radix.
+     * @this {!Long}
+     * @param {number=} radix Radix (2-36), defaults to 10
+     * @returns {string}
+     * @override
+     * @throws {RangeError} If `radix` is out of range
+     */
+    LongPrototype.toString = function toString(radix) {
+      radix = radix || 10;
+      if (radix < 2 || 36 < radix) throw RangeError("radix");
+      if (this.isZero()) return "0";
+      if (this.isNegative()) {
+        // Unsigned Longs are never negative
+        if (this.eq(MIN_VALUE)) {
+          // We need to change the Long value before it can be negated, so we remove
+          // the bottom-most digit in this base and then recurse to do the rest.
+          var radixLong = fromNumber(radix),
             div = this.div(radixLong),
             rem1 = div.mul(radixLong).sub(this);
-        return div.toString(radix) + rem1.toInt().toString(radix);
-      } else return '-' + this.neg().toString(radix);
-    } // Do several (6) digits each time through the loop, so as to
-    // minimize the calls to the very expensive emulated div.
-  
-  
-    var radixToPower = fromNumber(pow_dbl(radix, 6), this.unsigned),
+          return div.toString(radix) + rem1.toInt().toString(radix);
+        } else return "-" + this.neg().toString(radix);
+      }
+
+      // Do several (6) digits each time through the loop, so as to
+      // minimize the calls to the very expensive emulated div.
+      var radixToPower = fromNumber(pow_dbl(radix, 6), this.unsigned),
         rem = this;
-    var result = '';
-  
-    while (true) {
-      var remDiv = rem.div(radixToPower),
+      var result = "";
+      while (true) {
+        var remDiv = rem.div(radixToPower),
           intval = rem.sub(remDiv.mul(radixToPower)).toInt() >>> 0,
           digits = intval.toString(radix);
-      rem = remDiv;
-      if (rem.isZero()) return digits + result;else {
-        while (digits.length < 6) digits = '0' + digits;
-  
-        result = '' + digits + result;
-      }
-    }
-  };
-  /**
-   * Gets the high 32 bits as a signed integer.
-   * @this {!Long}
-   * @returns {number} Signed high bits
-   */
-  
-  
-  LongPrototype.getHighBits = function getHighBits() {
-    return this.high;
-  };
-  /**
-   * Gets the high 32 bits as an unsigned integer.
-   * @this {!Long}
-   * @returns {number} Unsigned high bits
-   */
-  
-  
-  LongPrototype.getHighBitsUnsigned = function getHighBitsUnsigned() {
-    return this.high >>> 0;
-  };
-  /**
-   * Gets the low 32 bits as a signed integer.
-   * @this {!Long}
-   * @returns {number} Signed low bits
-   */
-  
-  
-  LongPrototype.getLowBits = function getLowBits() {
-    return this.low;
-  };
-  /**
-   * Gets the low 32 bits as an unsigned integer.
-   * @this {!Long}
-   * @returns {number} Unsigned low bits
-   */
-  
-  
-  LongPrototype.getLowBitsUnsigned = function getLowBitsUnsigned() {
-    return this.low >>> 0;
-  };
-  /**
-   * Gets the number of bits needed to represent the absolute value of this Long.
-   * @this {!Long}
-   * @returns {number}
-   */
-  
-  
-  LongPrototype.getNumBitsAbs = function getNumBitsAbs() {
-    if (this.isNegative()) // Unsigned Longs are never negative
-      return this.eq(MIN_VALUE) ? 64 : this.neg().getNumBitsAbs();
-    var val = this.high != 0 ? this.high : this.low;
-  
-    for (var bit = 31; bit > 0; bit--) if ((val & 1 << bit) != 0) break;
-  
-    return this.high != 0 ? bit + 33 : bit + 1;
-  };
-  /**
-   * Tests if this Long's value equals zero.
-   * @this {!Long}
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.isZero = function isZero() {
-    return this.high === 0 && this.low === 0;
-  };
-  /**
-   * Tests if this Long's value equals zero. This is an alias of {@link Long#isZero}.
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.eqz = LongPrototype.isZero;
-  /**
-   * Tests if this Long's value is negative.
-   * @this {!Long}
-   * @returns {boolean}
-   */
-  
-  LongPrototype.isNegative = function isNegative() {
-    return !this.unsigned && this.high < 0;
-  };
-  /**
-   * Tests if this Long's value is positive or zero.
-   * @this {!Long}
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.isPositive = function isPositive() {
-    return this.unsigned || this.high >= 0;
-  };
-  /**
-   * Tests if this Long's value is odd.
-   * @this {!Long}
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.isOdd = function isOdd() {
-    return (this.low & 1) === 1;
-  };
-  /**
-   * Tests if this Long's value is even.
-   * @this {!Long}
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.isEven = function isEven() {
-    return (this.low & 1) === 0;
-  };
-  /**
-   * Tests if this Long's value equals the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.equals = function equals(other) {
-    if (!isLong(other)) other = fromValue(other);
-    if (this.unsigned !== other.unsigned && this.high >>> 31 === 1 && other.high >>> 31 === 1) return false;
-    return this.high === other.high && this.low === other.low;
-  };
-  /**
-   * Tests if this Long's value equals the specified's. This is an alias of {@link Long#equals}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.eq = LongPrototype.equals;
-  /**
-   * Tests if this Long's value differs from the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.notEquals = function notEquals(other) {
-    return !this.eq(
-    /* validates */
-    other);
-  };
-  /**
-   * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.neq = LongPrototype.notEquals;
-  /**
-   * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.ne = LongPrototype.notEquals;
-  /**
-   * Tests if this Long's value is less than the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.lessThan = function lessThan(other) {
-    return this.comp(
-    /* validates */
-    other) < 0;
-  };
-  /**
-   * Tests if this Long's value is less than the specified's. This is an alias of {@link Long#lessThan}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.lt = LongPrototype.lessThan;
-  /**
-   * Tests if this Long's value is less than or equal the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.lessThanOrEqual = function lessThanOrEqual(other) {
-    return this.comp(
-    /* validates */
-    other) <= 0;
-  };
-  /**
-   * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.lte = LongPrototype.lessThanOrEqual;
-  /**
-   * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.le = LongPrototype.lessThanOrEqual;
-  /**
-   * Tests if this Long's value is greater than the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.greaterThan = function greaterThan(other) {
-    return this.comp(
-    /* validates */
-    other) > 0;
-  };
-  /**
-   * Tests if this Long's value is greater than the specified's. This is an alias of {@link Long#greaterThan}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.gt = LongPrototype.greaterThan;
-  /**
-   * Tests if this Long's value is greater than or equal the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.greaterThanOrEqual = function greaterThanOrEqual(other) {
-    return this.comp(
-    /* validates */
-    other) >= 0;
-  };
-  /**
-   * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  
-  LongPrototype.gte = LongPrototype.greaterThanOrEqual;
-  /**
-   * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {boolean}
-   */
-  
-  LongPrototype.ge = LongPrototype.greaterThanOrEqual;
-  /**
-   * Compares this Long's value with the specified's.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other value
-   * @returns {number} 0 if they are the same, 1 if the this is greater and -1
-   *  if the given one is greater
-   */
-  
-  LongPrototype.compare = function compare(other) {
-    if (!isLong(other)) other = fromValue(other);
-    if (this.eq(other)) return 0;
-    var thisNeg = this.isNegative(),
-        otherNeg = other.isNegative();
-    if (thisNeg && !otherNeg) return -1;
-    if (!thisNeg && otherNeg) return 1; // At this point the sign bits are the same
-  
-    if (!this.unsigned) return this.sub(other).isNegative() ? -1 : 1; // Both are positive if at least one is unsigned
-  
-    return other.high >>> 0 > this.high >>> 0 || other.high === this.high && other.low >>> 0 > this.low >>> 0 ? -1 : 1;
-  };
-  /**
-   * Compares this Long's value with the specified's. This is an alias of {@link Long#compare}.
-   * @function
-   * @param {!Long|number|string} other Other value
-   * @returns {number} 0 if they are the same, 1 if the this is greater and -1
-   *  if the given one is greater
-   */
-  
-  
-  LongPrototype.comp = LongPrototype.compare;
-  /**
-   * Negates this Long's value.
-   * @this {!Long}
-   * @returns {!Long} Negated Long
-   */
-  
-  LongPrototype.negate = function negate() {
-    if (!this.unsigned && this.eq(MIN_VALUE)) return MIN_VALUE;
-    return this.not().add(ONE);
-  };
-  /**
-   * Negates this Long's value. This is an alias of {@link Long#negate}.
-   * @function
-   * @returns {!Long} Negated Long
-   */
-  
-  
-  LongPrototype.neg = LongPrototype.negate;
-  /**
-   * Returns the sum of this and the specified Long.
-   * @this {!Long}
-   * @param {!Long|number|string} addend Addend
-   * @returns {!Long} Sum
-   */
-  
-  LongPrototype.add = function add(addend) {
-    if (!isLong(addend)) addend = fromValue(addend); // Divide each number into 4 chunks of 16 bits, and then sum the chunks.
-  
-    var a48 = this.high >>> 16;
-    var a32 = this.high & 0xFFFF;
-    var a16 = this.low >>> 16;
-    var a00 = this.low & 0xFFFF;
-    var b48 = addend.high >>> 16;
-    var b32 = addend.high & 0xFFFF;
-    var b16 = addend.low >>> 16;
-    var b00 = addend.low & 0xFFFF;
-    var c48 = 0,
-        c32 = 0,
-        c16 = 0,
-        c00 = 0;
-    c00 += a00 + b00;
-    c16 += c00 >>> 16;
-    c00 &= 0xFFFF;
-    c16 += a16 + b16;
-    c32 += c16 >>> 16;
-    c16 &= 0xFFFF;
-    c32 += a32 + b32;
-    c48 += c32 >>> 16;
-    c32 &= 0xFFFF;
-    c48 += a48 + b48;
-    c48 &= 0xFFFF;
-    return fromBits(c16 << 16 | c00, c48 << 16 | c32, this.unsigned);
-  };
-  /**
-   * Returns the difference of this and the specified Long.
-   * @this {!Long}
-   * @param {!Long|number|string} subtrahend Subtrahend
-   * @returns {!Long} Difference
-   */
-  
-  
-  LongPrototype.subtract = function subtract(subtrahend) {
-    if (!isLong(subtrahend)) subtrahend = fromValue(subtrahend);
-    return this.add(subtrahend.neg());
-  };
-  /**
-   * Returns the difference of this and the specified Long. This is an alias of {@link Long#subtract}.
-   * @function
-   * @param {!Long|number|string} subtrahend Subtrahend
-   * @returns {!Long} Difference
-   */
-  
-  
-  LongPrototype.sub = LongPrototype.subtract;
-  /**
-   * Returns the product of this and the specified Long.
-   * @this {!Long}
-   * @param {!Long|number|string} multiplier Multiplier
-   * @returns {!Long} Product
-   */
-  
-  LongPrototype.multiply = function multiply(multiplier) {
-    if (this.isZero()) return this;
-    if (!isLong(multiplier)) multiplier = fromValue(multiplier); // use wasm support if present
-  
-    if (wasm) {
-      var low = wasm["mul"](this.low, this.high, multiplier.low, multiplier.high);
-      return fromBits(low, wasm["get_high"](), this.unsigned);
-    }
-  
-    if (multiplier.isZero()) return this.unsigned ? UZERO : ZERO;
-    if (this.eq(MIN_VALUE)) return multiplier.isOdd() ? MIN_VALUE : ZERO;
-    if (multiplier.eq(MIN_VALUE)) return this.isOdd() ? MIN_VALUE : ZERO;
-  
-    if (this.isNegative()) {
-      if (multiplier.isNegative()) return this.neg().mul(multiplier.neg());else return this.neg().mul(multiplier).neg();
-    } else if (multiplier.isNegative()) return this.mul(multiplier.neg()).neg(); // If both longs are small, use float multiplication
-  
-  
-    if (this.lt(TWO_PWR_24) && multiplier.lt(TWO_PWR_24)) return fromNumber(this.toNumber() * multiplier.toNumber(), this.unsigned); // Divide each long into 4 chunks of 16 bits, and then add up 4x4 products.
-    // We can skip products that would overflow.
-  
-    var a48 = this.high >>> 16;
-    var a32 = this.high & 0xFFFF;
-    var a16 = this.low >>> 16;
-    var a00 = this.low & 0xFFFF;
-    var b48 = multiplier.high >>> 16;
-    var b32 = multiplier.high & 0xFFFF;
-    var b16 = multiplier.low >>> 16;
-    var b00 = multiplier.low & 0xFFFF;
-    var c48 = 0,
-        c32 = 0,
-        c16 = 0,
-        c00 = 0;
-    c00 += a00 * b00;
-    c16 += c00 >>> 16;
-    c00 &= 0xFFFF;
-    c16 += a16 * b00;
-    c32 += c16 >>> 16;
-    c16 &= 0xFFFF;
-    c16 += a00 * b16;
-    c32 += c16 >>> 16;
-    c16 &= 0xFFFF;
-    c32 += a32 * b00;
-    c48 += c32 >>> 16;
-    c32 &= 0xFFFF;
-    c32 += a16 * b16;
-    c48 += c32 >>> 16;
-    c32 &= 0xFFFF;
-    c32 += a00 * b32;
-    c48 += c32 >>> 16;
-    c32 &= 0xFFFF;
-    c48 += a48 * b00 + a32 * b16 + a16 * b32 + a00 * b48;
-    c48 &= 0xFFFF;
-    return fromBits(c16 << 16 | c00, c48 << 16 | c32, this.unsigned);
-  };
-  /**
-   * Returns the product of this and the specified Long. This is an alias of {@link Long#multiply}.
-   * @function
-   * @param {!Long|number|string} multiplier Multiplier
-   * @returns {!Long} Product
-   */
-  
-  
-  LongPrototype.mul = LongPrototype.multiply;
-  /**
-   * Returns this Long divided by the specified. The result is signed if this Long is signed or
-   *  unsigned if this Long is unsigned.
-   * @this {!Long}
-   * @param {!Long|number|string} divisor Divisor
-   * @returns {!Long} Quotient
-   */
-  
-  LongPrototype.divide = function divide(divisor) {
-    if (!isLong(divisor)) divisor = fromValue(divisor);
-    if (divisor.isZero()) throw Error('division by zero'); // use wasm support if present
-  
-    if (wasm) {
-      // guard against signed division overflow: the largest
-      // negative number / -1 would be 1 larger than the largest
-      // positive number, due to two's complement.
-      if (!this.unsigned && this.high === -0x80000000 && divisor.low === -1 && divisor.high === -1) {
-        // be consistent with non-wasm code path
-        return this;
-      }
-  
-      var low = (this.unsigned ? wasm["div_u"] : wasm["div_s"])(this.low, this.high, divisor.low, divisor.high);
-      return fromBits(low, wasm["get_high"](), this.unsigned);
-    }
-  
-    if (this.isZero()) return this.unsigned ? UZERO : ZERO;
-    var approx, rem, res;
-  
-    if (!this.unsigned) {
-      // This section is only relevant for signed longs and is derived from the
-      // closure library as a whole.
-      if (this.eq(MIN_VALUE)) {
-        if (divisor.eq(ONE) || divisor.eq(NEG_ONE)) return MIN_VALUE; // recall that -MIN_VALUE == MIN_VALUE
-        else if (divisor.eq(MIN_VALUE)) return ONE;else {
-          // At this point, we have |other| >= 2, so |this/other| < |MIN_VALUE|.
-          var halfThis = this.shr(1);
-          approx = halfThis.div(divisor).shl(1);
-  
-          if (approx.eq(ZERO)) {
-            return divisor.isNegative() ? ONE : NEG_ONE;
-          } else {
-            rem = this.sub(divisor.mul(approx));
-            res = approx.add(rem.div(divisor));
-            return res;
-          }
+        rem = remDiv;
+        if (rem.isZero()) return digits + result;
+        else {
+          while (digits.length < 6) digits = "0" + digits;
+          result = "" + digits + result;
         }
-      } else if (divisor.eq(MIN_VALUE)) return this.unsigned ? UZERO : ZERO;
-  
+      }
+    };
+
+    /**
+     * Gets the high 32 bits as a signed integer.
+     * @this {!Long}
+     * @returns {number} Signed high bits
+     */
+    LongPrototype.getHighBits = function getHighBits() {
+      return this.high;
+    };
+
+    /**
+     * Gets the high 32 bits as an unsigned integer.
+     * @this {!Long}
+     * @returns {number} Unsigned high bits
+     */
+    LongPrototype.getHighBitsUnsigned = function getHighBitsUnsigned() {
+      return this.high >>> 0;
+    };
+
+    /**
+     * Gets the low 32 bits as a signed integer.
+     * @this {!Long}
+     * @returns {number} Signed low bits
+     */
+    LongPrototype.getLowBits = function getLowBits() {
+      return this.low;
+    };
+
+    /**
+     * Gets the low 32 bits as an unsigned integer.
+     * @this {!Long}
+     * @returns {number} Unsigned low bits
+     */
+    LongPrototype.getLowBitsUnsigned = function getLowBitsUnsigned() {
+      return this.low >>> 0;
+    };
+
+    /**
+     * Gets the number of bits needed to represent the absolute value of this Long.
+     * @this {!Long}
+     * @returns {number}
+     */
+    LongPrototype.getNumBitsAbs = function getNumBitsAbs() {
+      if (this.isNegative())
+        // Unsigned Longs are never negative
+        return this.eq(MIN_VALUE) ? 64 : this.neg().getNumBitsAbs();
+      var val = this.high != 0 ? this.high : this.low;
+      for (var bit = 31; bit > 0; bit--) if ((val & (1 << bit)) != 0) break;
+      return this.high != 0 ? bit + 33 : bit + 1;
+    };
+
+    /**
+     * Tests if this Long can be safely represented as a JavaScript number.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isSafeInteger = function isSafeInteger() {
+      // 2^53-1 is the maximum safe value
+      var top11Bits = this.high >> 21;
+      // [0, 2^53-1]
+      if (!top11Bits) return true;
+      // > 2^53-1
+      if (this.unsigned) return false;
+      // [-2^53, -1] except -2^53
+      return top11Bits === -1 && !(this.low === 0 && this.high === -0x200000);
+    };
+
+    /**
+     * Tests if this Long's value equals zero.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isZero = function isZero() {
+      return this.high === 0 && this.low === 0;
+    };
+
+    /**
+     * Tests if this Long's value equals zero. This is an alias of {@link Long#isZero}.
+     * @returns {boolean}
+     */
+    LongPrototype.eqz = LongPrototype.isZero;
+
+    /**
+     * Tests if this Long's value is negative.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isNegative = function isNegative() {
+      return !this.unsigned && this.high < 0;
+    };
+
+    /**
+     * Tests if this Long's value is positive or zero.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isPositive = function isPositive() {
+      return this.unsigned || this.high >= 0;
+    };
+
+    /**
+     * Tests if this Long's value is odd.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isOdd = function isOdd() {
+      return (this.low & 1) === 1;
+    };
+
+    /**
+     * Tests if this Long's value is even.
+     * @this {!Long}
+     * @returns {boolean}
+     */
+    LongPrototype.isEven = function isEven() {
+      return (this.low & 1) === 0;
+    };
+
+    /**
+     * Tests if this Long's value equals the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.equals = function equals(other) {
+      if (!isLong(other)) other = fromValue(other);
+      if (
+        this.unsigned !== other.unsigned &&
+        this.high >>> 31 === 1 &&
+        other.high >>> 31 === 1
+      )
+        return false;
+      return this.high === other.high && this.low === other.low;
+    };
+
+    /**
+     * Tests if this Long's value equals the specified's. This is an alias of {@link Long#equals}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.eq = LongPrototype.equals;
+
+    /**
+     * Tests if this Long's value differs from the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.notEquals = function notEquals(other) {
+      return !this.eq(/* validates */ other);
+    };
+
+    /**
+     * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.neq = LongPrototype.notEquals;
+
+    /**
+     * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.ne = LongPrototype.notEquals;
+
+    /**
+     * Tests if this Long's value is less than the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.lessThan = function lessThan(other) {
+      return this.comp(/* validates */ other) < 0;
+    };
+
+    /**
+     * Tests if this Long's value is less than the specified's. This is an alias of {@link Long#lessThan}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.lt = LongPrototype.lessThan;
+
+    /**
+     * Tests if this Long's value is less than or equal the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.lessThanOrEqual = function lessThanOrEqual(other) {
+      return this.comp(/* validates */ other) <= 0;
+    };
+
+    /**
+     * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.lte = LongPrototype.lessThanOrEqual;
+
+    /**
+     * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.le = LongPrototype.lessThanOrEqual;
+
+    /**
+     * Tests if this Long's value is greater than the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.greaterThan = function greaterThan(other) {
+      return this.comp(/* validates */ other) > 0;
+    };
+
+    /**
+     * Tests if this Long's value is greater than the specified's. This is an alias of {@link Long#greaterThan}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.gt = LongPrototype.greaterThan;
+
+    /**
+     * Tests if this Long's value is greater than or equal the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.greaterThanOrEqual = function greaterThanOrEqual(other) {
+      return this.comp(/* validates */ other) >= 0;
+    };
+
+    /**
+     * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.gte = LongPrototype.greaterThanOrEqual;
+
+    /**
+     * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {boolean}
+     */
+    LongPrototype.ge = LongPrototype.greaterThanOrEqual;
+
+    /**
+     * Compares this Long's value with the specified's.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {number} 0 if they are the same, 1 if the this is greater and -1
+     *  if the given one is greater
+     */
+    LongPrototype.compare = function compare(other) {
+      if (!isLong(other)) other = fromValue(other);
+      if (this.eq(other)) return 0;
+      var thisNeg = this.isNegative(),
+        otherNeg = other.isNegative();
+      if (thisNeg && !otherNeg) return -1;
+      if (!thisNeg && otherNeg) return 1;
+      // At this point the sign bits are the same
+      if (!this.unsigned) return this.sub(other).isNegative() ? -1 : 1;
+      // Both are positive if at least one is unsigned
+      return other.high >>> 0 > this.high >>> 0 ||
+        (other.high === this.high && other.low >>> 0 > this.low >>> 0)
+        ? -1
+        : 1;
+    };
+
+    /**
+     * Compares this Long's value with the specified's. This is an alias of {@link Long#compare}.
+     * @function
+     * @param {!Long|number|bigint|string} other Other value
+     * @returns {number} 0 if they are the same, 1 if the this is greater and -1
+     *  if the given one is greater
+     */
+    LongPrototype.comp = LongPrototype.compare;
+
+    /**
+     * Negates this Long's value.
+     * @this {!Long}
+     * @returns {!Long} Negated Long
+     */
+    LongPrototype.negate = function negate() {
+      if (!this.unsigned && this.eq(MIN_VALUE)) return MIN_VALUE;
+      return this.not().add(ONE);
+    };
+
+    /**
+     * Negates this Long's value. This is an alias of {@link Long#negate}.
+     * @function
+     * @returns {!Long} Negated Long
+     */
+    LongPrototype.neg = LongPrototype.negate;
+
+    /**
+     * Returns the sum of this and the specified Long.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} addend Addend
+     * @returns {!Long} Sum
+     */
+    LongPrototype.add = function add(addend) {
+      if (!isLong(addend)) addend = fromValue(addend);
+
+      // Divide each number into 4 chunks of 16 bits, and then sum the chunks.
+
+      var a48 = this.high >>> 16;
+      var a32 = this.high & 0xffff;
+      var a16 = this.low >>> 16;
+      var a00 = this.low & 0xffff;
+      var b48 = addend.high >>> 16;
+      var b32 = addend.high & 0xffff;
+      var b16 = addend.low >>> 16;
+      var b00 = addend.low & 0xffff;
+      var c48 = 0,
+        c32 = 0,
+        c16 = 0,
+        c00 = 0;
+      c00 += a00 + b00;
+      c16 += c00 >>> 16;
+      c00 &= 0xffff;
+      c16 += a16 + b16;
+      c32 += c16 >>> 16;
+      c16 &= 0xffff;
+      c32 += a32 + b32;
+      c48 += c32 >>> 16;
+      c32 &= 0xffff;
+      c48 += a48 + b48;
+      c48 &= 0xffff;
+      return fromBits((c16 << 16) | c00, (c48 << 16) | c32, this.unsigned);
+    };
+
+    /**
+     * Returns the difference of this and the specified Long.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} subtrahend Subtrahend
+     * @returns {!Long} Difference
+     */
+    LongPrototype.subtract = function subtract(subtrahend) {
+      if (!isLong(subtrahend)) subtrahend = fromValue(subtrahend);
+      return this.add(subtrahend.neg());
+    };
+
+    /**
+     * Returns the difference of this and the specified Long. This is an alias of {@link Long#subtract}.
+     * @function
+     * @param {!Long|number|bigint|string} subtrahend Subtrahend
+     * @returns {!Long} Difference
+     */
+    LongPrototype.sub = LongPrototype.subtract;
+
+    /**
+     * Returns the product of this and the specified Long.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} multiplier Multiplier
+     * @returns {!Long} Product
+     */
+    LongPrototype.multiply = function multiply(multiplier) {
+      if (this.isZero()) return this;
+      if (!isLong(multiplier)) multiplier = fromValue(multiplier);
+
+      // use wasm support if present
+      if (wasm) {
+        var low = wasm["mul"](
+          this.low,
+          this.high,
+          multiplier.low,
+          multiplier.high,
+        );
+        return fromBits(low, wasm["get_high"](), this.unsigned);
+      }
+      if (multiplier.isZero()) return this.unsigned ? UZERO : ZERO;
+      if (this.eq(MIN_VALUE)) return multiplier.isOdd() ? MIN_VALUE : ZERO;
+      if (multiplier.eq(MIN_VALUE)) return this.isOdd() ? MIN_VALUE : ZERO;
       if (this.isNegative()) {
-        if (divisor.isNegative()) return this.neg().div(divisor.neg());
-        return this.neg().div(divisor).neg();
-      } else if (divisor.isNegative()) return this.div(divisor.neg()).neg();
-  
-      res = ZERO;
-    } else {
-      // The algorithm below has not been made for unsigned longs. It's therefore
-      // required to take special care of the MSB prior to running it.
-      if (!divisor.unsigned) divisor = divisor.toUnsigned();
-      if (divisor.gt(this)) return UZERO;
-      if (divisor.gt(this.shru(1))) // 15 >>> 1 = 7 ; with divisor = 8 ; true
-        return UONE;
-      res = UZERO;
-    } // Repeat the following until the remainder is less than other:  find a
-    // floating-point that approximates remainder / other *from below*, add this
-    // into the result, and subtract it from the remainder.  It is critical that
-    // the approximate value is less than or equal to the real value so that the
-    // remainder never becomes negative.
-  
-  
-    rem = this;
-  
-    while (rem.gte(divisor)) {
-      // Approximate the result of division. This may be a little greater or
-      // smaller than the actual value.
-      approx = Math.max(1, Math.floor(rem.toNumber() / divisor.toNumber())); // We will tweak the approximate result by changing it in the 48-th digit or
-      // the smallest non-fractional digit, whichever is larger.
-  
-      var log2 = Math.ceil(Math.log(approx) / Math.LN2),
+        if (multiplier.isNegative()) return this.neg().mul(multiplier.neg());
+        else return this.neg().mul(multiplier).neg();
+      } else if (multiplier.isNegative())
+        return this.mul(multiplier.neg()).neg();
+
+      // If both longs are small, use float multiplication
+      if (this.lt(TWO_PWR_24) && multiplier.lt(TWO_PWR_24))
+        return fromNumber(
+          this.toNumber() * multiplier.toNumber(),
+          this.unsigned,
+        );
+
+      // Divide each long into 4 chunks of 16 bits, and then add up 4x4 products.
+      // We can skip products that would overflow.
+
+      var a48 = this.high >>> 16;
+      var a32 = this.high & 0xffff;
+      var a16 = this.low >>> 16;
+      var a00 = this.low & 0xffff;
+      var b48 = multiplier.high >>> 16;
+      var b32 = multiplier.high & 0xffff;
+      var b16 = multiplier.low >>> 16;
+      var b00 = multiplier.low & 0xffff;
+      var c48 = 0,
+        c32 = 0,
+        c16 = 0,
+        c00 = 0;
+      c00 += a00 * b00;
+      c16 += c00 >>> 16;
+      c00 &= 0xffff;
+      c16 += a16 * b00;
+      c32 += c16 >>> 16;
+      c16 &= 0xffff;
+      c16 += a00 * b16;
+      c32 += c16 >>> 16;
+      c16 &= 0xffff;
+      c32 += a32 * b00;
+      c48 += c32 >>> 16;
+      c32 &= 0xffff;
+      c32 += a16 * b16;
+      c48 += c32 >>> 16;
+      c32 &= 0xffff;
+      c32 += a00 * b32;
+      c48 += c32 >>> 16;
+      c32 &= 0xffff;
+      c48 += a48 * b00 + a32 * b16 + a16 * b32 + a00 * b48;
+      c48 &= 0xffff;
+      return fromBits((c16 << 16) | c00, (c48 << 16) | c32, this.unsigned);
+    };
+
+    /**
+     * Returns the product of this and the specified Long. This is an alias of {@link Long#multiply}.
+     * @function
+     * @param {!Long|number|bigint|string} multiplier Multiplier
+     * @returns {!Long} Product
+     */
+    LongPrototype.mul = LongPrototype.multiply;
+
+    /**
+     * Returns this Long divided by the specified. The result is signed if this Long is signed or
+     *  unsigned if this Long is unsigned.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} divisor Divisor
+     * @returns {!Long} Quotient
+     */
+    LongPrototype.divide = function divide(divisor) {
+      if (!isLong(divisor)) divisor = fromValue(divisor);
+      if (divisor.isZero()) throw Error("division by zero");
+
+      // use wasm support if present
+      if (wasm) {
+        // guard against signed division overflow: the largest
+        // negative number / -1 would be 1 larger than the largest
+        // positive number, due to two's complement.
+        if (
+          !this.unsigned &&
+          this.high === -0x80000000 &&
+          divisor.low === -1 &&
+          divisor.high === -1
+        ) {
+          // be consistent with non-wasm code path
+          return this;
+        }
+        var low = (this.unsigned ? wasm["div_u"] : wasm["div_s"])(
+          this.low,
+          this.high,
+          divisor.low,
+          divisor.high,
+        );
+        return fromBits(low, wasm["get_high"](), this.unsigned);
+      }
+      if (this.isZero()) return this.unsigned ? UZERO : ZERO;
+      var approx, rem, res;
+      if (!this.unsigned) {
+        // This section is only relevant for signed longs and is derived from the
+        // closure library as a whole.
+        if (this.eq(MIN_VALUE)) {
+          if (divisor.eq(ONE) || divisor.eq(NEG_ONE))
+            return MIN_VALUE; // recall that -MIN_VALUE == MIN_VALUE
+          else if (divisor.eq(MIN_VALUE)) return ONE;
+          else {
+            // At this point, we have |other| >= 2, so |this/other| < |MIN_VALUE|.
+            var halfThis = this.shr(1);
+            approx = halfThis.div(divisor).shl(1);
+            if (approx.eq(ZERO)) {
+              return divisor.isNegative() ? ONE : NEG_ONE;
+            } else {
+              rem = this.sub(divisor.mul(approx));
+              res = approx.add(rem.div(divisor));
+              return res;
+            }
+          }
+        } else if (divisor.eq(MIN_VALUE)) return this.unsigned ? UZERO : ZERO;
+        if (this.isNegative()) {
+          if (divisor.isNegative()) return this.neg().div(divisor.neg());
+          return this.neg().div(divisor).neg();
+        } else if (divisor.isNegative()) return this.div(divisor.neg()).neg();
+        res = ZERO;
+      } else {
+        // The algorithm below has not been made for unsigned longs. It's therefore
+        // required to take special care of the MSB prior to running it.
+        if (!divisor.unsigned) divisor = divisor.toUnsigned();
+        if (divisor.gt(this)) return UZERO;
+        if (divisor.gt(this.shru(1)))
+          // 15 >>> 1 = 7 ; with divisor = 8 ; true
+          return UONE;
+        res = UZERO;
+      }
+
+      // Repeat the following until the remainder is less than other:  find a
+      // floating-point that approximates remainder / other *from below*, add this
+      // into the result, and subtract it from the remainder.  It is critical that
+      // the approximate value is less than or equal to the real value so that the
+      // remainder never becomes negative.
+      rem = this;
+      while (rem.gte(divisor)) {
+        // Approximate the result of division. This may be a little greater or
+        // smaller than the actual value.
+        approx = Math.max(1, Math.floor(rem.toNumber() / divisor.toNumber()));
+
+        // We will tweak the approximate result by changing it in the 48-th digit or
+        // the smallest non-fractional digit, whichever is larger.
+        var log2 = Math.ceil(Math.log(approx) / Math.LN2),
           delta = log2 <= 48 ? 1 : pow_dbl(2, log2 - 48),
           // Decrease the approximation until it is smaller than the remainder.  Note
-      // that if it is too large, the product overflows and is negative.
-      approxRes = fromNumber(approx),
+          // that if it is too large, the product overflows and is negative.
+          approxRes = fromNumber(approx),
           approxRem = approxRes.mul(divisor);
-  
-      while (approxRem.isNegative() || approxRem.gt(rem)) {
-        approx -= delta;
-        approxRes = fromNumber(approx, this.unsigned);
-        approxRem = approxRes.mul(divisor);
-      } // We know the answer can't be zero... and actually, zero would cause
-      // infinite recursion since we would make no progress.
-  
-  
-      if (approxRes.isZero()) approxRes = ONE;
-      res = res.add(approxRes);
-      rem = rem.sub(approxRem);
-    }
-  
-    return res;
-  };
-  /**
-   * Returns this Long divided by the specified. This is an alias of {@link Long#divide}.
-   * @function
-   * @param {!Long|number|string} divisor Divisor
-   * @returns {!Long} Quotient
-   */
-  
-  
-  LongPrototype.div = LongPrototype.divide;
-  /**
-   * Returns this Long modulo the specified.
-   * @this {!Long}
-   * @param {!Long|number|string} divisor Divisor
-   * @returns {!Long} Remainder
-   */
-  
-  LongPrototype.modulo = function modulo(divisor) {
-    if (!isLong(divisor)) divisor = fromValue(divisor); // use wasm support if present
-  
-    if (wasm) {
-      var low = (this.unsigned ? wasm["rem_u"] : wasm["rem_s"])(this.low, this.high, divisor.low, divisor.high);
-      return fromBits(low, wasm["get_high"](), this.unsigned);
-    }
-  
-    return this.sub(this.div(divisor).mul(divisor));
-  };
-  /**
-   * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
-   * @function
-   * @param {!Long|number|string} divisor Divisor
-   * @returns {!Long} Remainder
-   */
-  
-  
-  LongPrototype.mod = LongPrototype.modulo;
-  /**
-   * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
-   * @function
-   * @param {!Long|number|string} divisor Divisor
-   * @returns {!Long} Remainder
-   */
-  
-  LongPrototype.rem = LongPrototype.modulo;
-  /**
-   * Returns the bitwise NOT of this Long.
-   * @this {!Long}
-   * @returns {!Long}
-   */
-  
-  LongPrototype.not = function not() {
-    return fromBits(~this.low, ~this.high, this.unsigned);
-  };
-  /**
-   * Returns count leading zeros of this Long.
-   * @this {!Long}
-   * @returns {!number}
-   */
-  
-  
-  LongPrototype.countLeadingZeros = function countLeadingZeros() {
-    return this.high ? Math.clz32(this.high) : Math.clz32(this.low) + 32;
-  };
-  /**
-   * Returns count leading zeros. This is an alias of {@link Long#countLeadingZeros}.
-   * @function
-   * @param {!Long}
-   * @returns {!number}
-   */
-  
-  
-  LongPrototype.clz = LongPrototype.countLeadingZeros;
-  /**
-   * Returns count trailing zeros of this Long.
-   * @this {!Long}
-   * @returns {!number}
-   */
-  
-  LongPrototype.countTrailingZeros = function countTrailingZeros() {
-    return this.low ? ctz32(this.low) : ctz32(this.high) + 32;
-  };
-  /**
-   * Returns count trailing zeros. This is an alias of {@link Long#countTrailingZeros}.
-   * @function
-   * @param {!Long}
-   * @returns {!number}
-   */
-  
-  
-  LongPrototype.ctz = LongPrototype.countTrailingZeros;
-  /**
-   * Returns the bitwise AND of this Long and the specified.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other Long
-   * @returns {!Long}
-   */
-  
-  LongPrototype.and = function and(other) {
-    if (!isLong(other)) other = fromValue(other);
-    return fromBits(this.low & other.low, this.high & other.high, this.unsigned);
-  };
-  /**
-   * Returns the bitwise OR of this Long and the specified.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other Long
-   * @returns {!Long}
-   */
-  
-  
-  LongPrototype.or = function or(other) {
-    if (!isLong(other)) other = fromValue(other);
-    return fromBits(this.low | other.low, this.high | other.high, this.unsigned);
-  };
-  /**
-   * Returns the bitwise XOR of this Long and the given one.
-   * @this {!Long}
-   * @param {!Long|number|string} other Other Long
-   * @returns {!Long}
-   */
-  
-  
-  LongPrototype.xor = function xor(other) {
-    if (!isLong(other)) other = fromValue(other);
-    return fromBits(this.low ^ other.low, this.high ^ other.high, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits shifted to the left by the given amount.
-   * @this {!Long}
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  
-  LongPrototype.shiftLeft = function shiftLeft(numBits) {
-    if (isLong(numBits)) numBits = numBits.toInt();
-    if ((numBits &= 63) === 0) return this;else if (numBits < 32) return fromBits(this.low << numBits, this.high << numBits | this.low >>> 32 - numBits, this.unsigned);else return fromBits(0, this.low << numBits - 32, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits shifted to the left by the given amount. This is an alias of {@link Long#shiftLeft}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  
-  LongPrototype.shl = LongPrototype.shiftLeft;
-  /**
-   * Returns this Long with bits arithmetically shifted to the right by the given amount.
-   * @this {!Long}
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  LongPrototype.shiftRight = function shiftRight(numBits) {
-    if (isLong(numBits)) numBits = numBits.toInt();
-    if ((numBits &= 63) === 0) return this;else if (numBits < 32) return fromBits(this.low >>> numBits | this.high << 32 - numBits, this.high >> numBits, this.unsigned);else return fromBits(this.high >> numBits - 32, this.high >= 0 ? 0 : -1, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits arithmetically shifted to the right by the given amount. This is an alias of {@link Long#shiftRight}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  
-  LongPrototype.shr = LongPrototype.shiftRight;
-  /**
-   * Returns this Long with bits logically shifted to the right by the given amount.
-   * @this {!Long}
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  LongPrototype.shiftRightUnsigned = function shiftRightUnsigned(numBits) {
-    if (isLong(numBits)) numBits = numBits.toInt();
-    if ((numBits &= 63) === 0) return this;
-    if (numBits < 32) return fromBits(this.low >>> numBits | this.high << 32 - numBits, this.high >>> numBits, this.unsigned);
-    if (numBits === 32) return fromBits(this.high, 0, this.unsigned);
-    return fromBits(this.high >>> numBits - 32, 0, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  
-  LongPrototype.shru = LongPrototype.shiftRightUnsigned;
-  /**
-   * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Shifted Long
-   */
-  
-  LongPrototype.shr_u = LongPrototype.shiftRightUnsigned;
-  /**
-   * Returns this Long with bits rotated to the left by the given amount.
-   * @this {!Long}
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Rotated Long
-   */
-  
-  LongPrototype.rotateLeft = function rotateLeft(numBits) {
-    var b;
-    if (isLong(numBits)) numBits = numBits.toInt();
-    if ((numBits &= 63) === 0) return this;
-    if (numBits === 32) return fromBits(this.high, this.low, this.unsigned);
-  
-    if (numBits < 32) {
+        while (approxRem.isNegative() || approxRem.gt(rem)) {
+          approx -= delta;
+          approxRes = fromNumber(approx, this.unsigned);
+          approxRem = approxRes.mul(divisor);
+        }
+
+        // We know the answer can't be zero... and actually, zero would cause
+        // infinite recursion since we would make no progress.
+        if (approxRes.isZero()) approxRes = ONE;
+        res = res.add(approxRes);
+        rem = rem.sub(approxRem);
+      }
+      return res;
+    };
+
+    /**
+     * Returns this Long divided by the specified. This is an alias of {@link Long#divide}.
+     * @function
+     * @param {!Long|number|bigint|string} divisor Divisor
+     * @returns {!Long} Quotient
+     */
+    LongPrototype.div = LongPrototype.divide;
+
+    /**
+     * Returns this Long modulo the specified.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} divisor Divisor
+     * @returns {!Long} Remainder
+     */
+    LongPrototype.modulo = function modulo(divisor) {
+      if (!isLong(divisor)) divisor = fromValue(divisor);
+
+      // use wasm support if present
+      if (wasm) {
+        var low = (this.unsigned ? wasm["rem_u"] : wasm["rem_s"])(
+          this.low,
+          this.high,
+          divisor.low,
+          divisor.high,
+        );
+        return fromBits(low, wasm["get_high"](), this.unsigned);
+      }
+      return this.sub(this.div(divisor).mul(divisor));
+    };
+
+    /**
+     * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
+     * @function
+     * @param {!Long|number|bigint|string} divisor Divisor
+     * @returns {!Long} Remainder
+     */
+    LongPrototype.mod = LongPrototype.modulo;
+
+    /**
+     * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
+     * @function
+     * @param {!Long|number|bigint|string} divisor Divisor
+     * @returns {!Long} Remainder
+     */
+    LongPrototype.rem = LongPrototype.modulo;
+
+    /**
+     * Returns the bitwise NOT of this Long.
+     * @this {!Long}
+     * @returns {!Long}
+     */
+    LongPrototype.not = function not() {
+      return fromBits(~this.low, ~this.high, this.unsigned);
+    };
+
+    /**
+     * Returns count leading zeros of this Long.
+     * @this {!Long}
+     * @returns {!number}
+     */
+    LongPrototype.countLeadingZeros = function countLeadingZeros() {
+      return this.high ? Math.clz32(this.high) : Math.clz32(this.low) + 32;
+    };
+
+    /**
+     * Returns count leading zeros. This is an alias of {@link Long#countLeadingZeros}.
+     * @function
+     * @param {!Long}
+     * @returns {!number}
+     */
+    LongPrototype.clz = LongPrototype.countLeadingZeros;
+
+    /**
+     * Returns count trailing zeros of this Long.
+     * @this {!Long}
+     * @returns {!number}
+     */
+    LongPrototype.countTrailingZeros = function countTrailingZeros() {
+      return this.low ? ctz32(this.low) : ctz32(this.high) + 32;
+    };
+
+    /**
+     * Returns count trailing zeros. This is an alias of {@link Long#countTrailingZeros}.
+     * @function
+     * @param {!Long}
+     * @returns {!number}
+     */
+    LongPrototype.ctz = LongPrototype.countTrailingZeros;
+
+    /**
+     * Returns the bitwise AND of this Long and the specified.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other Long
+     * @returns {!Long}
+     */
+    LongPrototype.and = function and(other) {
+      if (!isLong(other)) other = fromValue(other);
+      return fromBits(
+        this.low & other.low,
+        this.high & other.high,
+        this.unsigned,
+      );
+    };
+
+    /**
+     * Returns the bitwise OR of this Long and the specified.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other Long
+     * @returns {!Long}
+     */
+    LongPrototype.or = function or(other) {
+      if (!isLong(other)) other = fromValue(other);
+      return fromBits(
+        this.low | other.low,
+        this.high | other.high,
+        this.unsigned,
+      );
+    };
+
+    /**
+     * Returns the bitwise XOR of this Long and the given one.
+     * @this {!Long}
+     * @param {!Long|number|bigint|string} other Other Long
+     * @returns {!Long}
+     */
+    LongPrototype.xor = function xor(other) {
+      if (!isLong(other)) other = fromValue(other);
+      return fromBits(
+        this.low ^ other.low,
+        this.high ^ other.high,
+        this.unsigned,
+      );
+    };
+
+    /**
+     * Returns this Long with bits shifted to the left by the given amount.
+     * @this {!Long}
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shiftLeft = function shiftLeft(numBits) {
+      if (isLong(numBits)) numBits = numBits.toInt();
+      if ((numBits &= 63) === 0) return this;
+      else if (numBits < 32)
+        return fromBits(
+          this.low << numBits,
+          (this.high << numBits) | (this.low >>> (32 - numBits)),
+          this.unsigned,
+        );
+      else return fromBits(0, this.low << (numBits - 32), this.unsigned);
+    };
+
+    /**
+     * Returns this Long with bits shifted to the left by the given amount. This is an alias of {@link Long#shiftLeft}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shl = LongPrototype.shiftLeft;
+
+    /**
+     * Returns this Long with bits arithmetically shifted to the right by the given amount.
+     * @this {!Long}
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shiftRight = function shiftRight(numBits) {
+      if (isLong(numBits)) numBits = numBits.toInt();
+      if ((numBits &= 63) === 0) return this;
+      else if (numBits < 32)
+        return fromBits(
+          (this.low >>> numBits) | (this.high << (32 - numBits)),
+          this.high >> numBits,
+          this.unsigned,
+        );
+      else
+        return fromBits(
+          this.high >> (numBits - 32),
+          this.high >= 0 ? 0 : -1,
+          this.unsigned,
+        );
+    };
+
+    /**
+     * Returns this Long with bits arithmetically shifted to the right by the given amount. This is an alias of {@link Long#shiftRight}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shr = LongPrototype.shiftRight;
+
+    /**
+     * Returns this Long with bits logically shifted to the right by the given amount.
+     * @this {!Long}
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shiftRightUnsigned = function shiftRightUnsigned(numBits) {
+      if (isLong(numBits)) numBits = numBits.toInt();
+      if ((numBits &= 63) === 0) return this;
+      if (numBits < 32)
+        return fromBits(
+          (this.low >>> numBits) | (this.high << (32 - numBits)),
+          this.high >>> numBits,
+          this.unsigned,
+        );
+      if (numBits === 32) return fromBits(this.high, 0, this.unsigned);
+      return fromBits(this.high >>> (numBits - 32), 0, this.unsigned);
+    };
+
+    /**
+     * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shru = LongPrototype.shiftRightUnsigned;
+
+    /**
+     * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Shifted Long
+     */
+    LongPrototype.shr_u = LongPrototype.shiftRightUnsigned;
+
+    /**
+     * Returns this Long with bits rotated to the left by the given amount.
+     * @this {!Long}
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Rotated Long
+     */
+    LongPrototype.rotateLeft = function rotateLeft(numBits) {
+      var b;
+      if (isLong(numBits)) numBits = numBits.toInt();
+      if ((numBits &= 63) === 0) return this;
+      if (numBits === 32) return fromBits(this.high, this.low, this.unsigned);
+      if (numBits < 32) {
+        b = 32 - numBits;
+        return fromBits(
+          (this.low << numBits) | (this.high >>> b),
+          (this.high << numBits) | (this.low >>> b),
+          this.unsigned,
+        );
+      }
+      numBits -= 32;
       b = 32 - numBits;
-      return fromBits(this.low << numBits | this.high >>> b, this.high << numBits | this.low >>> b, this.unsigned);
-    }
-  
-    numBits -= 32;
-    b = 32 - numBits;
-    return fromBits(this.high << numBits | this.low >>> b, this.low << numBits | this.high >>> b, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits rotated to the left by the given amount. This is an alias of {@link Long#rotateLeft}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Rotated Long
-   */
-  
-  
-  LongPrototype.rotl = LongPrototype.rotateLeft;
-  /**
-   * Returns this Long with bits rotated to the right by the given amount.
-   * @this {!Long}
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Rotated Long
-   */
-  
-  LongPrototype.rotateRight = function rotateRight(numBits) {
-    var b;
-    if (isLong(numBits)) numBits = numBits.toInt();
-    if ((numBits &= 63) === 0) return this;
-    if (numBits === 32) return fromBits(this.high, this.low, this.unsigned);
-  
-    if (numBits < 32) {
+      return fromBits(
+        (this.high << numBits) | (this.low >>> b),
+        (this.low << numBits) | (this.high >>> b),
+        this.unsigned,
+      );
+    };
+    /**
+     * Returns this Long with bits rotated to the left by the given amount. This is an alias of {@link Long#rotateLeft}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Rotated Long
+     */
+    LongPrototype.rotl = LongPrototype.rotateLeft;
+
+    /**
+     * Returns this Long with bits rotated to the right by the given amount.
+     * @this {!Long}
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Rotated Long
+     */
+    LongPrototype.rotateRight = function rotateRight(numBits) {
+      var b;
+      if (isLong(numBits)) numBits = numBits.toInt();
+      if ((numBits &= 63) === 0) return this;
+      if (numBits === 32) return fromBits(this.high, this.low, this.unsigned);
+      if (numBits < 32) {
+        b = 32 - numBits;
+        return fromBits(
+          (this.high << b) | (this.low >>> numBits),
+          (this.low << b) | (this.high >>> numBits),
+          this.unsigned,
+        );
+      }
+      numBits -= 32;
       b = 32 - numBits;
-      return fromBits(this.high << b | this.low >>> numBits, this.low << b | this.high >>> numBits, this.unsigned);
+      return fromBits(
+        (this.low << b) | (this.high >>> numBits),
+        (this.high << b) | (this.low >>> numBits),
+        this.unsigned,
+      );
+    };
+    /**
+     * Returns this Long with bits rotated to the right by the given amount. This is an alias of {@link Long#rotateRight}.
+     * @function
+     * @param {number|!Long} numBits Number of bits
+     * @returns {!Long} Rotated Long
+     */
+    LongPrototype.rotr = LongPrototype.rotateRight;
+
+    /**
+     * Converts this Long to signed.
+     * @this {!Long}
+     * @returns {!Long} Signed long
+     */
+    LongPrototype.toSigned = function toSigned() {
+      if (!this.unsigned) return this;
+      return fromBits(this.low, this.high, false);
+    };
+
+    /**
+     * Converts this Long to unsigned.
+     * @this {!Long}
+     * @returns {!Long} Unsigned long
+     */
+    LongPrototype.toUnsigned = function toUnsigned() {
+      if (this.unsigned) return this;
+      return fromBits(this.low, this.high, true);
+    };
+
+    /**
+     * Converts this Long to its byte representation.
+     * @param {boolean=} le Whether little or big endian, defaults to big endian
+     * @this {!Long}
+     * @returns {!Array.<number>} Byte representation
+     */
+    LongPrototype.toBytes = function toBytes(le) {
+      return le ? this.toBytesLE() : this.toBytesBE();
+    };
+
+    /**
+     * Converts this Long to its little endian byte representation.
+     * @this {!Long}
+     * @returns {!Array.<number>} Little endian byte representation
+     */
+    LongPrototype.toBytesLE = function toBytesLE() {
+      var hi = this.high,
+        lo = this.low;
+      return [
+        lo & 0xff,
+        (lo >>> 8) & 0xff,
+        (lo >>> 16) & 0xff,
+        lo >>> 24,
+        hi & 0xff,
+        (hi >>> 8) & 0xff,
+        (hi >>> 16) & 0xff,
+        hi >>> 24,
+      ];
+    };
+
+    /**
+     * Converts this Long to its big endian byte representation.
+     * @this {!Long}
+     * @returns {!Array.<number>} Big endian byte representation
+     */
+    LongPrototype.toBytesBE = function toBytesBE() {
+      var hi = this.high,
+        lo = this.low;
+      return [
+        hi >>> 24,
+        (hi >>> 16) & 0xff,
+        (hi >>> 8) & 0xff,
+        hi & 0xff,
+        lo >>> 24,
+        (lo >>> 16) & 0xff,
+        (lo >>> 8) & 0xff,
+        lo & 0xff,
+      ];
+    };
+
+    /**
+     * Creates a Long from its byte representation.
+     * @param {!Array.<number>} bytes Byte representation
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @param {boolean=} le Whether little or big endian, defaults to big endian
+     * @returns {Long} The corresponding Long value
+     */
+    Long.fromBytes = function fromBytes(bytes, unsigned, le) {
+      return le
+        ? Long.fromBytesLE(bytes, unsigned)
+        : Long.fromBytesBE(bytes, unsigned);
+    };
+
+    /**
+     * Creates a Long from its little endian byte representation.
+     * @param {!Array.<number>} bytes Little endian byte representation
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {Long} The corresponding Long value
+     */
+    Long.fromBytesLE = function fromBytesLE(bytes, unsigned) {
+      return new Long(
+        bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24),
+        bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24),
+        unsigned,
+      );
+    };
+
+    /**
+     * Creates a Long from its big endian byte representation.
+     * @param {!Array.<number>} bytes Big endian byte representation
+     * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+     * @returns {Long} The corresponding Long value
+     */
+    Long.fromBytesBE = function fromBytesBE(bytes, unsigned) {
+      return new Long(
+        (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7],
+        (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3],
+        unsigned,
+      );
+    };
+
+    // Support conversion to/from BigInt where available
+    if (typeof BigInt === "function") {
+      /**
+       * Returns a Long representing the given big integer.
+       * @function
+       * @param {number} value The big integer value
+       * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+       * @returns {!Long} The corresponding Long value
+       */
+      Long.fromBigInt = function fromBigInt(value, unsigned) {
+        var lowBits = Number(BigInt.asIntN(32, value));
+        var highBits = Number(BigInt.asIntN(32, value >> BigInt(32)));
+        return fromBits(lowBits, highBits, unsigned);
+      };
+
+      // Override
+      Long.fromValue = function fromValueWithBigInt(value, unsigned) {
+        if (typeof value === "bigint") return Long.fromBigInt(value, unsigned);
+        return fromValue(value, unsigned);
+      };
+
+      /**
+       * Converts the Long to its big integer representation.
+       * @this {!Long}
+       * @returns {bigint}
+       */
+      LongPrototype.toBigInt = function toBigInt() {
+        var lowBigInt = BigInt(this.low >>> 0);
+        var highBigInt = BigInt(this.unsigned ? this.high >>> 0 : this.high);
+        return (highBigInt << BigInt(32)) | lowBigInt;
+      };
     }
-  
-    numBits -= 32;
-    b = 32 - numBits;
-    return fromBits(this.low << b | this.high >>> numBits, this.high << b | this.low >>> numBits, this.unsigned);
-  };
-  /**
-   * Returns this Long with bits rotated to the right by the given amount. This is an alias of {@link Long#rotateRight}.
-   * @function
-   * @param {number|!Long} numBits Number of bits
-   * @returns {!Long} Rotated Long
-   */
-  
-  
-  LongPrototype.rotr = LongPrototype.rotateRight;
-  /**
-   * Converts this Long to signed.
-   * @this {!Long}
-   * @returns {!Long} Signed long
-   */
-  
-  LongPrototype.toSigned = function toSigned() {
-    if (!this.unsigned) return this;
-    return fromBits(this.low, this.high, false);
-  };
-  /**
-   * Converts this Long to unsigned.
-   * @this {!Long}
-   * @returns {!Long} Unsigned long
-   */
-  
-  
-  LongPrototype.toUnsigned = function toUnsigned() {
-    if (this.unsigned) return this;
-    return fromBits(this.low, this.high, true);
-  };
-  /**
-   * Converts this Long to its byte representation.
-   * @param {boolean=} le Whether little or big endian, defaults to big endian
-   * @this {!Long}
-   * @returns {!Array.<number>} Byte representation
-   */
-  
-  
-  LongPrototype.toBytes = function toBytes(le) {
-    return le ? this.toBytesLE() : this.toBytesBE();
-  };
-  /**
-   * Converts this Long to its little endian byte representation.
-   * @this {!Long}
-   * @returns {!Array.<number>} Little endian byte representation
-   */
-  
-  
-  LongPrototype.toBytesLE = function toBytesLE() {
-    var hi = this.high,
-        lo = this.low;
-    return [lo & 0xff, lo >>> 8 & 0xff, lo >>> 16 & 0xff, lo >>> 24, hi & 0xff, hi >>> 8 & 0xff, hi >>> 16 & 0xff, hi >>> 24];
-  };
-  /**
-   * Converts this Long to its big endian byte representation.
-   * @this {!Long}
-   * @returns {!Array.<number>} Big endian byte representation
-   */
-  
-  
-  LongPrototype.toBytesBE = function toBytesBE() {
-    var hi = this.high,
-        lo = this.low;
-    return [hi >>> 24, hi >>> 16 & 0xff, hi >>> 8 & 0xff, hi & 0xff, lo >>> 24, lo >>> 16 & 0xff, lo >>> 8 & 0xff, lo & 0xff];
-  };
-  /**
-   * Creates a Long from its byte representation.
-   * @param {!Array.<number>} bytes Byte representation
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @param {boolean=} le Whether little or big endian, defaults to big endian
-   * @returns {Long} The corresponding Long value
-   */
-  
-  
-  Long.fromBytes = function fromBytes(bytes, unsigned, le) {
-    return le ? Long.fromBytesLE(bytes, unsigned) : Long.fromBytesBE(bytes, unsigned);
-  };
-  /**
-   * Creates a Long from its little endian byte representation.
-   * @param {!Array.<number>} bytes Little endian byte representation
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {Long} The corresponding Long value
-   */
-  
-  
-  Long.fromBytesLE = function fromBytesLE(bytes, unsigned) {
-    return new Long(bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24, bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24, unsigned);
-  };
-  /**
-   * Creates a Long from its big endian byte representation.
-   * @param {!Array.<number>} bytes Big endian byte representation
-   * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
-   * @returns {Long} The corresponding Long value
-   */
-  
-  
-  Long.fromBytesBE = function fromBytesBE(bytes, unsigned) {
-    return new Long(bytes[4] << 24 | bytes[5] << 16 | bytes[6] << 8 | bytes[7], bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3], unsigned);
-  };
-  
-  var _default = Long;
-  exports.default = _default;
-  return "default" in exports ? exports.default : exports;
-})({});
-if (typeof define === 'function' && define.amd) define([], function() { return Long; });
-else if (true) module.exports = Long;
+    var _default = (_exports.default = Long);
+  },
+);
 
 
 /***/ }),
@@ -118991,39 +116936,7 @@ __webpack_unused_export__ = setVerbosity;
 /***/ ((module) => {
 
 "use strict";
-module.exports = {"i8":"1.10.9"};
-
-/***/ }),
-
-/***/ 33600:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"0":65533,"128":8364,"130":8218,"131":402,"132":8222,"133":8230,"134":8224,"135":8225,"136":710,"137":8240,"138":352,"139":8249,"140":338,"142":381,"145":8216,"146":8217,"147":8220,"148":8221,"149":8226,"150":8211,"151":8212,"152":732,"153":8482,"154":353,"155":8250,"156":339,"158":382,"159":376}');
-
-/***/ }),
-
-/***/ 59323:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"Aacute":"Á","aacute":"á","Abreve":"Ă","abreve":"ă","ac":"∾","acd":"∿","acE":"∾̳","Acirc":"Â","acirc":"â","acute":"´","Acy":"А","acy":"а","AElig":"Æ","aelig":"æ","af":"⁡","Afr":"𝔄","afr":"𝔞","Agrave":"À","agrave":"à","alefsym":"ℵ","aleph":"ℵ","Alpha":"Α","alpha":"α","Amacr":"Ā","amacr":"ā","amalg":"⨿","amp":"&","AMP":"&","andand":"⩕","And":"⩓","and":"∧","andd":"⩜","andslope":"⩘","andv":"⩚","ang":"∠","ange":"⦤","angle":"∠","angmsdaa":"⦨","angmsdab":"⦩","angmsdac":"⦪","angmsdad":"⦫","angmsdae":"⦬","angmsdaf":"⦭","angmsdag":"⦮","angmsdah":"⦯","angmsd":"∡","angrt":"∟","angrtvb":"⊾","angrtvbd":"⦝","angsph":"∢","angst":"Å","angzarr":"⍼","Aogon":"Ą","aogon":"ą","Aopf":"𝔸","aopf":"𝕒","apacir":"⩯","ap":"≈","apE":"⩰","ape":"≊","apid":"≋","apos":"\'","ApplyFunction":"⁡","approx":"≈","approxeq":"≊","Aring":"Å","aring":"å","Ascr":"𝒜","ascr":"𝒶","Assign":"≔","ast":"*","asymp":"≈","asympeq":"≍","Atilde":"Ã","atilde":"ã","Auml":"Ä","auml":"ä","awconint":"∳","awint":"⨑","backcong":"≌","backepsilon":"϶","backprime":"‵","backsim":"∽","backsimeq":"⋍","Backslash":"∖","Barv":"⫧","barvee":"⊽","barwed":"⌅","Barwed":"⌆","barwedge":"⌅","bbrk":"⎵","bbrktbrk":"⎶","bcong":"≌","Bcy":"Б","bcy":"б","bdquo":"„","becaus":"∵","because":"∵","Because":"∵","bemptyv":"⦰","bepsi":"϶","bernou":"ℬ","Bernoullis":"ℬ","Beta":"Β","beta":"β","beth":"ℶ","between":"≬","Bfr":"𝔅","bfr":"𝔟","bigcap":"⋂","bigcirc":"◯","bigcup":"⋃","bigodot":"⨀","bigoplus":"⨁","bigotimes":"⨂","bigsqcup":"⨆","bigstar":"★","bigtriangledown":"▽","bigtriangleup":"△","biguplus":"⨄","bigvee":"⋁","bigwedge":"⋀","bkarow":"⤍","blacklozenge":"⧫","blacksquare":"▪","blacktriangle":"▴","blacktriangledown":"▾","blacktriangleleft":"◂","blacktriangleright":"▸","blank":"␣","blk12":"▒","blk14":"░","blk34":"▓","block":"█","bne":"=⃥","bnequiv":"≡⃥","bNot":"⫭","bnot":"⌐","Bopf":"𝔹","bopf":"𝕓","bot":"⊥","bottom":"⊥","bowtie":"⋈","boxbox":"⧉","boxdl":"┐","boxdL":"╕","boxDl":"╖","boxDL":"╗","boxdr":"┌","boxdR":"╒","boxDr":"╓","boxDR":"╔","boxh":"─","boxH":"═","boxhd":"┬","boxHd":"╤","boxhD":"╥","boxHD":"╦","boxhu":"┴","boxHu":"╧","boxhU":"╨","boxHU":"╩","boxminus":"⊟","boxplus":"⊞","boxtimes":"⊠","boxul":"┘","boxuL":"╛","boxUl":"╜","boxUL":"╝","boxur":"└","boxuR":"╘","boxUr":"╙","boxUR":"╚","boxv":"│","boxV":"║","boxvh":"┼","boxvH":"╪","boxVh":"╫","boxVH":"╬","boxvl":"┤","boxvL":"╡","boxVl":"╢","boxVL":"╣","boxvr":"├","boxvR":"╞","boxVr":"╟","boxVR":"╠","bprime":"‵","breve":"˘","Breve":"˘","brvbar":"¦","bscr":"𝒷","Bscr":"ℬ","bsemi":"⁏","bsim":"∽","bsime":"⋍","bsolb":"⧅","bsol":"\\\\","bsolhsub":"⟈","bull":"•","bullet":"•","bump":"≎","bumpE":"⪮","bumpe":"≏","Bumpeq":"≎","bumpeq":"≏","Cacute":"Ć","cacute":"ć","capand":"⩄","capbrcup":"⩉","capcap":"⩋","cap":"∩","Cap":"⋒","capcup":"⩇","capdot":"⩀","CapitalDifferentialD":"ⅅ","caps":"∩︀","caret":"⁁","caron":"ˇ","Cayleys":"ℭ","ccaps":"⩍","Ccaron":"Č","ccaron":"č","Ccedil":"Ç","ccedil":"ç","Ccirc":"Ĉ","ccirc":"ĉ","Cconint":"∰","ccups":"⩌","ccupssm":"⩐","Cdot":"Ċ","cdot":"ċ","cedil":"¸","Cedilla":"¸","cemptyv":"⦲","cent":"¢","centerdot":"·","CenterDot":"·","cfr":"𝔠","Cfr":"ℭ","CHcy":"Ч","chcy":"ч","check":"✓","checkmark":"✓","Chi":"Χ","chi":"χ","circ":"ˆ","circeq":"≗","circlearrowleft":"↺","circlearrowright":"↻","circledast":"⊛","circledcirc":"⊚","circleddash":"⊝","CircleDot":"⊙","circledR":"®","circledS":"Ⓢ","CircleMinus":"⊖","CirclePlus":"⊕","CircleTimes":"⊗","cir":"○","cirE":"⧃","cire":"≗","cirfnint":"⨐","cirmid":"⫯","cirscir":"⧂","ClockwiseContourIntegral":"∲","CloseCurlyDoubleQuote":"”","CloseCurlyQuote":"’","clubs":"♣","clubsuit":"♣","colon":":","Colon":"∷","Colone":"⩴","colone":"≔","coloneq":"≔","comma":",","commat":"@","comp":"∁","compfn":"∘","complement":"∁","complexes":"ℂ","cong":"≅","congdot":"⩭","Congruent":"≡","conint":"∮","Conint":"∯","ContourIntegral":"∮","copf":"𝕔","Copf":"ℂ","coprod":"∐","Coproduct":"∐","copy":"©","COPY":"©","copysr":"℗","CounterClockwiseContourIntegral":"∳","crarr":"↵","cross":"✗","Cross":"⨯","Cscr":"𝒞","cscr":"𝒸","csub":"⫏","csube":"⫑","csup":"⫐","csupe":"⫒","ctdot":"⋯","cudarrl":"⤸","cudarrr":"⤵","cuepr":"⋞","cuesc":"⋟","cularr":"↶","cularrp":"⤽","cupbrcap":"⩈","cupcap":"⩆","CupCap":"≍","cup":"∪","Cup":"⋓","cupcup":"⩊","cupdot":"⊍","cupor":"⩅","cups":"∪︀","curarr":"↷","curarrm":"⤼","curlyeqprec":"⋞","curlyeqsucc":"⋟","curlyvee":"⋎","curlywedge":"⋏","curren":"¤","curvearrowleft":"↶","curvearrowright":"↷","cuvee":"⋎","cuwed":"⋏","cwconint":"∲","cwint":"∱","cylcty":"⌭","dagger":"†","Dagger":"‡","daleth":"ℸ","darr":"↓","Darr":"↡","dArr":"⇓","dash":"‐","Dashv":"⫤","dashv":"⊣","dbkarow":"⤏","dblac":"˝","Dcaron":"Ď","dcaron":"ď","Dcy":"Д","dcy":"д","ddagger":"‡","ddarr":"⇊","DD":"ⅅ","dd":"ⅆ","DDotrahd":"⤑","ddotseq":"⩷","deg":"°","Del":"∇","Delta":"Δ","delta":"δ","demptyv":"⦱","dfisht":"⥿","Dfr":"𝔇","dfr":"𝔡","dHar":"⥥","dharl":"⇃","dharr":"⇂","DiacriticalAcute":"´","DiacriticalDot":"˙","DiacriticalDoubleAcute":"˝","DiacriticalGrave":"`","DiacriticalTilde":"˜","diam":"⋄","diamond":"⋄","Diamond":"⋄","diamondsuit":"♦","diams":"♦","die":"¨","DifferentialD":"ⅆ","digamma":"ϝ","disin":"⋲","div":"÷","divide":"÷","divideontimes":"⋇","divonx":"⋇","DJcy":"Ђ","djcy":"ђ","dlcorn":"⌞","dlcrop":"⌍","dollar":"$","Dopf":"𝔻","dopf":"𝕕","Dot":"¨","dot":"˙","DotDot":"⃜","doteq":"≐","doteqdot":"≑","DotEqual":"≐","dotminus":"∸","dotplus":"∔","dotsquare":"⊡","doublebarwedge":"⌆","DoubleContourIntegral":"∯","DoubleDot":"¨","DoubleDownArrow":"⇓","DoubleLeftArrow":"⇐","DoubleLeftRightArrow":"⇔","DoubleLeftTee":"⫤","DoubleLongLeftArrow":"⟸","DoubleLongLeftRightArrow":"⟺","DoubleLongRightArrow":"⟹","DoubleRightArrow":"⇒","DoubleRightTee":"⊨","DoubleUpArrow":"⇑","DoubleUpDownArrow":"⇕","DoubleVerticalBar":"∥","DownArrowBar":"⤓","downarrow":"↓","DownArrow":"↓","Downarrow":"⇓","DownArrowUpArrow":"⇵","DownBreve":"̑","downdownarrows":"⇊","downharpoonleft":"⇃","downharpoonright":"⇂","DownLeftRightVector":"⥐","DownLeftTeeVector":"⥞","DownLeftVectorBar":"⥖","DownLeftVector":"↽","DownRightTeeVector":"⥟","DownRightVectorBar":"⥗","DownRightVector":"⇁","DownTeeArrow":"↧","DownTee":"⊤","drbkarow":"⤐","drcorn":"⌟","drcrop":"⌌","Dscr":"𝒟","dscr":"𝒹","DScy":"Ѕ","dscy":"ѕ","dsol":"⧶","Dstrok":"Đ","dstrok":"đ","dtdot":"⋱","dtri":"▿","dtrif":"▾","duarr":"⇵","duhar":"⥯","dwangle":"⦦","DZcy":"Џ","dzcy":"џ","dzigrarr":"⟿","Eacute":"É","eacute":"é","easter":"⩮","Ecaron":"Ě","ecaron":"ě","Ecirc":"Ê","ecirc":"ê","ecir":"≖","ecolon":"≕","Ecy":"Э","ecy":"э","eDDot":"⩷","Edot":"Ė","edot":"ė","eDot":"≑","ee":"ⅇ","efDot":"≒","Efr":"𝔈","efr":"𝔢","eg":"⪚","Egrave":"È","egrave":"è","egs":"⪖","egsdot":"⪘","el":"⪙","Element":"∈","elinters":"⏧","ell":"ℓ","els":"⪕","elsdot":"⪗","Emacr":"Ē","emacr":"ē","empty":"∅","emptyset":"∅","EmptySmallSquare":"◻","emptyv":"∅","EmptyVerySmallSquare":"▫","emsp13":" ","emsp14":" ","emsp":" ","ENG":"Ŋ","eng":"ŋ","ensp":" ","Eogon":"Ę","eogon":"ę","Eopf":"𝔼","eopf":"𝕖","epar":"⋕","eparsl":"⧣","eplus":"⩱","epsi":"ε","Epsilon":"Ε","epsilon":"ε","epsiv":"ϵ","eqcirc":"≖","eqcolon":"≕","eqsim":"≂","eqslantgtr":"⪖","eqslantless":"⪕","Equal":"⩵","equals":"=","EqualTilde":"≂","equest":"≟","Equilibrium":"⇌","equiv":"≡","equivDD":"⩸","eqvparsl":"⧥","erarr":"⥱","erDot":"≓","escr":"ℯ","Escr":"ℰ","esdot":"≐","Esim":"⩳","esim":"≂","Eta":"Η","eta":"η","ETH":"Ð","eth":"ð","Euml":"Ë","euml":"ë","euro":"€","excl":"!","exist":"∃","Exists":"∃","expectation":"ℰ","exponentiale":"ⅇ","ExponentialE":"ⅇ","fallingdotseq":"≒","Fcy":"Ф","fcy":"ф","female":"♀","ffilig":"ﬃ","fflig":"ﬀ","ffllig":"ﬄ","Ffr":"𝔉","ffr":"𝔣","filig":"ﬁ","FilledSmallSquare":"◼","FilledVerySmallSquare":"▪","fjlig":"fj","flat":"♭","fllig":"ﬂ","fltns":"▱","fnof":"ƒ","Fopf":"𝔽","fopf":"𝕗","forall":"∀","ForAll":"∀","fork":"⋔","forkv":"⫙","Fouriertrf":"ℱ","fpartint":"⨍","frac12":"½","frac13":"⅓","frac14":"¼","frac15":"⅕","frac16":"⅙","frac18":"⅛","frac23":"⅔","frac25":"⅖","frac34":"¾","frac35":"⅗","frac38":"⅜","frac45":"⅘","frac56":"⅚","frac58":"⅝","frac78":"⅞","frasl":"⁄","frown":"⌢","fscr":"𝒻","Fscr":"ℱ","gacute":"ǵ","Gamma":"Γ","gamma":"γ","Gammad":"Ϝ","gammad":"ϝ","gap":"⪆","Gbreve":"Ğ","gbreve":"ğ","Gcedil":"Ģ","Gcirc":"Ĝ","gcirc":"ĝ","Gcy":"Г","gcy":"г","Gdot":"Ġ","gdot":"ġ","ge":"≥","gE":"≧","gEl":"⪌","gel":"⋛","geq":"≥","geqq":"≧","geqslant":"⩾","gescc":"⪩","ges":"⩾","gesdot":"⪀","gesdoto":"⪂","gesdotol":"⪄","gesl":"⋛︀","gesles":"⪔","Gfr":"𝔊","gfr":"𝔤","gg":"≫","Gg":"⋙","ggg":"⋙","gimel":"ℷ","GJcy":"Ѓ","gjcy":"ѓ","gla":"⪥","gl":"≷","glE":"⪒","glj":"⪤","gnap":"⪊","gnapprox":"⪊","gne":"⪈","gnE":"≩","gneq":"⪈","gneqq":"≩","gnsim":"⋧","Gopf":"𝔾","gopf":"𝕘","grave":"`","GreaterEqual":"≥","GreaterEqualLess":"⋛","GreaterFullEqual":"≧","GreaterGreater":"⪢","GreaterLess":"≷","GreaterSlantEqual":"⩾","GreaterTilde":"≳","Gscr":"𝒢","gscr":"ℊ","gsim":"≳","gsime":"⪎","gsiml":"⪐","gtcc":"⪧","gtcir":"⩺","gt":">","GT":">","Gt":"≫","gtdot":"⋗","gtlPar":"⦕","gtquest":"⩼","gtrapprox":"⪆","gtrarr":"⥸","gtrdot":"⋗","gtreqless":"⋛","gtreqqless":"⪌","gtrless":"≷","gtrsim":"≳","gvertneqq":"≩︀","gvnE":"≩︀","Hacek":"ˇ","hairsp":" ","half":"½","hamilt":"ℋ","HARDcy":"Ъ","hardcy":"ъ","harrcir":"⥈","harr":"↔","hArr":"⇔","harrw":"↭","Hat":"^","hbar":"ℏ","Hcirc":"Ĥ","hcirc":"ĥ","hearts":"♥","heartsuit":"♥","hellip":"…","hercon":"⊹","hfr":"𝔥","Hfr":"ℌ","HilbertSpace":"ℋ","hksearow":"⤥","hkswarow":"⤦","hoarr":"⇿","homtht":"∻","hookleftarrow":"↩","hookrightarrow":"↪","hopf":"𝕙","Hopf":"ℍ","horbar":"―","HorizontalLine":"─","hscr":"𝒽","Hscr":"ℋ","hslash":"ℏ","Hstrok":"Ħ","hstrok":"ħ","HumpDownHump":"≎","HumpEqual":"≏","hybull":"⁃","hyphen":"‐","Iacute":"Í","iacute":"í","ic":"⁣","Icirc":"Î","icirc":"î","Icy":"И","icy":"и","Idot":"İ","IEcy":"Е","iecy":"е","iexcl":"¡","iff":"⇔","ifr":"𝔦","Ifr":"ℑ","Igrave":"Ì","igrave":"ì","ii":"ⅈ","iiiint":"⨌","iiint":"∭","iinfin":"⧜","iiota":"℩","IJlig":"Ĳ","ijlig":"ĳ","Imacr":"Ī","imacr":"ī","image":"ℑ","ImaginaryI":"ⅈ","imagline":"ℐ","imagpart":"ℑ","imath":"ı","Im":"ℑ","imof":"⊷","imped":"Ƶ","Implies":"⇒","incare":"℅","in":"∈","infin":"∞","infintie":"⧝","inodot":"ı","intcal":"⊺","int":"∫","Int":"∬","integers":"ℤ","Integral":"∫","intercal":"⊺","Intersection":"⋂","intlarhk":"⨗","intprod":"⨼","InvisibleComma":"⁣","InvisibleTimes":"⁢","IOcy":"Ё","iocy":"ё","Iogon":"Į","iogon":"į","Iopf":"𝕀","iopf":"𝕚","Iota":"Ι","iota":"ι","iprod":"⨼","iquest":"¿","iscr":"𝒾","Iscr":"ℐ","isin":"∈","isindot":"⋵","isinE":"⋹","isins":"⋴","isinsv":"⋳","isinv":"∈","it":"⁢","Itilde":"Ĩ","itilde":"ĩ","Iukcy":"І","iukcy":"і","Iuml":"Ï","iuml":"ï","Jcirc":"Ĵ","jcirc":"ĵ","Jcy":"Й","jcy":"й","Jfr":"𝔍","jfr":"𝔧","jmath":"ȷ","Jopf":"𝕁","jopf":"𝕛","Jscr":"𝒥","jscr":"𝒿","Jsercy":"Ј","jsercy":"ј","Jukcy":"Є","jukcy":"є","Kappa":"Κ","kappa":"κ","kappav":"ϰ","Kcedil":"Ķ","kcedil":"ķ","Kcy":"К","kcy":"к","Kfr":"𝔎","kfr":"𝔨","kgreen":"ĸ","KHcy":"Х","khcy":"х","KJcy":"Ќ","kjcy":"ќ","Kopf":"𝕂","kopf":"𝕜","Kscr":"𝒦","kscr":"𝓀","lAarr":"⇚","Lacute":"Ĺ","lacute":"ĺ","laemptyv":"⦴","lagran":"ℒ","Lambda":"Λ","lambda":"λ","lang":"⟨","Lang":"⟪","langd":"⦑","langle":"⟨","lap":"⪅","Laplacetrf":"ℒ","laquo":"«","larrb":"⇤","larrbfs":"⤟","larr":"←","Larr":"↞","lArr":"⇐","larrfs":"⤝","larrhk":"↩","larrlp":"↫","larrpl":"⤹","larrsim":"⥳","larrtl":"↢","latail":"⤙","lAtail":"⤛","lat":"⪫","late":"⪭","lates":"⪭︀","lbarr":"⤌","lBarr":"⤎","lbbrk":"❲","lbrace":"{","lbrack":"[","lbrke":"⦋","lbrksld":"⦏","lbrkslu":"⦍","Lcaron":"Ľ","lcaron":"ľ","Lcedil":"Ļ","lcedil":"ļ","lceil":"⌈","lcub":"{","Lcy":"Л","lcy":"л","ldca":"⤶","ldquo":"“","ldquor":"„","ldrdhar":"⥧","ldrushar":"⥋","ldsh":"↲","le":"≤","lE":"≦","LeftAngleBracket":"⟨","LeftArrowBar":"⇤","leftarrow":"←","LeftArrow":"←","Leftarrow":"⇐","LeftArrowRightArrow":"⇆","leftarrowtail":"↢","LeftCeiling":"⌈","LeftDoubleBracket":"⟦","LeftDownTeeVector":"⥡","LeftDownVectorBar":"⥙","LeftDownVector":"⇃","LeftFloor":"⌊","leftharpoondown":"↽","leftharpoonup":"↼","leftleftarrows":"⇇","leftrightarrow":"↔","LeftRightArrow":"↔","Leftrightarrow":"⇔","leftrightarrows":"⇆","leftrightharpoons":"⇋","leftrightsquigarrow":"↭","LeftRightVector":"⥎","LeftTeeArrow":"↤","LeftTee":"⊣","LeftTeeVector":"⥚","leftthreetimes":"⋋","LeftTriangleBar":"⧏","LeftTriangle":"⊲","LeftTriangleEqual":"⊴","LeftUpDownVector":"⥑","LeftUpTeeVector":"⥠","LeftUpVectorBar":"⥘","LeftUpVector":"↿","LeftVectorBar":"⥒","LeftVector":"↼","lEg":"⪋","leg":"⋚","leq":"≤","leqq":"≦","leqslant":"⩽","lescc":"⪨","les":"⩽","lesdot":"⩿","lesdoto":"⪁","lesdotor":"⪃","lesg":"⋚︀","lesges":"⪓","lessapprox":"⪅","lessdot":"⋖","lesseqgtr":"⋚","lesseqqgtr":"⪋","LessEqualGreater":"⋚","LessFullEqual":"≦","LessGreater":"≶","lessgtr":"≶","LessLess":"⪡","lesssim":"≲","LessSlantEqual":"⩽","LessTilde":"≲","lfisht":"⥼","lfloor":"⌊","Lfr":"𝔏","lfr":"𝔩","lg":"≶","lgE":"⪑","lHar":"⥢","lhard":"↽","lharu":"↼","lharul":"⥪","lhblk":"▄","LJcy":"Љ","ljcy":"љ","llarr":"⇇","ll":"≪","Ll":"⋘","llcorner":"⌞","Lleftarrow":"⇚","llhard":"⥫","lltri":"◺","Lmidot":"Ŀ","lmidot":"ŀ","lmoustache":"⎰","lmoust":"⎰","lnap":"⪉","lnapprox":"⪉","lne":"⪇","lnE":"≨","lneq":"⪇","lneqq":"≨","lnsim":"⋦","loang":"⟬","loarr":"⇽","lobrk":"⟦","longleftarrow":"⟵","LongLeftArrow":"⟵","Longleftarrow":"⟸","longleftrightarrow":"⟷","LongLeftRightArrow":"⟷","Longleftrightarrow":"⟺","longmapsto":"⟼","longrightarrow":"⟶","LongRightArrow":"⟶","Longrightarrow":"⟹","looparrowleft":"↫","looparrowright":"↬","lopar":"⦅","Lopf":"𝕃","lopf":"𝕝","loplus":"⨭","lotimes":"⨴","lowast":"∗","lowbar":"_","LowerLeftArrow":"↙","LowerRightArrow":"↘","loz":"◊","lozenge":"◊","lozf":"⧫","lpar":"(","lparlt":"⦓","lrarr":"⇆","lrcorner":"⌟","lrhar":"⇋","lrhard":"⥭","lrm":"‎","lrtri":"⊿","lsaquo":"‹","lscr":"𝓁","Lscr":"ℒ","lsh":"↰","Lsh":"↰","lsim":"≲","lsime":"⪍","lsimg":"⪏","lsqb":"[","lsquo":"‘","lsquor":"‚","Lstrok":"Ł","lstrok":"ł","ltcc":"⪦","ltcir":"⩹","lt":"<","LT":"<","Lt":"≪","ltdot":"⋖","lthree":"⋋","ltimes":"⋉","ltlarr":"⥶","ltquest":"⩻","ltri":"◃","ltrie":"⊴","ltrif":"◂","ltrPar":"⦖","lurdshar":"⥊","luruhar":"⥦","lvertneqq":"≨︀","lvnE":"≨︀","macr":"¯","male":"♂","malt":"✠","maltese":"✠","Map":"⤅","map":"↦","mapsto":"↦","mapstodown":"↧","mapstoleft":"↤","mapstoup":"↥","marker":"▮","mcomma":"⨩","Mcy":"М","mcy":"м","mdash":"—","mDDot":"∺","measuredangle":"∡","MediumSpace":" ","Mellintrf":"ℳ","Mfr":"𝔐","mfr":"𝔪","mho":"℧","micro":"µ","midast":"*","midcir":"⫰","mid":"∣","middot":"·","minusb":"⊟","minus":"−","minusd":"∸","minusdu":"⨪","MinusPlus":"∓","mlcp":"⫛","mldr":"…","mnplus":"∓","models":"⊧","Mopf":"𝕄","mopf":"𝕞","mp":"∓","mscr":"𝓂","Mscr":"ℳ","mstpos":"∾","Mu":"Μ","mu":"μ","multimap":"⊸","mumap":"⊸","nabla":"∇","Nacute":"Ń","nacute":"ń","nang":"∠⃒","nap":"≉","napE":"⩰̸","napid":"≋̸","napos":"ŉ","napprox":"≉","natural":"♮","naturals":"ℕ","natur":"♮","nbsp":" ","nbump":"≎̸","nbumpe":"≏̸","ncap":"⩃","Ncaron":"Ň","ncaron":"ň","Ncedil":"Ņ","ncedil":"ņ","ncong":"≇","ncongdot":"⩭̸","ncup":"⩂","Ncy":"Н","ncy":"н","ndash":"–","nearhk":"⤤","nearr":"↗","neArr":"⇗","nearrow":"↗","ne":"≠","nedot":"≐̸","NegativeMediumSpace":"​","NegativeThickSpace":"​","NegativeThinSpace":"​","NegativeVeryThinSpace":"​","nequiv":"≢","nesear":"⤨","nesim":"≂̸","NestedGreaterGreater":"≫","NestedLessLess":"≪","NewLine":"\\n","nexist":"∄","nexists":"∄","Nfr":"𝔑","nfr":"𝔫","ngE":"≧̸","nge":"≱","ngeq":"≱","ngeqq":"≧̸","ngeqslant":"⩾̸","nges":"⩾̸","nGg":"⋙̸","ngsim":"≵","nGt":"≫⃒","ngt":"≯","ngtr":"≯","nGtv":"≫̸","nharr":"↮","nhArr":"⇎","nhpar":"⫲","ni":"∋","nis":"⋼","nisd":"⋺","niv":"∋","NJcy":"Њ","njcy":"њ","nlarr":"↚","nlArr":"⇍","nldr":"‥","nlE":"≦̸","nle":"≰","nleftarrow":"↚","nLeftarrow":"⇍","nleftrightarrow":"↮","nLeftrightarrow":"⇎","nleq":"≰","nleqq":"≦̸","nleqslant":"⩽̸","nles":"⩽̸","nless":"≮","nLl":"⋘̸","nlsim":"≴","nLt":"≪⃒","nlt":"≮","nltri":"⋪","nltrie":"⋬","nLtv":"≪̸","nmid":"∤","NoBreak":"⁠","NonBreakingSpace":" ","nopf":"𝕟","Nopf":"ℕ","Not":"⫬","not":"¬","NotCongruent":"≢","NotCupCap":"≭","NotDoubleVerticalBar":"∦","NotElement":"∉","NotEqual":"≠","NotEqualTilde":"≂̸","NotExists":"∄","NotGreater":"≯","NotGreaterEqual":"≱","NotGreaterFullEqual":"≧̸","NotGreaterGreater":"≫̸","NotGreaterLess":"≹","NotGreaterSlantEqual":"⩾̸","NotGreaterTilde":"≵","NotHumpDownHump":"≎̸","NotHumpEqual":"≏̸","notin":"∉","notindot":"⋵̸","notinE":"⋹̸","notinva":"∉","notinvb":"⋷","notinvc":"⋶","NotLeftTriangleBar":"⧏̸","NotLeftTriangle":"⋪","NotLeftTriangleEqual":"⋬","NotLess":"≮","NotLessEqual":"≰","NotLessGreater":"≸","NotLessLess":"≪̸","NotLessSlantEqual":"⩽̸","NotLessTilde":"≴","NotNestedGreaterGreater":"⪢̸","NotNestedLessLess":"⪡̸","notni":"∌","notniva":"∌","notnivb":"⋾","notnivc":"⋽","NotPrecedes":"⊀","NotPrecedesEqual":"⪯̸","NotPrecedesSlantEqual":"⋠","NotReverseElement":"∌","NotRightTriangleBar":"⧐̸","NotRightTriangle":"⋫","NotRightTriangleEqual":"⋭","NotSquareSubset":"⊏̸","NotSquareSubsetEqual":"⋢","NotSquareSuperset":"⊐̸","NotSquareSupersetEqual":"⋣","NotSubset":"⊂⃒","NotSubsetEqual":"⊈","NotSucceeds":"⊁","NotSucceedsEqual":"⪰̸","NotSucceedsSlantEqual":"⋡","NotSucceedsTilde":"≿̸","NotSuperset":"⊃⃒","NotSupersetEqual":"⊉","NotTilde":"≁","NotTildeEqual":"≄","NotTildeFullEqual":"≇","NotTildeTilde":"≉","NotVerticalBar":"∤","nparallel":"∦","npar":"∦","nparsl":"⫽⃥","npart":"∂̸","npolint":"⨔","npr":"⊀","nprcue":"⋠","nprec":"⊀","npreceq":"⪯̸","npre":"⪯̸","nrarrc":"⤳̸","nrarr":"↛","nrArr":"⇏","nrarrw":"↝̸","nrightarrow":"↛","nRightarrow":"⇏","nrtri":"⋫","nrtrie":"⋭","nsc":"⊁","nsccue":"⋡","nsce":"⪰̸","Nscr":"𝒩","nscr":"𝓃","nshortmid":"∤","nshortparallel":"∦","nsim":"≁","nsime":"≄","nsimeq":"≄","nsmid":"∤","nspar":"∦","nsqsube":"⋢","nsqsupe":"⋣","nsub":"⊄","nsubE":"⫅̸","nsube":"⊈","nsubset":"⊂⃒","nsubseteq":"⊈","nsubseteqq":"⫅̸","nsucc":"⊁","nsucceq":"⪰̸","nsup":"⊅","nsupE":"⫆̸","nsupe":"⊉","nsupset":"⊃⃒","nsupseteq":"⊉","nsupseteqq":"⫆̸","ntgl":"≹","Ntilde":"Ñ","ntilde":"ñ","ntlg":"≸","ntriangleleft":"⋪","ntrianglelefteq":"⋬","ntriangleright":"⋫","ntrianglerighteq":"⋭","Nu":"Ν","nu":"ν","num":"#","numero":"№","numsp":" ","nvap":"≍⃒","nvdash":"⊬","nvDash":"⊭","nVdash":"⊮","nVDash":"⊯","nvge":"≥⃒","nvgt":">⃒","nvHarr":"⤄","nvinfin":"⧞","nvlArr":"⤂","nvle":"≤⃒","nvlt":"<⃒","nvltrie":"⊴⃒","nvrArr":"⤃","nvrtrie":"⊵⃒","nvsim":"∼⃒","nwarhk":"⤣","nwarr":"↖","nwArr":"⇖","nwarrow":"↖","nwnear":"⤧","Oacute":"Ó","oacute":"ó","oast":"⊛","Ocirc":"Ô","ocirc":"ô","ocir":"⊚","Ocy":"О","ocy":"о","odash":"⊝","Odblac":"Ő","odblac":"ő","odiv":"⨸","odot":"⊙","odsold":"⦼","OElig":"Œ","oelig":"œ","ofcir":"⦿","Ofr":"𝔒","ofr":"𝔬","ogon":"˛","Ograve":"Ò","ograve":"ò","ogt":"⧁","ohbar":"⦵","ohm":"Ω","oint":"∮","olarr":"↺","olcir":"⦾","olcross":"⦻","oline":"‾","olt":"⧀","Omacr":"Ō","omacr":"ō","Omega":"Ω","omega":"ω","Omicron":"Ο","omicron":"ο","omid":"⦶","ominus":"⊖","Oopf":"𝕆","oopf":"𝕠","opar":"⦷","OpenCurlyDoubleQuote":"“","OpenCurlyQuote":"‘","operp":"⦹","oplus":"⊕","orarr":"↻","Or":"⩔","or":"∨","ord":"⩝","order":"ℴ","orderof":"ℴ","ordf":"ª","ordm":"º","origof":"⊶","oror":"⩖","orslope":"⩗","orv":"⩛","oS":"Ⓢ","Oscr":"𝒪","oscr":"ℴ","Oslash":"Ø","oslash":"ø","osol":"⊘","Otilde":"Õ","otilde":"õ","otimesas":"⨶","Otimes":"⨷","otimes":"⊗","Ouml":"Ö","ouml":"ö","ovbar":"⌽","OverBar":"‾","OverBrace":"⏞","OverBracket":"⎴","OverParenthesis":"⏜","para":"¶","parallel":"∥","par":"∥","parsim":"⫳","parsl":"⫽","part":"∂","PartialD":"∂","Pcy":"П","pcy":"п","percnt":"%","period":".","permil":"‰","perp":"⊥","pertenk":"‱","Pfr":"𝔓","pfr":"𝔭","Phi":"Φ","phi":"φ","phiv":"ϕ","phmmat":"ℳ","phone":"☎","Pi":"Π","pi":"π","pitchfork":"⋔","piv":"ϖ","planck":"ℏ","planckh":"ℎ","plankv":"ℏ","plusacir":"⨣","plusb":"⊞","pluscir":"⨢","plus":"+","plusdo":"∔","plusdu":"⨥","pluse":"⩲","PlusMinus":"±","plusmn":"±","plussim":"⨦","plustwo":"⨧","pm":"±","Poincareplane":"ℌ","pointint":"⨕","popf":"𝕡","Popf":"ℙ","pound":"£","prap":"⪷","Pr":"⪻","pr":"≺","prcue":"≼","precapprox":"⪷","prec":"≺","preccurlyeq":"≼","Precedes":"≺","PrecedesEqual":"⪯","PrecedesSlantEqual":"≼","PrecedesTilde":"≾","preceq":"⪯","precnapprox":"⪹","precneqq":"⪵","precnsim":"⋨","pre":"⪯","prE":"⪳","precsim":"≾","prime":"′","Prime":"″","primes":"ℙ","prnap":"⪹","prnE":"⪵","prnsim":"⋨","prod":"∏","Product":"∏","profalar":"⌮","profline":"⌒","profsurf":"⌓","prop":"∝","Proportional":"∝","Proportion":"∷","propto":"∝","prsim":"≾","prurel":"⊰","Pscr":"𝒫","pscr":"𝓅","Psi":"Ψ","psi":"ψ","puncsp":" ","Qfr":"𝔔","qfr":"𝔮","qint":"⨌","qopf":"𝕢","Qopf":"ℚ","qprime":"⁗","Qscr":"𝒬","qscr":"𝓆","quaternions":"ℍ","quatint":"⨖","quest":"?","questeq":"≟","quot":"\\"","QUOT":"\\"","rAarr":"⇛","race":"∽̱","Racute":"Ŕ","racute":"ŕ","radic":"√","raemptyv":"⦳","rang":"⟩","Rang":"⟫","rangd":"⦒","range":"⦥","rangle":"⟩","raquo":"»","rarrap":"⥵","rarrb":"⇥","rarrbfs":"⤠","rarrc":"⤳","rarr":"→","Rarr":"↠","rArr":"⇒","rarrfs":"⤞","rarrhk":"↪","rarrlp":"↬","rarrpl":"⥅","rarrsim":"⥴","Rarrtl":"⤖","rarrtl":"↣","rarrw":"↝","ratail":"⤚","rAtail":"⤜","ratio":"∶","rationals":"ℚ","rbarr":"⤍","rBarr":"⤏","RBarr":"⤐","rbbrk":"❳","rbrace":"}","rbrack":"]","rbrke":"⦌","rbrksld":"⦎","rbrkslu":"⦐","Rcaron":"Ř","rcaron":"ř","Rcedil":"Ŗ","rcedil":"ŗ","rceil":"⌉","rcub":"}","Rcy":"Р","rcy":"р","rdca":"⤷","rdldhar":"⥩","rdquo":"”","rdquor":"”","rdsh":"↳","real":"ℜ","realine":"ℛ","realpart":"ℜ","reals":"ℝ","Re":"ℜ","rect":"▭","reg":"®","REG":"®","ReverseElement":"∋","ReverseEquilibrium":"⇋","ReverseUpEquilibrium":"⥯","rfisht":"⥽","rfloor":"⌋","rfr":"𝔯","Rfr":"ℜ","rHar":"⥤","rhard":"⇁","rharu":"⇀","rharul":"⥬","Rho":"Ρ","rho":"ρ","rhov":"ϱ","RightAngleBracket":"⟩","RightArrowBar":"⇥","rightarrow":"→","RightArrow":"→","Rightarrow":"⇒","RightArrowLeftArrow":"⇄","rightarrowtail":"↣","RightCeiling":"⌉","RightDoubleBracket":"⟧","RightDownTeeVector":"⥝","RightDownVectorBar":"⥕","RightDownVector":"⇂","RightFloor":"⌋","rightharpoondown":"⇁","rightharpoonup":"⇀","rightleftarrows":"⇄","rightleftharpoons":"⇌","rightrightarrows":"⇉","rightsquigarrow":"↝","RightTeeArrow":"↦","RightTee":"⊢","RightTeeVector":"⥛","rightthreetimes":"⋌","RightTriangleBar":"⧐","RightTriangle":"⊳","RightTriangleEqual":"⊵","RightUpDownVector":"⥏","RightUpTeeVector":"⥜","RightUpVectorBar":"⥔","RightUpVector":"↾","RightVectorBar":"⥓","RightVector":"⇀","ring":"˚","risingdotseq":"≓","rlarr":"⇄","rlhar":"⇌","rlm":"‏","rmoustache":"⎱","rmoust":"⎱","rnmid":"⫮","roang":"⟭","roarr":"⇾","robrk":"⟧","ropar":"⦆","ropf":"𝕣","Ropf":"ℝ","roplus":"⨮","rotimes":"⨵","RoundImplies":"⥰","rpar":")","rpargt":"⦔","rppolint":"⨒","rrarr":"⇉","Rrightarrow":"⇛","rsaquo":"›","rscr":"𝓇","Rscr":"ℛ","rsh":"↱","Rsh":"↱","rsqb":"]","rsquo":"’","rsquor":"’","rthree":"⋌","rtimes":"⋊","rtri":"▹","rtrie":"⊵","rtrif":"▸","rtriltri":"⧎","RuleDelayed":"⧴","ruluhar":"⥨","rx":"℞","Sacute":"Ś","sacute":"ś","sbquo":"‚","scap":"⪸","Scaron":"Š","scaron":"š","Sc":"⪼","sc":"≻","sccue":"≽","sce":"⪰","scE":"⪴","Scedil":"Ş","scedil":"ş","Scirc":"Ŝ","scirc":"ŝ","scnap":"⪺","scnE":"⪶","scnsim":"⋩","scpolint":"⨓","scsim":"≿","Scy":"С","scy":"с","sdotb":"⊡","sdot":"⋅","sdote":"⩦","searhk":"⤥","searr":"↘","seArr":"⇘","searrow":"↘","sect":"§","semi":";","seswar":"⤩","setminus":"∖","setmn":"∖","sext":"✶","Sfr":"𝔖","sfr":"𝔰","sfrown":"⌢","sharp":"♯","SHCHcy":"Щ","shchcy":"щ","SHcy":"Ш","shcy":"ш","ShortDownArrow":"↓","ShortLeftArrow":"←","shortmid":"∣","shortparallel":"∥","ShortRightArrow":"→","ShortUpArrow":"↑","shy":"­","Sigma":"Σ","sigma":"σ","sigmaf":"ς","sigmav":"ς","sim":"∼","simdot":"⩪","sime":"≃","simeq":"≃","simg":"⪞","simgE":"⪠","siml":"⪝","simlE":"⪟","simne":"≆","simplus":"⨤","simrarr":"⥲","slarr":"←","SmallCircle":"∘","smallsetminus":"∖","smashp":"⨳","smeparsl":"⧤","smid":"∣","smile":"⌣","smt":"⪪","smte":"⪬","smtes":"⪬︀","SOFTcy":"Ь","softcy":"ь","solbar":"⌿","solb":"⧄","sol":"/","Sopf":"𝕊","sopf":"𝕤","spades":"♠","spadesuit":"♠","spar":"∥","sqcap":"⊓","sqcaps":"⊓︀","sqcup":"⊔","sqcups":"⊔︀","Sqrt":"√","sqsub":"⊏","sqsube":"⊑","sqsubset":"⊏","sqsubseteq":"⊑","sqsup":"⊐","sqsupe":"⊒","sqsupset":"⊐","sqsupseteq":"⊒","square":"□","Square":"□","SquareIntersection":"⊓","SquareSubset":"⊏","SquareSubsetEqual":"⊑","SquareSuperset":"⊐","SquareSupersetEqual":"⊒","SquareUnion":"⊔","squarf":"▪","squ":"□","squf":"▪","srarr":"→","Sscr":"𝒮","sscr":"𝓈","ssetmn":"∖","ssmile":"⌣","sstarf":"⋆","Star":"⋆","star":"☆","starf":"★","straightepsilon":"ϵ","straightphi":"ϕ","strns":"¯","sub":"⊂","Sub":"⋐","subdot":"⪽","subE":"⫅","sube":"⊆","subedot":"⫃","submult":"⫁","subnE":"⫋","subne":"⊊","subplus":"⪿","subrarr":"⥹","subset":"⊂","Subset":"⋐","subseteq":"⊆","subseteqq":"⫅","SubsetEqual":"⊆","subsetneq":"⊊","subsetneqq":"⫋","subsim":"⫇","subsub":"⫕","subsup":"⫓","succapprox":"⪸","succ":"≻","succcurlyeq":"≽","Succeeds":"≻","SucceedsEqual":"⪰","SucceedsSlantEqual":"≽","SucceedsTilde":"≿","succeq":"⪰","succnapprox":"⪺","succneqq":"⪶","succnsim":"⋩","succsim":"≿","SuchThat":"∋","sum":"∑","Sum":"∑","sung":"♪","sup1":"¹","sup2":"²","sup3":"³","sup":"⊃","Sup":"⋑","supdot":"⪾","supdsub":"⫘","supE":"⫆","supe":"⊇","supedot":"⫄","Superset":"⊃","SupersetEqual":"⊇","suphsol":"⟉","suphsub":"⫗","suplarr":"⥻","supmult":"⫂","supnE":"⫌","supne":"⊋","supplus":"⫀","supset":"⊃","Supset":"⋑","supseteq":"⊇","supseteqq":"⫆","supsetneq":"⊋","supsetneqq":"⫌","supsim":"⫈","supsub":"⫔","supsup":"⫖","swarhk":"⤦","swarr":"↙","swArr":"⇙","swarrow":"↙","swnwar":"⤪","szlig":"ß","Tab":"\\t","target":"⌖","Tau":"Τ","tau":"τ","tbrk":"⎴","Tcaron":"Ť","tcaron":"ť","Tcedil":"Ţ","tcedil":"ţ","Tcy":"Т","tcy":"т","tdot":"⃛","telrec":"⌕","Tfr":"𝔗","tfr":"𝔱","there4":"∴","therefore":"∴","Therefore":"∴","Theta":"Θ","theta":"θ","thetasym":"ϑ","thetav":"ϑ","thickapprox":"≈","thicksim":"∼","ThickSpace":"  ","ThinSpace":" ","thinsp":" ","thkap":"≈","thksim":"∼","THORN":"Þ","thorn":"þ","tilde":"˜","Tilde":"∼","TildeEqual":"≃","TildeFullEqual":"≅","TildeTilde":"≈","timesbar":"⨱","timesb":"⊠","times":"×","timesd":"⨰","tint":"∭","toea":"⤨","topbot":"⌶","topcir":"⫱","top":"⊤","Topf":"𝕋","topf":"𝕥","topfork":"⫚","tosa":"⤩","tprime":"‴","trade":"™","TRADE":"™","triangle":"▵","triangledown":"▿","triangleleft":"◃","trianglelefteq":"⊴","triangleq":"≜","triangleright":"▹","trianglerighteq":"⊵","tridot":"◬","trie":"≜","triminus":"⨺","TripleDot":"⃛","triplus":"⨹","trisb":"⧍","tritime":"⨻","trpezium":"⏢","Tscr":"𝒯","tscr":"𝓉","TScy":"Ц","tscy":"ц","TSHcy":"Ћ","tshcy":"ћ","Tstrok":"Ŧ","tstrok":"ŧ","twixt":"≬","twoheadleftarrow":"↞","twoheadrightarrow":"↠","Uacute":"Ú","uacute":"ú","uarr":"↑","Uarr":"↟","uArr":"⇑","Uarrocir":"⥉","Ubrcy":"Ў","ubrcy":"ў","Ubreve":"Ŭ","ubreve":"ŭ","Ucirc":"Û","ucirc":"û","Ucy":"У","ucy":"у","udarr":"⇅","Udblac":"Ű","udblac":"ű","udhar":"⥮","ufisht":"⥾","Ufr":"𝔘","ufr":"𝔲","Ugrave":"Ù","ugrave":"ù","uHar":"⥣","uharl":"↿","uharr":"↾","uhblk":"▀","ulcorn":"⌜","ulcorner":"⌜","ulcrop":"⌏","ultri":"◸","Umacr":"Ū","umacr":"ū","uml":"¨","UnderBar":"_","UnderBrace":"⏟","UnderBracket":"⎵","UnderParenthesis":"⏝","Union":"⋃","UnionPlus":"⊎","Uogon":"Ų","uogon":"ų","Uopf":"𝕌","uopf":"𝕦","UpArrowBar":"⤒","uparrow":"↑","UpArrow":"↑","Uparrow":"⇑","UpArrowDownArrow":"⇅","updownarrow":"↕","UpDownArrow":"↕","Updownarrow":"⇕","UpEquilibrium":"⥮","upharpoonleft":"↿","upharpoonright":"↾","uplus":"⊎","UpperLeftArrow":"↖","UpperRightArrow":"↗","upsi":"υ","Upsi":"ϒ","upsih":"ϒ","Upsilon":"Υ","upsilon":"υ","UpTeeArrow":"↥","UpTee":"⊥","upuparrows":"⇈","urcorn":"⌝","urcorner":"⌝","urcrop":"⌎","Uring":"Ů","uring":"ů","urtri":"◹","Uscr":"𝒰","uscr":"𝓊","utdot":"⋰","Utilde":"Ũ","utilde":"ũ","utri":"▵","utrif":"▴","uuarr":"⇈","Uuml":"Ü","uuml":"ü","uwangle":"⦧","vangrt":"⦜","varepsilon":"ϵ","varkappa":"ϰ","varnothing":"∅","varphi":"ϕ","varpi":"ϖ","varpropto":"∝","varr":"↕","vArr":"⇕","varrho":"ϱ","varsigma":"ς","varsubsetneq":"⊊︀","varsubsetneqq":"⫋︀","varsupsetneq":"⊋︀","varsupsetneqq":"⫌︀","vartheta":"ϑ","vartriangleleft":"⊲","vartriangleright":"⊳","vBar":"⫨","Vbar":"⫫","vBarv":"⫩","Vcy":"В","vcy":"в","vdash":"⊢","vDash":"⊨","Vdash":"⊩","VDash":"⊫","Vdashl":"⫦","veebar":"⊻","vee":"∨","Vee":"⋁","veeeq":"≚","vellip":"⋮","verbar":"|","Verbar":"‖","vert":"|","Vert":"‖","VerticalBar":"∣","VerticalLine":"|","VerticalSeparator":"❘","VerticalTilde":"≀","VeryThinSpace":" ","Vfr":"𝔙","vfr":"𝔳","vltri":"⊲","vnsub":"⊂⃒","vnsup":"⊃⃒","Vopf":"𝕍","vopf":"𝕧","vprop":"∝","vrtri":"⊳","Vscr":"𝒱","vscr":"𝓋","vsubnE":"⫋︀","vsubne":"⊊︀","vsupnE":"⫌︀","vsupne":"⊋︀","Vvdash":"⊪","vzigzag":"⦚","Wcirc":"Ŵ","wcirc":"ŵ","wedbar":"⩟","wedge":"∧","Wedge":"⋀","wedgeq":"≙","weierp":"℘","Wfr":"𝔚","wfr":"𝔴","Wopf":"𝕎","wopf":"𝕨","wp":"℘","wr":"≀","wreath":"≀","Wscr":"𝒲","wscr":"𝓌","xcap":"⋂","xcirc":"◯","xcup":"⋃","xdtri":"▽","Xfr":"𝔛","xfr":"𝔵","xharr":"⟷","xhArr":"⟺","Xi":"Ξ","xi":"ξ","xlarr":"⟵","xlArr":"⟸","xmap":"⟼","xnis":"⋻","xodot":"⨀","Xopf":"𝕏","xopf":"𝕩","xoplus":"⨁","xotime":"⨂","xrarr":"⟶","xrArr":"⟹","Xscr":"𝒳","xscr":"𝓍","xsqcup":"⨆","xuplus":"⨄","xutri":"△","xvee":"⋁","xwedge":"⋀","Yacute":"Ý","yacute":"ý","YAcy":"Я","yacy":"я","Ycirc":"Ŷ","ycirc":"ŷ","Ycy":"Ы","ycy":"ы","yen":"¥","Yfr":"𝔜","yfr":"𝔶","YIcy":"Ї","yicy":"ї","Yopf":"𝕐","yopf":"𝕪","Yscr":"𝒴","yscr":"𝓎","YUcy":"Ю","yucy":"ю","yuml":"ÿ","Yuml":"Ÿ","Zacute":"Ź","zacute":"ź","Zcaron":"Ž","zcaron":"ž","Zcy":"З","zcy":"з","Zdot":"Ż","zdot":"ż","zeetrf":"ℨ","ZeroWidthSpace":"​","Zeta":"Ζ","zeta":"ζ","zfr":"𝔷","Zfr":"ℨ","ZHcy":"Ж","zhcy":"ж","zigrarr":"⇝","zopf":"𝕫","Zopf":"ℤ","Zscr":"𝒵","zscr":"𝓏","zwj":"‍","zwnj":"‌"}');
-
-/***/ }),
-
-/***/ 29591:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"Aacute":"Á","aacute":"á","Acirc":"Â","acirc":"â","acute":"´","AElig":"Æ","aelig":"æ","Agrave":"À","agrave":"à","amp":"&","AMP":"&","Aring":"Å","aring":"å","Atilde":"Ã","atilde":"ã","Auml":"Ä","auml":"ä","brvbar":"¦","Ccedil":"Ç","ccedil":"ç","cedil":"¸","cent":"¢","copy":"©","COPY":"©","curren":"¤","deg":"°","divide":"÷","Eacute":"É","eacute":"é","Ecirc":"Ê","ecirc":"ê","Egrave":"È","egrave":"è","ETH":"Ð","eth":"ð","Euml":"Ë","euml":"ë","frac12":"½","frac14":"¼","frac34":"¾","gt":">","GT":">","Iacute":"Í","iacute":"í","Icirc":"Î","icirc":"î","iexcl":"¡","Igrave":"Ì","igrave":"ì","iquest":"¿","Iuml":"Ï","iuml":"ï","laquo":"«","lt":"<","LT":"<","macr":"¯","micro":"µ","middot":"·","nbsp":" ","not":"¬","Ntilde":"Ñ","ntilde":"ñ","Oacute":"Ó","oacute":"ó","Ocirc":"Ô","ocirc":"ô","Ograve":"Ò","ograve":"ò","ordf":"ª","ordm":"º","Oslash":"Ø","oslash":"ø","Otilde":"Õ","otilde":"õ","Ouml":"Ö","ouml":"ö","para":"¶","plusmn":"±","pound":"£","quot":"\\"","QUOT":"\\"","raquo":"»","reg":"®","REG":"®","sect":"§","shy":"­","sup1":"¹","sup2":"²","sup3":"³","szlig":"ß","THORN":"Þ","thorn":"þ","times":"×","Uacute":"Ú","uacute":"ú","Ucirc":"Û","ucirc":"û","Ugrave":"Ù","ugrave":"ù","uml":"¨","Uuml":"Ü","uuml":"ü","Yacute":"Ý","yacute":"ý","yen":"¥","yuml":"ÿ"}');
-
-/***/ }),
-
-/***/ 2586:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"amp":"&","apos":"\'","gt":">","lt":"<","quot":"\\""}');
+module.exports = {"i8":"1.13.4"};
 
 /***/ }),
 
@@ -119111,7 +117024,7 @@ module.exports = JSON.parse('{"nested":{"google":{"nested":{"protobuf":{"nested"
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"nested":{"google":{"nested":{"protobuf":{"nested":{"FileDescriptorSet":{"fields":{"file":{"rule":"repeated","type":"FileDescriptorProto","id":1}}},"FileDescriptorProto":{"fields":{"name":{"type":"string","id":1},"package":{"type":"string","id":2},"dependency":{"rule":"repeated","type":"string","id":3},"publicDependency":{"rule":"repeated","type":"int32","id":10,"options":{"packed":false}},"weakDependency":{"rule":"repeated","type":"int32","id":11,"options":{"packed":false}},"messageType":{"rule":"repeated","type":"DescriptorProto","id":4},"enumType":{"rule":"repeated","type":"EnumDescriptorProto","id":5},"service":{"rule":"repeated","type":"ServiceDescriptorProto","id":6},"extension":{"rule":"repeated","type":"FieldDescriptorProto","id":7},"options":{"type":"FileOptions","id":8},"sourceCodeInfo":{"type":"SourceCodeInfo","id":9},"syntax":{"type":"string","id":12}}},"DescriptorProto":{"fields":{"name":{"type":"string","id":1},"field":{"rule":"repeated","type":"FieldDescriptorProto","id":2},"extension":{"rule":"repeated","type":"FieldDescriptorProto","id":6},"nestedType":{"rule":"repeated","type":"DescriptorProto","id":3},"enumType":{"rule":"repeated","type":"EnumDescriptorProto","id":4},"extensionRange":{"rule":"repeated","type":"ExtensionRange","id":5},"oneofDecl":{"rule":"repeated","type":"OneofDescriptorProto","id":8},"options":{"type":"MessageOptions","id":7},"reservedRange":{"rule":"repeated","type":"ReservedRange","id":9},"reservedName":{"rule":"repeated","type":"string","id":10}},"nested":{"ExtensionRange":{"fields":{"start":{"type":"int32","id":1},"end":{"type":"int32","id":2}}},"ReservedRange":{"fields":{"start":{"type":"int32","id":1},"end":{"type":"int32","id":2}}}}},"FieldDescriptorProto":{"fields":{"name":{"type":"string","id":1},"number":{"type":"int32","id":3},"label":{"type":"Label","id":4},"type":{"type":"Type","id":5},"typeName":{"type":"string","id":6},"extendee":{"type":"string","id":2},"defaultValue":{"type":"string","id":7},"oneofIndex":{"type":"int32","id":9},"jsonName":{"type":"string","id":10},"options":{"type":"FieldOptions","id":8}},"nested":{"Type":{"values":{"TYPE_DOUBLE":1,"TYPE_FLOAT":2,"TYPE_INT64":3,"TYPE_UINT64":4,"TYPE_INT32":5,"TYPE_FIXED64":6,"TYPE_FIXED32":7,"TYPE_BOOL":8,"TYPE_STRING":9,"TYPE_GROUP":10,"TYPE_MESSAGE":11,"TYPE_BYTES":12,"TYPE_UINT32":13,"TYPE_ENUM":14,"TYPE_SFIXED32":15,"TYPE_SFIXED64":16,"TYPE_SINT32":17,"TYPE_SINT64":18}},"Label":{"values":{"LABEL_OPTIONAL":1,"LABEL_REQUIRED":2,"LABEL_REPEATED":3}}}},"OneofDescriptorProto":{"fields":{"name":{"type":"string","id":1},"options":{"type":"OneofOptions","id":2}}},"EnumDescriptorProto":{"fields":{"name":{"type":"string","id":1},"value":{"rule":"repeated","type":"EnumValueDescriptorProto","id":2},"options":{"type":"EnumOptions","id":3}}},"EnumValueDescriptorProto":{"fields":{"name":{"type":"string","id":1},"number":{"type":"int32","id":2},"options":{"type":"EnumValueOptions","id":3}}},"ServiceDescriptorProto":{"fields":{"name":{"type":"string","id":1},"method":{"rule":"repeated","type":"MethodDescriptorProto","id":2},"options":{"type":"ServiceOptions","id":3}}},"MethodDescriptorProto":{"fields":{"name":{"type":"string","id":1},"inputType":{"type":"string","id":2},"outputType":{"type":"string","id":3},"options":{"type":"MethodOptions","id":4},"clientStreaming":{"type":"bool","id":5},"serverStreaming":{"type":"bool","id":6}}},"FileOptions":{"fields":{"javaPackage":{"type":"string","id":1},"javaOuterClassname":{"type":"string","id":8},"javaMultipleFiles":{"type":"bool","id":10},"javaGenerateEqualsAndHash":{"type":"bool","id":20,"options":{"deprecated":true}},"javaStringCheckUtf8":{"type":"bool","id":27},"optimizeFor":{"type":"OptimizeMode","id":9,"options":{"default":"SPEED"}},"goPackage":{"type":"string","id":11},"ccGenericServices":{"type":"bool","id":16},"javaGenericServices":{"type":"bool","id":17},"pyGenericServices":{"type":"bool","id":18},"deprecated":{"type":"bool","id":23},"ccEnableArenas":{"type":"bool","id":31},"objcClassPrefix":{"type":"string","id":36},"csharpNamespace":{"type":"string","id":37},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[38,38]],"nested":{"OptimizeMode":{"values":{"SPEED":1,"CODE_SIZE":2,"LITE_RUNTIME":3}}}},"MessageOptions":{"fields":{"messageSetWireFormat":{"type":"bool","id":1},"noStandardDescriptorAccessor":{"type":"bool","id":2},"deprecated":{"type":"bool","id":3},"mapEntry":{"type":"bool","id":7},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[8,8]]},"FieldOptions":{"fields":{"ctype":{"type":"CType","id":1,"options":{"default":"STRING"}},"packed":{"type":"bool","id":2},"jstype":{"type":"JSType","id":6,"options":{"default":"JS_NORMAL"}},"lazy":{"type":"bool","id":5},"deprecated":{"type":"bool","id":3},"weak":{"type":"bool","id":10},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[4,4]],"nested":{"CType":{"values":{"STRING":0,"CORD":1,"STRING_PIECE":2}},"JSType":{"values":{"JS_NORMAL":0,"JS_STRING":1,"JS_NUMBER":2}}}},"OneofOptions":{"fields":{"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"EnumOptions":{"fields":{"allowAlias":{"type":"bool","id":2},"deprecated":{"type":"bool","id":3},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"EnumValueOptions":{"fields":{"deprecated":{"type":"bool","id":1},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"ServiceOptions":{"fields":{"deprecated":{"type":"bool","id":33},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"MethodOptions":{"fields":{"deprecated":{"type":"bool","id":33},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"UninterpretedOption":{"fields":{"name":{"rule":"repeated","type":"NamePart","id":2},"identifierValue":{"type":"string","id":3},"positiveIntValue":{"type":"uint64","id":4},"negativeIntValue":{"type":"int64","id":5},"doubleValue":{"type":"double","id":6},"stringValue":{"type":"bytes","id":7},"aggregateValue":{"type":"string","id":8}},"nested":{"NamePart":{"fields":{"namePart":{"rule":"required","type":"string","id":1},"isExtension":{"rule":"required","type":"bool","id":2}}}}},"SourceCodeInfo":{"fields":{"location":{"rule":"repeated","type":"Location","id":1}},"nested":{"Location":{"fields":{"path":{"rule":"repeated","type":"int32","id":1},"span":{"rule":"repeated","type":"int32","id":2},"leadingComments":{"type":"string","id":3},"trailingComments":{"type":"string","id":4},"leadingDetachedComments":{"rule":"repeated","type":"string","id":6}}}}},"GeneratedCodeInfo":{"fields":{"annotation":{"rule":"repeated","type":"Annotation","id":1}},"nested":{"Annotation":{"fields":{"path":{"rule":"repeated","type":"int32","id":1},"sourceFile":{"type":"string","id":2},"begin":{"type":"int32","id":3},"end":{"type":"int32","id":4}}}}}}}}}}}');
+module.exports = JSON.parse('{"nested":{"google":{"nested":{"protobuf":{"options":{"go_package":"google.golang.org/protobuf/types/descriptorpb","java_package":"com.google.protobuf","java_outer_classname":"DescriptorProtos","csharp_namespace":"Google.Protobuf.Reflection","objc_class_prefix":"GPB","cc_enable_arenas":true,"optimize_for":"SPEED"},"nested":{"FileDescriptorSet":{"edition":"proto2","fields":{"file":{"rule":"repeated","type":"FileDescriptorProto","id":1}},"extensions":[[536000000,536000000]]},"Edition":{"edition":"proto2","values":{"EDITION_UNKNOWN":0,"EDITION_LEGACY":900,"EDITION_PROTO2":998,"EDITION_PROTO3":999,"EDITION_2023":1000,"EDITION_2024":1001,"EDITION_1_TEST_ONLY":1,"EDITION_2_TEST_ONLY":2,"EDITION_99997_TEST_ONLY":99997,"EDITION_99998_TEST_ONLY":99998,"EDITION_99999_TEST_ONLY":99999,"EDITION_MAX":2147483647}},"FileDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"package":{"type":"string","id":2},"dependency":{"rule":"repeated","type":"string","id":3},"publicDependency":{"rule":"repeated","type":"int32","id":10},"weakDependency":{"rule":"repeated","type":"int32","id":11},"optionDependency":{"rule":"repeated","type":"string","id":15},"messageType":{"rule":"repeated","type":"DescriptorProto","id":4},"enumType":{"rule":"repeated","type":"EnumDescriptorProto","id":5},"service":{"rule":"repeated","type":"ServiceDescriptorProto","id":6},"extension":{"rule":"repeated","type":"FieldDescriptorProto","id":7},"options":{"type":"FileOptions","id":8},"sourceCodeInfo":{"type":"SourceCodeInfo","id":9},"syntax":{"type":"string","id":12},"edition":{"type":"Edition","id":14}}},"DescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"field":{"rule":"repeated","type":"FieldDescriptorProto","id":2},"extension":{"rule":"repeated","type":"FieldDescriptorProto","id":6},"nestedType":{"rule":"repeated","type":"DescriptorProto","id":3},"enumType":{"rule":"repeated","type":"EnumDescriptorProto","id":4},"extensionRange":{"rule":"repeated","type":"ExtensionRange","id":5},"oneofDecl":{"rule":"repeated","type":"OneofDescriptorProto","id":8},"options":{"type":"MessageOptions","id":7},"reservedRange":{"rule":"repeated","type":"ReservedRange","id":9},"reservedName":{"rule":"repeated","type":"string","id":10},"visibility":{"type":"SymbolVisibility","id":11}},"nested":{"ExtensionRange":{"fields":{"start":{"type":"int32","id":1},"end":{"type":"int32","id":2},"options":{"type":"ExtensionRangeOptions","id":3}}},"ReservedRange":{"fields":{"start":{"type":"int32","id":1},"end":{"type":"int32","id":2}}}}},"ExtensionRangeOptions":{"edition":"proto2","fields":{"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999},"declaration":{"rule":"repeated","type":"Declaration","id":2,"options":{"retention":"RETENTION_SOURCE"}},"features":{"type":"FeatureSet","id":50},"verification":{"type":"VerificationState","id":3,"options":{"default":"UNVERIFIED","retention":"RETENTION_SOURCE"}}},"extensions":[[1000,536870911]],"nested":{"Declaration":{"fields":{"number":{"type":"int32","id":1},"fullName":{"type":"string","id":2},"type":{"type":"string","id":3},"reserved":{"type":"bool","id":5},"repeated":{"type":"bool","id":6}},"reserved":[[4,4]]},"VerificationState":{"values":{"DECLARATION":0,"UNVERIFIED":1}}}},"FieldDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"number":{"type":"int32","id":3},"label":{"type":"Label","id":4},"type":{"type":"Type","id":5},"typeName":{"type":"string","id":6},"extendee":{"type":"string","id":2},"defaultValue":{"type":"string","id":7},"oneofIndex":{"type":"int32","id":9},"jsonName":{"type":"string","id":10},"options":{"type":"FieldOptions","id":8},"proto3Optional":{"type":"bool","id":17}},"nested":{"Type":{"values":{"TYPE_DOUBLE":1,"TYPE_FLOAT":2,"TYPE_INT64":3,"TYPE_UINT64":4,"TYPE_INT32":5,"TYPE_FIXED64":6,"TYPE_FIXED32":7,"TYPE_BOOL":8,"TYPE_STRING":9,"TYPE_GROUP":10,"TYPE_MESSAGE":11,"TYPE_BYTES":12,"TYPE_UINT32":13,"TYPE_ENUM":14,"TYPE_SFIXED32":15,"TYPE_SFIXED64":16,"TYPE_SINT32":17,"TYPE_SINT64":18}},"Label":{"values":{"LABEL_OPTIONAL":1,"LABEL_REPEATED":3,"LABEL_REQUIRED":2}}}},"OneofDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"options":{"type":"OneofOptions","id":2}}},"EnumDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"value":{"rule":"repeated","type":"EnumValueDescriptorProto","id":2},"options":{"type":"EnumOptions","id":3},"reservedRange":{"rule":"repeated","type":"EnumReservedRange","id":4},"reservedName":{"rule":"repeated","type":"string","id":5},"visibility":{"type":"SymbolVisibility","id":6}},"nested":{"EnumReservedRange":{"fields":{"start":{"type":"int32","id":1},"end":{"type":"int32","id":2}}}}},"EnumValueDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"number":{"type":"int32","id":2},"options":{"type":"EnumValueOptions","id":3}}},"ServiceDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"method":{"rule":"repeated","type":"MethodDescriptorProto","id":2},"options":{"type":"ServiceOptions","id":3}}},"MethodDescriptorProto":{"edition":"proto2","fields":{"name":{"type":"string","id":1},"inputType":{"type":"string","id":2},"outputType":{"type":"string","id":3},"options":{"type":"MethodOptions","id":4},"clientStreaming":{"type":"bool","id":5},"serverStreaming":{"type":"bool","id":6}}},"FileOptions":{"edition":"proto2","fields":{"javaPackage":{"type":"string","id":1},"javaOuterClassname":{"type":"string","id":8},"javaMultipleFiles":{"type":"bool","id":10},"javaGenerateEqualsAndHash":{"type":"bool","id":20,"options":{"deprecated":true}},"javaStringCheckUtf8":{"type":"bool","id":27},"optimizeFor":{"type":"OptimizeMode","id":9,"options":{"default":"SPEED"}},"goPackage":{"type":"string","id":11},"ccGenericServices":{"type":"bool","id":16},"javaGenericServices":{"type":"bool","id":17},"pyGenericServices":{"type":"bool","id":18},"deprecated":{"type":"bool","id":23},"ccEnableArenas":{"type":"bool","id":31,"options":{"default":true}},"objcClassPrefix":{"type":"string","id":36},"csharpNamespace":{"type":"string","id":37},"swiftPrefix":{"type":"string","id":39},"phpClassPrefix":{"type":"string","id":40},"phpNamespace":{"type":"string","id":41},"phpMetadataNamespace":{"type":"string","id":44},"rubyPackage":{"type":"string","id":45},"features":{"type":"FeatureSet","id":50},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[42,42],"php_generic_services",[38,38]],"nested":{"OptimizeMode":{"values":{"SPEED":1,"CODE_SIZE":2,"LITE_RUNTIME":3}}}},"MessageOptions":{"edition":"proto2","fields":{"messageSetWireFormat":{"type":"bool","id":1},"noStandardDescriptorAccessor":{"type":"bool","id":2},"deprecated":{"type":"bool","id":3},"mapEntry":{"type":"bool","id":7},"deprecatedLegacyJsonFieldConflicts":{"type":"bool","id":11,"options":{"deprecated":true}},"features":{"type":"FeatureSet","id":12},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[4,4],[5,5],[6,6],[8,8],[9,9]]},"FieldOptions":{"edition":"proto2","fields":{"ctype":{"type":"CType","id":1,"options":{"default":"STRING"}},"packed":{"type":"bool","id":2},"jstype":{"type":"JSType","id":6,"options":{"default":"JS_NORMAL"}},"lazy":{"type":"bool","id":5},"unverifiedLazy":{"type":"bool","id":15},"deprecated":{"type":"bool","id":3},"weak":{"type":"bool","id":10,"options":{"deprecated":true}},"debugRedact":{"type":"bool","id":16},"retention":{"type":"OptionRetention","id":17},"targets":{"rule":"repeated","type":"OptionTargetType","id":19},"editionDefaults":{"rule":"repeated","type":"EditionDefault","id":20},"features":{"type":"FeatureSet","id":21},"featureSupport":{"type":"FeatureSupport","id":22},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[4,4],[18,18]],"nested":{"CType":{"values":{"STRING":0,"CORD":1,"STRING_PIECE":2}},"JSType":{"values":{"JS_NORMAL":0,"JS_STRING":1,"JS_NUMBER":2}},"OptionRetention":{"values":{"RETENTION_UNKNOWN":0,"RETENTION_RUNTIME":1,"RETENTION_SOURCE":2}},"OptionTargetType":{"values":{"TARGET_TYPE_UNKNOWN":0,"TARGET_TYPE_FILE":1,"TARGET_TYPE_EXTENSION_RANGE":2,"TARGET_TYPE_MESSAGE":3,"TARGET_TYPE_FIELD":4,"TARGET_TYPE_ONEOF":5,"TARGET_TYPE_ENUM":6,"TARGET_TYPE_ENUM_ENTRY":7,"TARGET_TYPE_SERVICE":8,"TARGET_TYPE_METHOD":9}},"EditionDefault":{"fields":{"edition":{"type":"Edition","id":3},"value":{"type":"string","id":2}}},"FeatureSupport":{"fields":{"editionIntroduced":{"type":"Edition","id":1},"editionDeprecated":{"type":"Edition","id":2},"deprecationWarning":{"type":"string","id":3},"editionRemoved":{"type":"Edition","id":4}}}}},"OneofOptions":{"edition":"proto2","fields":{"features":{"type":"FeatureSet","id":1},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"EnumOptions":{"edition":"proto2","fields":{"allowAlias":{"type":"bool","id":2},"deprecated":{"type":"bool","id":3},"deprecatedLegacyJsonFieldConflicts":{"type":"bool","id":6,"options":{"deprecated":true}},"features":{"type":"FeatureSet","id":7},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"reserved":[[5,5]]},"EnumValueOptions":{"edition":"proto2","fields":{"deprecated":{"type":"bool","id":1},"features":{"type":"FeatureSet","id":2},"debugRedact":{"type":"bool","id":3},"featureSupport":{"type":"FieldOptions.FeatureSupport","id":4},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"ServiceOptions":{"edition":"proto2","fields":{"features":{"type":"FeatureSet","id":34},"deprecated":{"type":"bool","id":33},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]]},"MethodOptions":{"edition":"proto2","fields":{"deprecated":{"type":"bool","id":33},"idempotencyLevel":{"type":"IdempotencyLevel","id":34,"options":{"default":"IDEMPOTENCY_UNKNOWN"}},"features":{"type":"FeatureSet","id":35},"uninterpretedOption":{"rule":"repeated","type":"UninterpretedOption","id":999}},"extensions":[[1000,536870911]],"nested":{"IdempotencyLevel":{"values":{"IDEMPOTENCY_UNKNOWN":0,"NO_SIDE_EFFECTS":1,"IDEMPOTENT":2}}}},"UninterpretedOption":{"edition":"proto2","fields":{"name":{"rule":"repeated","type":"NamePart","id":2},"identifierValue":{"type":"string","id":3},"positiveIntValue":{"type":"uint64","id":4},"negativeIntValue":{"type":"int64","id":5},"doubleValue":{"type":"double","id":6},"stringValue":{"type":"bytes","id":7},"aggregateValue":{"type":"string","id":8}},"nested":{"NamePart":{"fields":{"namePart":{"rule":"required","type":"string","id":1},"isExtension":{"rule":"required","type":"bool","id":2}}}}},"FeatureSet":{"edition":"proto2","fields":{"fieldPresence":{"type":"FieldPresence","id":1,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_2023","edition_defaults.value":"EXPLICIT"}},"enumType":{"type":"EnumType","id":2,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_PROTO3","edition_defaults.value":"OPEN"}},"repeatedFieldEncoding":{"type":"RepeatedFieldEncoding","id":3,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_PROTO3","edition_defaults.value":"PACKED"}},"utf8Validation":{"type":"Utf8Validation","id":4,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_PROTO3","edition_defaults.value":"VERIFY"}},"messageEncoding":{"type":"MessageEncoding","id":5,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_LEGACY","edition_defaults.value":"LENGTH_PREFIXED"}},"jsonFormat":{"type":"JsonFormat","id":6,"options":{"retention":"RETENTION_RUNTIME","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2023","edition_defaults.edition":"EDITION_PROTO3","edition_defaults.value":"ALLOW"}},"enforceNamingStyle":{"type":"EnforceNamingStyle","id":7,"options":{"retention":"RETENTION_SOURCE","targets":"TARGET_TYPE_METHOD","feature_support.edition_introduced":"EDITION_2024","edition_defaults.edition":"EDITION_2024","edition_defaults.value":"STYLE2024"}},"defaultSymbolVisibility":{"type":"VisibilityFeature.DefaultSymbolVisibility","id":8,"options":{"retention":"RETENTION_SOURCE","targets":"TARGET_TYPE_FILE","feature_support.edition_introduced":"EDITION_2024","edition_defaults.edition":"EDITION_2024","edition_defaults.value":"EXPORT_TOP_LEVEL"}}},"extensions":[[1000,9994],[9995,9999],[10000,10000]],"reserved":[[999,999]],"nested":{"FieldPresence":{"values":{"FIELD_PRESENCE_UNKNOWN":0,"EXPLICIT":1,"IMPLICIT":2,"LEGACY_REQUIRED":3}},"EnumType":{"values":{"ENUM_TYPE_UNKNOWN":0,"OPEN":1,"CLOSED":2}},"RepeatedFieldEncoding":{"values":{"REPEATED_FIELD_ENCODING_UNKNOWN":0,"PACKED":1,"EXPANDED":2}},"Utf8Validation":{"values":{"UTF8_VALIDATION_UNKNOWN":0,"VERIFY":2,"NONE":3}},"MessageEncoding":{"values":{"MESSAGE_ENCODING_UNKNOWN":0,"LENGTH_PREFIXED":1,"DELIMITED":2}},"JsonFormat":{"values":{"JSON_FORMAT_UNKNOWN":0,"ALLOW":1,"LEGACY_BEST_EFFORT":2}},"EnforceNamingStyle":{"values":{"ENFORCE_NAMING_STYLE_UNKNOWN":0,"STYLE2024":1,"STYLE_LEGACY":2}},"VisibilityFeature":{"fields":{},"reserved":[[1,536870911]],"nested":{"DefaultSymbolVisibility":{"values":{"DEFAULT_SYMBOL_VISIBILITY_UNKNOWN":0,"EXPORT_ALL":1,"EXPORT_TOP_LEVEL":2,"LOCAL_ALL":3,"STRICT":4}}}}}},"FeatureSetDefaults":{"edition":"proto2","fields":{"defaults":{"rule":"repeated","type":"FeatureSetEditionDefault","id":1},"minimumEdition":{"type":"Edition","id":4},"maximumEdition":{"type":"Edition","id":5}},"nested":{"FeatureSetEditionDefault":{"fields":{"edition":{"type":"Edition","id":3},"overridableFeatures":{"type":"FeatureSet","id":4},"fixedFeatures":{"type":"FeatureSet","id":5}},"reserved":[[1,1],[2,2],"features"]}}},"SourceCodeInfo":{"edition":"proto2","fields":{"location":{"rule":"repeated","type":"Location","id":1}},"extensions":[[536000000,536000000]],"nested":{"Location":{"fields":{"path":{"rule":"repeated","type":"int32","id":1,"options":{"packed":true}},"span":{"rule":"repeated","type":"int32","id":2,"options":{"packed":true}},"leadingComments":{"type":"string","id":3},"trailingComments":{"type":"string","id":4},"leadingDetachedComments":{"rule":"repeated","type":"string","id":6}}}}},"GeneratedCodeInfo":{"edition":"proto2","fields":{"annotation":{"rule":"repeated","type":"Annotation","id":1}},"nested":{"Annotation":{"fields":{"path":{"rule":"repeated","type":"int32","id":1,"options":{"packed":true}},"sourceFile":{"type":"string","id":2},"begin":{"type":"int32","id":3},"end":{"type":"int32","id":4},"semantic":{"type":"Semantic","id":5}},"nested":{"Semantic":{"values":{"NONE":0,"SET":1,"ALIAS":2}}}}}},"SymbolVisibility":{"edition":"proto2","values":{"VISIBILITY_UNSET":0,"VISIBILITY_LOCAL":1,"VISIBILITY_EXPORT":2}}}}}}}}');
 
 /***/ }),
 
@@ -119274,6 +117187,24 @@ function parseSemicolorToArray(input) {
         .filter((x) => x !== '')
         .map((x) => x.trim()), []);
 }
+function stripAnsiControlCodes(text) {
+    const regex_ansi = RegExp(`\x1B(?:[@-Z\\-_]|[[0-?]*[ -/]*[@-~])`, 'g');
+    return text.replace(regex_ansi, '');
+}
+function extractViewLiveLink(output) {
+    /**
+     *  Extracts the Pulumi preview link from the output
+     *  output: pulumi preview output
+     *
+     *  return link to the Pulumi preview
+     */
+    const lines = output.split('\n');
+    const linkLine = lines.find((line) => line.includes('View Live:'));
+    if (!linkLine) {
+        return '';
+    }
+    return linkLine.split('View Live: ')[1];
+}
 
 ;// CONCATENATED MODULE: ./src/config.ts
 
@@ -119344,6 +117275,7 @@ function makeConfig() {
         githubToken: (0,main.getInput)('github-token'),
         commentOnPr: (0,main.getBooleanInput)('comment-on-pr'),
         commentOnPrNumber: (0,main.getNumberInput)('comment-on-pr-number', {}),
+        commentOnPrRepo: (0,main.getInput)('comment-on-pr-repo'),
         commentOnSummary: (0,main.getBooleanInput)('comment-on-summary'),
         upsert: (0,main.getBooleanInput)('upsert'),
         remove: (0,main.getBooleanInput)('remove'),
@@ -119391,9 +117323,6 @@ const environmentVariables = dist.cleanEnv(process.env, {
     GITHUB_WORKSPACE: dist.str(),
 });
 
-// EXTERNAL MODULE: ./node_modules/ansi-to-html/lib/ansi_to_html.js
-var ansi_to_html = __nccwpck_require__(19451);
-var ansi_to_html_default = /*#__PURE__*/__nccwpck_require__.n(ansi_to_html);
 // EXTERNAL MODULE: ./node_modules/dedent/dist/dedent.js
 var dedent = __nccwpck_require__(35281);
 var dedent_default = /*#__PURE__*/__nccwpck_require__.n(dedent);
@@ -119404,84 +117333,98 @@ var dedent_default = /*#__PURE__*/__nccwpck_require__.n(dedent);
 
 
 
-function ansiToHtml(message, maxLength, alwaysIncludeSummary) {
+function trimOutputByCharacters(message, maxLength, alwaysIncludeSummary) {
     /**
-     *  Converts an ansi string to html by for example removing color escape characters.
-     *  message: ansi string to convert
-     *  maxLength: Maximum number of characters of final message incl. HTML tags
+     *  Trim message to maxLength
+     *  message: string to trim
+     *  maxLength: Maximum number of characters of final message
      *  alwaysIncludeSummary: if true, trim message from front (if trimming is needed), otherwise from end
      *
-     *  return message as html and information if message was trimmed because of length
+     *  return message and information if message was trimmed
      */
-    const convert = new (ansi_to_html_default())();
     let trimmed = false;
-    let htmlBody = convert.toHtml(message);
-    // Check if htmlBody exceeds max characters
-    if (htmlBody.length > maxLength) {
-        // trim input message by number of exceeded characters from front or back as configured
-        const dif = htmlBody.length - maxLength;
+    // Check if message exceeds max characters
+    if (message.length > maxLength) {
+        // Trim input message by number of exceeded characters from front or back as configured
+        const dif = message.length - maxLength;
         if (alwaysIncludeSummary) {
-            message = message.substring(dif, htmlBody.length);
+            message = message.substring(dif, message.length);
         }
         else {
             message = message.substring(0, message.length - dif);
         }
         trimmed = true;
-        // convert trimmed message to html
-        htmlBody = convert.toHtml(message);
     }
-    return [htmlBody, trimmed];
+    return [message, trimmed];
 }
-function extractViewLiveLink(output) {
-    /**
-     *  Extracts the Pulumi preview link from the output
-     *  output: pulumi preview output
-     *
-     *  return link to the Pulumi preview
-     */
-    const lines = output.split('\n');
-    const linkLine = lines.find((line) => line.includes('View Live:'));
-    if (!linkLine) {
-        return '';
-    }
-    return linkLine.split('View Live: ')[1];
-}
-function handlePullRequestMessage(config, projectName, output) {
+function handlePullRequestMessage(config, projectName, output, hasChanges, failed = false) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const { githubToken, command, stackName, editCommentOnPr, alwaysIncludeSummary, } = config;
-        // GitHub limits comment characters to 65535, use lower max to keep buffer for variable values
+        // Remove ANSI symbols from output because they are not supported in GitHub PR message
+        output = stripAnsiControlCodes(output);
+        // GitHub limits PR comment characters to 65_535, use lower max to keep buffer for variable values
         const MAX_CHARACTER_COMMENT = 64000;
-        const heading = `#### :tropical_drink: \`${command}\` on ${projectName}/${stackName}`;
+        const successHeading = `#### :tropical_drink: \`${command}\` on ${projectName}/${stackName} has changes.`;
+        const failedHeading = `#### :x: \`${command}\` on ${projectName}/${stackName} failed!`;
+        const heading = failed ? failedHeading : successHeading;
         const summary = '<summary>Pulumi report</summary>';
-        const [htmlBody, trimmed] = ansiToHtml(output, MAX_CHARACTER_COMMENT, alwaysIncludeSummary);
+        const [message, trimmed] = trimOutputByCharacters(output, MAX_CHARACTER_COMMENT, alwaysIncludeSummary);
         const viewLiveLink = extractViewLiveLink(output);
         const body = (dedent_default()) `
     ${heading}
 
+    ${viewLiveLink ? `\n[View in Pulumi Cloud](${viewLiveLink})\n` : ''}
+
     <details>
     ${summary}
-    ${viewLiveLink ? `\n[View in Pulumi Cloud](${viewLiveLink})\n` : ''}
     ${trimmed && alwaysIncludeSummary
             ? ':warning: **Warn**: The output was too long and trimmed from the front.'
             : ''}
     <pre>
-    ${htmlBody}
+    ${message}
     </pre>
     ${trimmed && !alwaysIncludeSummary
             ? ':warning: **Warn**: The output was too long and trimmed.'
             : ''}
     </details>
   `;
-        const { payload, repo } = github.context;
+        const payload = github.context.payload;
+        const repo = config.commentOnPrRepo
+            ? {
+                owner: config.commentOnPrRepo.split('/')[0],
+                repo: config.commentOnPrRepo.split('/')[1],
+            }
+            : github.context.repo;
         // Assumes PR numbers are always positive.
         const nr = config.commentOnPrNumber || ((_a = payload.pull_request) === null || _a === void 0 ? void 0 : _a.number);
         (0,invariant/* default */.ZP)(nr, 'Missing pull request event data.');
         const octokit = (0,github.getOctokit)(githubToken);
+        if (!hasChanges && !failed) {
+            try {
+                if (editCommentOnPr) {
+                    const { data: comments } = yield octokit.rest.issues.listComments(Object.assign(Object.assign({}, repo), { issue_number: nr }));
+                    const comment = comments.find((comment) => (comment.body.startsWith(successHeading) ||
+                        comment.body.startsWith(failedHeading)) &&
+                        comment.body.includes(summary));
+                    // If comment exists, delete it.
+                    if (comment) {
+                        yield octokit.rest.issues.deleteComment(Object.assign(Object.assign({}, repo), { comment_id: comment.id }));
+                        return;
+                    }
+                }
+            }
+            catch (_b) {
+                core.warning('Not able to list comments in order to delete comments, skipping.');
+            }
+            return;
+        }
         try {
             if (editCommentOnPr) {
                 const { data: comments } = yield octokit.rest.issues.listComments(Object.assign(Object.assign({}, repo), { issue_number: nr }));
-                const comment = comments.find((comment) => comment.body.startsWith(heading) && comment.body.includes(summary));
+                const comment = comments.find((comment) => (comment.body.startsWith(successHeading) ||
+                    comment.body.startsWith(failedHeading)) &&
+                    comment.body.includes(summary));
                 // If comment exists, update it.
                 if (comment) {
                     yield octokit.rest.issues.updateComment(Object.assign(Object.assign({}, repo), { comment_id: comment.id, body }));
@@ -119489,7 +117432,7 @@ function handlePullRequestMessage(config, projectName, output) {
                 }
             }
         }
-        catch (_b) {
+        catch (_c) {
             core.warning('Not able to edit comment, defaulting to creating a new comment.');
         }
         yield octokit.rest.issues.createComment(Object.assign(Object.assign({}, repo), { issue_number: nr, body }));
@@ -119542,6 +117485,7 @@ const VersionRt = lib.Record({
         'darwin-x64': lib.String,
         'darwin-arm64': lib.String,
         'windows-x64': lib.String,
+        'windows-arm64': lib.String,
     }),
     checksums: lib.String,
     latest: lib.Boolean.optional(),
@@ -119643,6 +117587,7 @@ function getVersionObject(range) {
                 'darwin-x64': `https://get.pulumi.com/releases/sdk/pulumi-${version}-darwin-x64.tar.gz`,
                 'darwin-arm64': `https://get.pulumi.com/releases/sdk/pulumi-${version}-darwin-arm64.tar.gz`,
                 'windows-x64': `https://get.pulumi.com/releases/sdk/pulumi-${version}-windows-x64.zip`,
+                'windows-arm64': `https://get.pulumi.com/releases/sdk/pulumi-${version}-windows-arm64.zip`,
             };
             const checksums = 'https://get.pulumi.com/releases/sdk/pulumi-${version}-checksums.txt';
             const latest = false;
@@ -119731,6 +117676,7 @@ function getPlatform() {
         'darwin-x64': 'darwin-x64',
         'darwin-arm64': 'darwin-arm64',
         'win32-x64': 'windows-x64',
+        'win32-arm64': 'windows-arm64',
     };
     const runnerPlatform = external_os_.platform();
     const runnerArch = external_os_.arch();
@@ -119744,7 +117690,7 @@ function downloadCli(range) {
         const platform = getPlatform();
         core.debug(`Platform: ${platform}`);
         if (!platform) {
-            throw new Error('Unsupported operating system - Pulumi CLI is only released for Darwin (x64, arm64), Linux (x64, arm64) and Windows (x64)');
+            throw new Error('Unsupported operating system - Pulumi CLI is only released for Darwin (x64, arm64), Linux (x64, arm64) and Windows (x64, arm64)');
         }
         core.info(`Configured range: ${range}`);
         const isPulumiInstalled = yield io.which('pulumi');
@@ -119878,6 +117824,76 @@ function downloadCli(range) {
     });
 }
 
+;// CONCATENATED MODULE: ./src/libs/summary.ts
+
+
+
+
+function trimOutputByBytes(message, maxSize, alwaysIncludeSummary) {
+    /**
+     *  Trim message to maxSize in bytes
+     *  message: string to trim
+     *  maxSize: Maximum number of bytes of final message
+     *  alwaysIncludeSummary: if true, trim message from front (if trimming is needed), otherwise from end
+     *
+     *  return message and information if message was trimmed
+     */
+    let trimmed = false;
+    const messageSize = Buffer.byteLength(message, 'utf8');
+    // Check if message exceeds max size
+    if (messageSize > maxSize) {
+        // Trim input message by number of exceeded bytes from front or back as configured
+        const dif = messageSize - maxSize;
+        if (alwaysIncludeSummary) {
+            message = Buffer.from(message).subarray(dif, messageSize).toString();
+        }
+        else {
+            message = Buffer.from(message)
+                .subarray(0, messageSize - dif)
+                .toString();
+        }
+        trimmed = true;
+    }
+    return [message, trimmed];
+}
+function handleSummaryMessage(config, projectName, output, hasChanges, failed = false) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { stackName, alwaysIncludeSummary } = config;
+        // Remove ANSI symbols from output because they are not supported in GitHub step Summary
+        output = stripAnsiControlCodes(output);
+        // Replace the first leading space in each line with a non-breaking space character to preserve the formatting
+        const regex_space = RegExp(`^[ ]`, 'gm');
+        output = output.replace(regex_space, '&nbsp;');
+        // GitHub limits step Summary to 1 MiB (1_048_576 bytes), use lower max to keep buffer for variable values
+        const MAX_SUMMARY_SIZE_BYTES = 1000000;
+        const [message, trimmed] = trimOutputByBytes(output, MAX_SUMMARY_SIZE_BYTES, alwaysIncludeSummary);
+        const statusSuffix = failed
+            ? 'has failed!'
+            : hasChanges
+                ? ' has changes.'
+                : 'is unchanged.';
+        const heading = `Pulumi ${projectName}/${stackName} ${statusSuffix}`;
+        const liveLink = extractViewLiveLink(output);
+        const viewLiveLink = liveLink
+            ? `\n[View in Pulumi Cloud](${liveLink})\n`
+            : '';
+        const details = (dedent_default()) `
+    ${trimmed && alwaysIncludeSummary
+            ? ':warning: **Warn**: The output was too long and trimmed from the front.'
+            : ''}
+    <pre lang="diff">
+    ${message}
+    </pre>
+    ${trimmed && !alwaysIncludeSummary
+            ? ':warning: **Warn**: The output was too long and trimmed.'
+            : ''}`;
+        yield core.summary.addHeading(heading, 3)
+            .addRaw(viewLiveLink)
+            .addDetails('Pulumi report', details)
+            .write();
+    });
+}
+
 ;// CONCATENATED MODULE: ./src/login.ts
 
 
@@ -119903,6 +117919,8 @@ const login = (workDir, cloudUrl) => __awaiter(void 0, void 0, void 0, function*
 
 
 
+
+
 const main_main = () => __awaiter(void 0, void 0, void 0, function* () {
     const downloadConfig = makeInstallationConfig();
     if (downloadConfig.success) {
@@ -119914,12 +117932,33 @@ const main_main = () => __awaiter(void 0, void 0, void 0, function* () {
     // Attempt to parse the full configuration and run the action.
     const config = makeConfig();
     core.debug('Configuration is loaded');
-    runAction(config);
+    yield runAction(config);
 });
 // installOnly is the main entrypoint of the program when the user
 // intends to install the Pulumi CLI without running additional commands.
 const installOnly = (config) => __awaiter(void 0, void 0, void 0, function* () {
     yield downloadCli(config.pulumiVersion);
+});
+const runPulumiAction = (config, actions, projectName) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        return yield actions[config.command]();
+    }
+    catch (error) {
+        if (config.command !== 'output') {
+            // truncate error message to everything after 'err?:'
+            const message = error.message.split('err?:')[1];
+            const isPullRequest = github.context.payload.pull_request !== undefined;
+            if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
+                core.debug(`Commenting on pull request`);
+                (0,invariant/* default */.ZP)(config.githubToken, 'github-token is missing.');
+                handlePullRequestMessage(config, projectName, message, false, true);
+            }
+            if (config.commentOnSummary) {
+                handleSummaryMessage(config, projectName, message, false, true);
+            }
+        }
+        throw error;
+    }
 });
 const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
     yield downloadCli(config.pulumiVersion);
@@ -119937,7 +117976,7 @@ const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
     // When the command is `output` we want to avoid the underlying call to `pulumi stack select`,
     // which requires a Pulumi.yaml file to be present.
     let stack;
-    if (config.command !== "output") {
+    if (config.command !== 'output') {
         const stackArgs = {
             stackName: config.stackName,
             workDir: workDir,
@@ -119964,20 +118003,28 @@ const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
     }
     core.startGroup(`pulumi ${config.command} on ${config.stackName}`);
     const actions = {
-        up: () => stack.up(Object.assign({ onOutput }, config.options)).then((r) => [r.stdout, r.stderr]),
-        update: () => stack.up(Object.assign({ onOutput }, config.options)).then((r) => [r.stdout, r.stderr]),
-        refresh: () => stack.refresh(Object.assign({ onOutput }, config.options)).then((r) => [r.stdout, r.stderr]),
-        destroy: () => stack.destroy(Object.assign({ onOutput }, config.options)).then((r) => [r.stdout, r.stderr]),
+        up: () => stack
+            .up(Object.assign({ onOutput }, config.options))
+            .then((r) => [r.stdout, r.stderr]),
+        update: () => stack
+            .up(Object.assign({ onOutput }, config.options))
+            .then((r) => [r.stdout, r.stderr]),
+        refresh: () => stack
+            .refresh(Object.assign({ onOutput }, config.options))
+            .then((r) => [r.stdout, r.stderr]),
+        destroy: () => stack
+            .destroy(Object.assign({ onOutput }, config.options))
+            .then((r) => [r.stdout, r.stderr]),
         preview: () => __awaiter(void 0, void 0, void 0, function* () {
-            const { stdout, stderr } = yield stack.preview(config.options);
+            const { stdout, stderr, changeSummary } = yield stack.preview(config.options);
             onOutput(stdout);
             onOutput(stderr);
-            return [stdout, stderr];
+            return [stdout, stderr, changeSummary];
         }),
-        output: () => Promise.resolve(['', '']) //do nothing, outputs are fetched anyway afterwards
+        output: () => Promise.resolve(['', '']), //do nothing, outputs are fetched anyway afterwards
     };
     core.debug(`Running action ${config.command}`);
-    const [stdout, stderr] = yield actions[config.command]();
+    const [stdout, stderr, changeSummary] = yield runPulumiAction(config, actions, projectName);
     core.debug(`Done running action ${config.command}`);
     if (stderr !== '') {
         if (config.options.logToStdErr) {
@@ -119989,7 +118036,7 @@ const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
     }
     core.setOutput('output', stdout);
     let outputs;
-    if (config.command === "output") {
+    if (config.command === 'output') {
         // When the command is `output` we didn't initialize `stack`, because we
         // wanted to avoid the underlying call to `pulumi stack select`, which
         // requires a Pulumi.yaml file to be present. Instead, we can use the
@@ -120008,19 +118055,24 @@ const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
             core.setSecret(outExport.value);
         }
     }
+    const hasChanges = Object.entries(changeSummary || {})
+        .filter(([key]) => key !== 'same' && key !== 'read')
+        .reduce((acc, [_, value]) => acc + value, 0) > 0;
+    core.setOutput('has-changes', hasChanges);
     // Only comment on the pull request if the command is not `output`.
-    if (config.command !== "output") {
+    if (config.command !== 'output') {
+        const liveLink = extractViewLiveLink(stdout);
+        if (liveLink !== '') {
+            core.setOutput('cloud-url', liveLink);
+        }
         const isPullRequest = github.context.payload.pull_request !== undefined;
-        if (config.commentOnPrNumber ||
-            (config.commentOnPr && isPullRequest)) {
+        if (config.commentOnPrNumber || (config.commentOnPr && isPullRequest)) {
             core.debug(`Commenting on pull request`);
             (0,invariant/* default */.ZP)(config.githubToken, 'github-token is missing.');
-            handlePullRequestMessage(config, projectName, stdout);
+            handlePullRequestMessage(config, projectName, stdout, hasChanges);
         }
         if (config.commentOnSummary) {
-            yield core.summary.addHeading(`Pulumi ${config.stackName} results`)
-                .addCodeBlock(stdout, "diff")
-                .write();
+            handleSummaryMessage(config, projectName, stdout, hasChanges);
         }
     }
     if (config.remove && config.command === 'destroy') {
@@ -120037,7 +118089,13 @@ const runAction = (config) => __awaiter(void 0, void 0, void 0, function* () {
             core.setFailed(err.message.stderr);
         }
         else {
-            core.setFailed(err.message);
+            if (err instanceof automation.CommandError) {
+                const message = err.message.split('err?:')[1];
+                core.setFailed(message);
+            }
+            else {
+                core.setFailed(err.message);
+            }
         }
     }
 }))();
